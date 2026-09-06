@@ -1251,7 +1251,12 @@
         let activeCategory = 'ALL';
         let isCheckingOut = false;
 
-        const STATIONS = ['الكاشير المباشر', 'PC 1', 'PC 2', 'PC 3', 'PC 4', 'PC 5', 'PC 6', 'PC 7', 'PC 8', 'PC 9', 'PC 10'];
+       const TOTAL_PCS = 20; 
+
+        const STATIONS = [
+            'الكاشير المباشر',
+            ...Array.from({ length: TOTAL_PCS }, (_, i) => `PC ${i + 1}`)
+        ];
         let activeStation = 'الكاشير المباشر';
         let stationCarts = JSON.parse(localStorage.getItem('hawasb_station_carts')) || {};
         STATIONS.forEach(st => { if (!stationCarts[st]) stationCarts[st] = []; });
