@@ -65,6 +65,7 @@ async function initDB() {
                 end_time TIMESTAMP,
                 status VARCHAR(50) DEFAULT 'open',
                 shift_date VARCHAR(50),
+                closing_amount NUMERIC DEFAULT 0,
                 notes TEXT
             );
 
@@ -84,6 +85,7 @@ async function initDB() {
             );
 
             ALTER TABLE sales ADD COLUMN IF NOT EXISTS item_name VARCHAR(255);
+            ALTER TABLE shifts ADD COLUMN IF NOT EXISTS closing_amount NUMERIC DEFAULT 0;
 
             INSERT INTO users (id, username, pin, role) 
             VALUES (1, 'admin', '1234', 'admin'), (2, 'cashier', '1111', 'cashier')
@@ -190,9 +192,12 @@ app.get('/api/shift-summary/:shift_id', async (req, res) => {
 });
 
 app.post('/api/end-shift', async (req, res) => {
-    const { shift_id, notes } = req.body;
+    const { shift_id, closing_amount, notes } = req.body;
     try {
-        await pool.query("UPDATE shifts SET end_time = NOW(), status = 'closed', notes = $1 WHERE id = $2", [notes || '', shift_id]);
+        await pool.query(
+            "UPDATE shifts SET end_time = NOW(), status = 'closed', closing_amount = $1, notes = $2 WHERE id = $3",
+            [closing_amount || 0, notes || '', shift_id]
+        );
         res.json({ message: 'تم إغلاق الشيفت بنجاح' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -450,9 +455,9 @@ app.get('/api/admin/shift-live-details/:shift_id', async (req, res) => {
 // 8. Admin Dashboard Aggregation
 app.get('/api/admin/dashboard', async (req, res) => {
     try {
-        const shiftsRes = await pool.query(`
+       const shiftsRes = await pool.query(`
             SELECT 
-                s.id, s.start_time, s.end_time, s.status, s.shift_date, s.notes, u.username,
+                s.id, s.start_time, s.end_time, s.status, s.shift_date, s.closing_amount, s.notes, u.username,
                 COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.quantity * sa.unit_price ELSE 0 END), 0) as total_sales,
                 COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.quantity * sa.unit_cost ELSE 0 END), 0) as total_cost,
                 COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.quantity * (sa.unit_price - sa.unit_cost) ELSE 0 END), 0) as total_profit,
