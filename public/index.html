@@ -1211,10 +1211,30 @@
                                 <td>${formatCurrency(s.total_cost)} ج.م</td>
                                 <td><b style="color:var(--accent-success);">${formatCurrency(s.total_profit)} ج.م</b></td>
                                 <td>${formatCurrency(s.total_tips)} ج.م</td>
+                                <td><b style="color:var(--accent-cyan);">${formatCurrency(s.closing_amount)} ج.م</b></td>
+                                <td>${s.notes || '-'}</td>
                                 <td>${isOpen ? `<button class="btn-header btn-logout" onclick="adminForceCloseShift(${s.id})">إغلاق إجباري</button>` : '<span class="badge badge-success">مغلق</span>'}</td>
                                 <td><button class="btn-header" onclick="renderShiftLogContent(${s.id}, '${s.username}')">التفاصيل</button></td>
                             </tr>
                         `;
+                        
+                        // And update the <thead> in the same function:
+                        `<thead>
+                            <tr>
+                                <th>#</th>
+                                <th>الكاشير</th>
+                                <th>بدء</th>
+                                <th>إغلاق</th>
+                                <th>المبيعات</th>
+                                <th>التكلفة</th>
+                                <th>الربح الصافي</th>
+                                <th>التيبس</th>
+                                <th>المبلغ المسلم</th>
+                                <th>ملاحظات</th>
+                                <th>الحالة</th>
+                                <th>مبيعات الشيفت</th>
+                            </tr>
+                        </thead>`
                     });
 
                     daysMarkup += `
