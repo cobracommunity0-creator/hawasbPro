@@ -470,37 +470,7 @@ app.post('/api/admin/force-close-shift', async (req, res) => {
     }
 });
 
-app.post('/api/orders', async (req, res) => {
-  const { idempotencyKey, cartItems, totalAmount } = req.body;
 
-  try {
-    // 1. فحص ما إذا كان الأوردر تم إنشاؤه من قبل بنفس الكود
-    const existingOrder = await pool.query(
-      'SELECT id FROM orders WHERE idempotency_key = $1',
-      [idempotencyKey]
-    );
-
-    if (existingOrder.rows.length > 0) {
-      // إرجاع الأوردر القديم مباشرة بدون إنشاء واحد جديد
-      return res.status(200).json({ 
-        message: 'تم استقبال الأوردر بالفعل', 
-        orderId: existingOrder.rows[0].id 
-      });
-    }
-
-    // 2. إذا لم يكن موجوداً، قم بإنشاء الأوردر بشكل طبيعي
-    const newOrder = await pool.query(
-      'INSERT INTO orders (idempotency_key, total_amount, status) VALUES ($1, $2, $3) RETURNING id',
-      [idempotencyKey, totalAmount, 'pending']
-    );
-
-    res.status(201).json({ orderId: newOrder.rows[0].id });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
