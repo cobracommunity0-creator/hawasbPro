@@ -12,13 +12,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/hawasb_db';
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  max: 10, // أقصى عدد اتصالات مفتوحة
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+    connectionString: connectionString,
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
-
-module.exports = pool;
 
 // إنشاء وتحديث الجداول تلقائياً عند التشغيل
 async function initDB() {
@@ -276,35 +272,86 @@ app.get('/api/product-variants/:id', async (req, res) => {
 });
 
 // 9. إتمام عملية البيع
+// 9. إتمام عملية البيع مع حماية التكرار و المعاملات الذرية (Transactions)
 app.post('/api/checkout', async (req, res) => {
     const { shift_id, cart, is_staff_order, paid_amount, pc_number } = req.body;
-    let totalCartPrice = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    let calculatedTip = (paid_amount > totalCartPrice && totalCartPrice > 0) ? (paid_amount - totalCartPrice) : 0;
-    const targetPc = pc_number || 'الكاشير المباشر';
+
+    // 1. التحقق من صحة البيانات
+    if (!cart || !Array.isArray(cart) || cart.length === 0) {
+        return res.status(400).json({ error: 'السلة فارغة أو غير صالحة' });
+    }
+
+    if (!shift_id) {
+        return res.status(400).json({ error: 'رقم الشيفت غير محدد' });
+    }
+
+    // جلب عميل من Pool لبدء المعاملة (Transaction)
+    const client = await pool.connect();
 
     try {
+        await client.query('BEGIN'); // بدء المعاملة الذرية
+
+        // 2. التحقق من أن الشيفت مفتوح بالفعل قبل المعالجة
+        const shiftCheck = await client.query(
+            "SELECT id FROM shifts WHERE id = $1 AND status = 'open'",
+            [shift_id]
+        );
+
+        if (shiftCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'عفواً، الشيفت مغلق أو غير موجود!' });
+        }
+
+        // حساب الإجماليات والتيبس
+        let totalCartPrice = cart.reduce((sum, item) => sum + ((Number(item.price) || 0) * (Number(item.qty) || 0)), 0);
+        let numericPaid = Number(paid_amount) || 0;
+        let calculatedTip = (numericPaid > totalCartPrice && totalCartPrice > 0) ? (numericPaid - totalCartPrice) : 0;
+        const targetPc = pc_number || 'الكاشير المباشر';
+
+        // 3. المعالجة الذرية لكل عناصر السلة
         for (let i = 0; i < cart.length; i++) {
             const item = cart[i];
-            let finalPrice = is_staff_order ? item.cost : item.price;
+            const itemQty = Math.max(1, Number(item.qty) || 1);
+            const itemPrice = Number(item.price) || 0;
+            const itemCost = Number(item.cost) || 0;
+
+            let finalPrice = is_staff_order ? itemCost : itemPrice;
             let itemTip = (i === 0) ? calculatedTip : 0;
 
-            await pool.query(
-                'INSERT INTO sales (shift_id, product_id, quantity, unit_price, unit_cost, is_staff_order, tip_amount, pc_number, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-                [shift_id, item.id, item.qty, finalPrice, item.cost, is_staff_order ? 1 : 0, itemTip, targetPc, 'completed']
+            // تسجيل المبيعات
+            await client.query(
+                `INSERT INTO sales (shift_id, product_id, quantity, unit_price, unit_cost, is_staff_order, tip_amount, pc_number) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [shift_id, item.id, itemQty, finalPrice, itemCost, is_staff_order ? 1 : 0, itemTip, targetPc]
             );
 
-            // خصم المكونات والخامات من المخزون
-            const ingRes = await pool.query('SELECT * FROM product_ingredients WHERE parent_product_id = $1', [item.id]);
+            // الخصم من خامات ومكونات الصنف (إن وجدت)
+            const ingRes = await client.query('SELECT * FROM product_ingredients WHERE parent_product_id = $1', [item.id]);
             if (ingRes.rows.length > 0) {
                 for (const ing of ingRes.rows) {
-                    await pool.query('UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2 AND is_drink = 0', [ing.quantity_required * item.qty, ing.ingredient_id]);
+                    await client.query(
+                        'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2 AND is_drink = 0',
+                        [ing.quantity_required * itemQty, ing.ingredient_id]
+                    );
                 }
             }
-            await pool.query('UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2 AND is_drink = 0', [item.qty, item.id]);
+
+            // الخصم من مخزون الصنف الأساسي
+            await client.query(
+                'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2 AND is_drink = 0',
+                [itemQty, item.id]
+            );
         }
-        res.json({ success: true, tip: calculatedTip });
+
+        await client.query('COMMIT'); // تأكيد وتطبيق جميع التغييرات دفعة واحدة
+        res.json({ success: true, message: 'تم إتمام البيع بنجاح', tip: calculatedTip });
+
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        await client.query('ROLLBACK'); // التراجع عن كل شيء في حال حدوث أي خطأ
+        console.error('Checkout Transaction Error:', err);
+        res.status(500).json({ error: 'حدث خطأ أثناء تنفيذ الطلب: ' + err.message });
+    } finally {
+        client.release(); // إعادة العميل إلى الـ Pool
     }
 });
 
@@ -378,44 +425,6 @@ app.get('/api/admin/shift-live-details/:shift_id', async (req, res) => {
     }
 });
 
-const payButton = document.getElementById('pay-button');
-
-payButton.addEventListener('click', async () => {
-  // 1. التحقق لو الزرار متعطل بالفعل لمنع أي تنفيذ إضافي
-  if (payButton.disabled) return;
-
-  // 2. تعطيل الزرار فوراً وتغيير النص/الشكل
-  payButton.disabled = true;
-  const originalText = payButton.innerHTML;
-  payButton.innerHTML = 'جاري إتمام الدفع... ⏳';
-
-  try {
-    const response = await fetch('/api/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ /* بيانات الأوردر */ })
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // توجيه المستخدم لصفحة النجاح مثلاً
-      window.location.href = `/order-success/${data.orderId}`;
-    } else {
-      alert(data.message || 'حدث خطأ أثناء الدفع');
-      // إعادة تفعيل الزرار في حالة وجود خطأ من السيرفر
-      payButton.disabled = false;
-      payButton.innerHTML = originalText;
-    }
-  } catch (error) {
-    console.error('Network Error:', error);
-    alert('حدث خطأ في الاتصال، يرجى المحاولة لاحقاً');
-    // إعادة تفعيل الزرار في حالة خطأ الشبكة
-    payButton.disabled = false;
-    payButton.innerHTML = originalText;
-  }
-});
-
 // 14. لوحة تحكم المسؤول (Dashboard)
 app.get('/api/admin/dashboard', async (req, res) => {
     try {
@@ -470,10 +479,8 @@ app.post('/api/admin/force-close-shift', async (req, res) => {
     }
 });
 
-
-
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(PORT, () => console.log(`🚀 شغال على البورت ${PORT} - حواسب كافيه ❤️`));
