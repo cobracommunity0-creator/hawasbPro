@@ -1067,29 +1067,52 @@
         }
 
         async function closeActiveShiftPrompt() {
-            const { value: notes } = await Swal.fire({
+            const { value: formValues } = await Swal.fire({
                 title: 'إنهاء وتقفيل الشيفت',
-                input: 'textarea',
-                inputPlaceholder: 'أدخل أي ملاحظات تقفيل إن وجدت...',
+                html: `
+                    <div style="display:flex; flex-direction:column; gap:12px; text-align:right; margin-top:10px;">
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">المبلغ الفعلي في الدرج (ج.م):</label>
+                            <input type="number" id="swal-closing-cash" class="swal2-input" placeholder="0.00" style="margin:0; width:100%; box-sizing:border-box; background:var(--bg-body); color:#fff; border:1px solid var(--border-subtle);">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:700; display:block; margin-bottom:4px;">ملاحظات تقفيل الشيفت:</label>
+                            <textarea id="swal-closing-notes" class="swal2-textarea" placeholder="أدخل أي عجز، زيادة، أو ملاحظات إن وجدت..." style="margin:0; width:100%; box-sizing:border-box; background:var(--bg-body); color:#fff; border:1px solid var(--border-subtle); resize:none; height:80px;"></textarea>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
                 showCancelButton: true,
-                confirmButtonText: 'تقفيل الشيفت',
+                confirmButtonText: 'تأكيد التقفيل',
                 cancelButtonText: 'إلغاء',
                 confirmButtonColor: '#f43f5e',
-                background: '#182235', color: '#fff'
+                background: '#182235',
+                color: '#fff',
+                preConfirm: () => {
+                    const cashInput = document.getElementById('swal-closing-cash').value;
+                    return {
+                        closing_amount: parseFloat(cashInput) || 0,
+                        notes: document.getElementById('swal-closing-notes').value.trim()
+                    };
+                }
             });
 
-            if (notes !== undefined) {
-                await fetch('/api/end-shift', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shift_id: currentShiftId, notes })
-                });
+    if (formValues) {
+        await fetch('/api/end-shift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shift_id: currentShiftId,
+                closing_amount: formValues.closing_amount,
+                notes: formValues.notes
+            })
+        });
 
-                localStorage.removeItem('hawasb_station_carts');
-                localStorage.removeItem('hawasb_shift_id');
-                performLogout();
-            }
-        }
+        localStorage.removeItem('hawasb_station_carts');
+        localStorage.removeItem('hawasb_shift_id');
+        performLogout();
+    }
+}
 
         /* Admin Workspace Logic */
         function switchAdminTab(paneId, btn) {
