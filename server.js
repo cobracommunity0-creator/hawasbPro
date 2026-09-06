@@ -12,9 +12,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/hawasb_db';
 
 const pool = new Pool({
-    connectionString: connectionString,
-    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  connectionString: process.env.DATABASE_URL,
+  max: 10, // أقصى عدد اتصالات مفتوحة
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 });
+
+module.exports = pool;
 
 // إنشاء وتحديث الجداول تلقائياً عند التشغيل
 async function initDB() {
