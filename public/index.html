@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -784,28 +784,14 @@
                 changeBox.innerText = '';
             }
         }
-        let isProcessingCheckout = false;
-        async function checkout(isStaffOrder = false) {
-            // 1. منع التنفيذ إذا كانت هناك عملية جارية بالتعاقب
-            if (isProcessingCheckout) return;
 
+        async function checkout(isStaffOrder = false) {
             const currentCart = pcCarts[activePcTab] || [];
             if (currentCart.length === 0) return showAlert('تنبيه', 'warning', 'السلة فارغة!');
             if (!currentShiftId) return showAlert('تنبيه', 'error', 'لا يوجد شيفت مفتوح حالياً!');
 
             const paidInput = document.getElementById('paid-amount').value;
             const paidAmount = paidInput !== '' ? parseFloat(paidInput) : 0;
-
-            // 2. تفعيل قفل الواجهة وتعطيل الأزرار
-            isProcessingCheckout = true;
-            const checkoutBtns = document.querySelectorAll('.btn-checkout, .btn-staff');
-            checkoutBtns.forEach(btn => {
-                btn.disabled = true;
-                btn.dataset.origHtml = btn.innerHTML;
-                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> جاري المعالجة...`;
-                btn.style.opacity = '0.7';
-                btn.style.cursor = 'not-allowed';
-            });
 
             try {
                 const res = await fetch('/api/checkout', {
@@ -820,43 +806,25 @@
                     })
                 });
 
-                const data = await res.json();
-
-                if (res.ok && data.success) {
+                if (res.ok) {
+                    const data = await res.json();
                     let msg = `تم إتمام الطلب بنجاح لـ <b>(${activePcTab})</b>`;
-                    if (data.tip > 0) msg += `<br><span style="color: var(--accent-amber);">🎁 التيبس: <b>${formatMoney(data.tip)} ج.م</b></span>`;
-                    
-                    Swal.fire({
-                        title: 'تمت العملية بنجاح',
-                        html: msg,
-                        icon: 'success',
-                        background: 'var(--bg-surface)',
-                        color: 'var(--text-main)',
-                        confirmButtonColor: 'var(--accent-emerald)'
-                    });
+                    if (data.tip > 0) msg += `<br><span style="color:#f59e0b;">🎁 التيبس: <b>${formatMoney(data.tip)} ج.م</b></span>`;
 
-                    // تفريغ السلة وتحديث البيانات
+                    Swal.fire({ title: 'تمت العملية', html: msg, icon: 'success', background: '#1f293d', color: '#f9fafb', confirmButtonColor: '#10b981' });
+
                     pcCarts[activePcTab] = [];
+                    saveCartsAndRender();
                     document.getElementById('paid-amount').value = '';
-                    calculateChange();
-                    saveCartsToStorage();
-                    renderCart();
-                    loadLiveShiftSummary();
+                    document.getElementById('change-box').innerText = '';
                     await loadProducts();
+                    loadLiveShiftSummary();
                 } else {
-                    showAlert('خطأ في العملية', 'error', data.error || 'تعذر إتمام عملية البيع');
+                    const errData = await res.json();
+                    showAlert('خطأ', 'error', errData.error || 'حدث خطأ أثناء البيع');
                 }
             } catch (err) {
-                showAlert('خطأ في الاتصال', 'error', 'تعذر الاتصال بالسيرفر، يرجى الفحص والمحاولة مجدداً');
-            } finally {
-                // 3. فك قفل الواجهة في كل الأحوال
-                isProcessingCheckout = false;
-                checkoutBtns.forEach(btn => {
-                    btn.disabled = false;
-                    btn.innerHTML = btn.dataset.origHtml || btn.innerHTML;
-                    btn.style.opacity = '1';
-                    btn.style.cursor = 'pointer';
-                });
+                showAlert('خطأ في الاتصال', 'error', 'تعذر الاتصال بالخادم');
             }
         }
 
