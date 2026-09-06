@@ -378,6 +378,44 @@ app.get('/api/admin/shift-live-details/:shift_id', async (req, res) => {
     }
 });
 
+const payButton = document.getElementById('pay-button');
+
+payButton.addEventListener('click', async () => {
+  // 1. التحقق لو الزرار متعطل بالفعل لمنع أي تنفيذ إضافي
+  if (payButton.disabled) return;
+
+  // 2. تعطيل الزرار فوراً وتغيير النص/الشكل
+  payButton.disabled = true;
+  const originalText = payButton.innerHTML;
+  payButton.innerHTML = 'جاري إتمام الدفع... ⏳';
+
+  try {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ /* بيانات الأوردر */ })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      // توجيه المستخدم لصفحة النجاح مثلاً
+      window.location.href = `/order-success/${data.orderId}`;
+    } else {
+      alert(data.message || 'حدث خطأ أثناء الدفع');
+      // إعادة تفعيل الزرار في حالة وجود خطأ من السيرفر
+      payButton.disabled = false;
+      payButton.innerHTML = originalText;
+    }
+  } catch (error) {
+    console.error('Network Error:', error);
+    alert('حدث خطأ في الاتصال، يرجى المحاولة لاحقاً');
+    // إعادة تفعيل الزرار في حالة خطأ الشبكة
+    payButton.disabled = false;
+    payButton.innerHTML = originalText;
+  }
+});
+
 // 14. لوحة تحكم المسؤول (Dashboard)
 app.get('/api/admin/dashboard', async (req, res) => {
     try {
