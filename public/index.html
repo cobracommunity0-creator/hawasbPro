@@ -566,6 +566,7 @@
         let currentShiftId = null;
         let products = [];
         let activeCategory = 'ALL';
+        let isCheckingOut = false;
 
         const STATIONS = ['الكاشير المباشر', 'PC 1', 'PC 2', 'PC 3', 'PC 4', 'PC 5', 'PC 6', 'PC 7', 'PC 8', 'PC 9', 'PC 10'];
         let activeStation = 'الكاشير المباشر';
@@ -883,46 +884,110 @@
         }
 
         async function executeCheckout(isStaff = false) {
-            const cart = stationCarts[activeStation] || [];
-            if (cart.length === 0) return Swal.fire({ title: 'تنبيه', text: 'السلة فارغة', icon: 'warning', background: '#182235', color: '#fff' });
-            if (!currentShiftId) return Swal.fire({ title: 'تنبيه', text: 'لا يوجد شيفت نشط حالياً', icon: 'error', background: '#182235', color: '#fff' });
+    // Prevent accidental double clicks and concurrent submissions
+    if (isCheckingOut) return;
 
-            const paidVal = parseFloat(document.getElementById('cash-paid-input').value) || 0;
+    const cart = stationCarts[activeStation] || [];
+    if (cart.length === 0) {
+        return Swal.fire({ 
+            title: 'تنبيه', 
+            text: 'السلة فارغة', 
+            icon: 'warning', 
+            background: '#182235', 
+            color: '#fff' 
+        });
+    }
 
-            try {
-                const res = await fetch('/api/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        shift_id: currentShiftId,
-                        cart: cart,
-                        is_staff_order: isStaff,
-                        paid_amount: paidVal,
-                        pc_number: activeStation
-                    })
-                });
+    if (!currentShiftId) {
+        return Swal.fire({ 
+            title: 'تنبيه', 
+            text: 'لا يوجد شيفت نشط حالياً', 
+            icon: 'error', 
+            background: '#182235', 
+            color: '#fff' 
+        });
+    }
 
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'فشلت عملية الدفع');
+    const checkoutBtn = document.querySelector('.btn-checkout');
+    const staffBtn = document.querySelector('.btn-staff-order');
+    const paidVal = parseFloat(document.getElementById('cash-paid-input').value) || 0;
 
-                let alertMsg = `تم إتمام الطلب لمحطة <b>${activeStation}</b> بنجاح.`;
-                if (data.tip > 0) alertMsg += `<br><span style="color:var(--accent-primary);">🎁 تيبس مسجل: <b>${formatCurrency(data.tip)} ج.م</b></span>`;
+    // Lock process and visually disable buttons
+    isCheckingOut = true;
+    if (checkoutBtn) {
+        checkoutBtn.disabled = true;
+        checkoutBtn.style.opacity = '0.5';
+        checkoutBtn.style.pointerEvents = 'none';
+    }
+    if (staffBtn) {
+        staffBtn.disabled = true;
+        staffBtn.style.opacity = '0.5';
+        staffBtn.style.pointerEvents = 'none';
+    }
 
-                Swal.fire({ title: 'تمت العملية', html: alertMsg, icon: 'success', background: '#182235', color: '#fff', confirmButtonColor: '#10b981' });
+    try {
+        const res = await fetch('/api/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                shift_id: currentShiftId,
+                cart: cart,
+                is_staff_order: isStaff,
+                paid_amount: paidVal,
+                pc_number: activeStation
+            })
+        });
 
-                stationCarts[activeStation] = [];
-                persistStationCarts();
-                renderStationBar();
-                renderCartUI();
-                document.getElementById('cash-paid-input').value = '';
-                document.getElementById('cart-change-val').innerText = '';
-                
-                await loadCatalog();
-                fetchLiveShiftMetrics();
-            } catch (err) {
-                Swal.fire({ title: 'خطأ', text: err.message, icon: 'error', background: '#182235', color: '#fff' });
-            }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'فشلت عملية الدفع');
+
+        let alertMsg = `تم إتمام الطلب لمحطة <b>${activeStation}</b> بنجاح.`;
+        if (data.tip > 0) {
+            alertMsg += `<br><span style="color:var(--accent-primary);">🎁 تيبس مسجل: <b>${formatCurrency(data.tip)} ج.م</b></span>`;
         }
+
+        Swal.fire({ 
+            title: 'تمت العملية', 
+            html: alertMsg, 
+            icon: 'success', 
+            background: '#182235', 
+            color: '#fff', 
+            confirmButtonColor: '#10b981' 
+        });
+
+        // Reset cart and fields
+        stationCarts[activeStation] = [];
+        persistStationCarts();
+        renderStationBar();
+        renderCartUI();
+        document.getElementById('cash-paid-input').value = '';
+        document.getElementById('cart-change-val').innerText = '';
+        
+        await loadCatalog();
+        fetchLiveShiftMetrics();
+    } catch (err) {
+        Swal.fire({ 
+            title: 'خطأ', 
+            text: err.message, 
+            icon: 'error', 
+            background: '#182235', 
+            color: '#fff' 
+        });
+    } finally {
+        // Unlock process and restore buttons
+        isCheckingOut = false;
+        if (checkoutBtn) {
+            checkoutBtn.disabled = false;
+            checkoutBtn.style.opacity = '1';
+            checkoutBtn.style.pointerEvents = 'auto';
+        }
+        if (staffBtn) {
+            staffBtn.disabled = false;
+            staffBtn.style.opacity = '1';
+            staffBtn.style.pointerEvents = 'auto';
+        }
+    }
+}
 
         async function fetchLiveShiftMetrics() {
             if (!currentShiftId) return;
