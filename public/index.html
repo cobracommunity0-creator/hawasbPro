@@ -1097,22 +1097,22 @@
                 }
             });
 
-    if (formValues) {
-        await fetch('/api/end-shift', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                shift_id: currentShiftId,
-                closing_amount: formValues.closing_amount,
-                notes: formValues.notes
-            })
-        });
-
-        localStorage.removeItem('hawasb_station_carts');
-        localStorage.removeItem('hawasb_shift_id');
-        performLogout();
-    }
-}
+            if (formValues) {
+                await fetch('/api/end-shift', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shift_id: currentShiftId,
+                        closing_amount: formValues.closing_amount,
+                        notes: formValues.notes
+                    })
+                });
+        
+                localStorage.removeItem('hawasb_station_carts');
+                localStorage.removeItem('hawasb_shift_id');
+                performLogout();
+            }
+        }
 
         /* Admin Workspace Logic */
         function switchAdminTab(paneId, btn) {
