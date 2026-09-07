@@ -1086,7 +1086,7 @@
                             <div class="form-field-unit" style="justify-content:center;">
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:14px;">
                                     <input type="checkbox" id="crud-prod-isdrink">
-                                    <span>مشروب / خدمة (بدون جرد مباشر)</span>
+                                    <span>صنف بدون جرد / غير محدود (خدمات، مشروبات أو بدون تتبع كمية)</span>
                                 </label>
                             </div>
                         </div>
@@ -1603,30 +1603,55 @@
             const query = (document.getElementById('pos-search').value || '').toLowerCase();
             const deck = document.getElementById('products-deck');
             deck.innerHTML = '';
-
+        
             const filtered = products.filter(p => {
                 const matchCat = activeCategory === 'ALL' || p.category === activeCategory;
                 const matchQuery = p.name.toLowerCase().includes(query);
                 return matchCat && matchQuery;
             });
-
+        
             filtered.forEach(p => {
                 const hasVariants = p.variants && p.variants.length > 0;
+                const isUntracked = p.is_drink === 1;
+                const isOutOfStock = !isUntracked && Number(p.stock_quantity) <= 0;
+        
                 const card = document.createElement('div');
                 card.className = 'product-card-unit';
+                if (isOutOfStock) {
+                    card.style.opacity = '0.45';
+                    card.style.filter = 'grayscale(0.6)';
+                }
+        
                 card.onclick = () => onProductClicked(p);
                 card.innerHTML = `
                     <div>
                         <div class="product-card-title">${p.name}</div>
                         <div class="product-card-price">${hasVariants ? 'خيارات متنوعة' : `${formatCurrency(p.selling_price)} ج.م`}</div>
                     </div>
-                    <div class="product-card-stock">${p.is_drink ? 'مشروب / خدمة' : `المتاح: ${p.stock_quantity} ${p.unit_type || 'قطعة'}`}</div>
+                    <div class="product-card-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
+                        ${isUntracked ? 'غير محدود / بدون جرد' : (isOutOfStock ? '✖ نفد المخزون' : `المتاح: ${p.stock_quantity} ${p.unit_type || 'قطعة'}`)}
+                    </div>
                 `;
                 deck.appendChild(card);
             });
         }
 
         function onProductClicked(p) {
+            const isUntracked = p.is_drink === 1;
+            const available = Number(p.stock_quantity) || 0;
+        
+            // Block if completely out of stock
+            if (!isUntracked && available <= 0) {
+                return Toast.fire({ icon: 'error', title: `الصنف "${p.name}" نفد من المخزون` });
+            }
+        
+            // Block if current cart quantity already equals or exceeds stock
+            const cart = stationCarts[activeStation] || [];
+            const inCart = cart.filter(x => x.id === p.id).reduce((sum, x) => sum + x.qty, 0);
+            if (!isUntracked && (inCart + 1) > available) {
+                return Toast.fire({ icon: 'warning', title: `الكمية المتاحة في المخزن (${available}) فقط` });
+            }
+        
             if (p.variants && p.variants.length > 0) {
                 variantSelectionProduct = p;
                 document.getElementById('variant-picker-title').innerText = `خيارات: ${p.name}`;
@@ -1648,6 +1673,28 @@
                 const effectiveCost = Number(p.calculated_cost) || Number(p.cost_price) || 0;
                 addItemToStationCart(p.id, p.name, p.selling_price, effectiveCost);
             }
+        }
+        
+        function alterItemQty(idx, delta) {
+            const cart = stationCarts[activeStation];
+            const item = cart[idx];
+        
+            if (delta > 0) {
+                const productRef = products.find(p => p.id === item.id);
+                if (productRef && productRef.is_drink === 0) {
+                    const currentTotalInCart = cart.filter(x => x.id === item.id).reduce((sum, x) => sum + x.qty, 0);
+                    if (currentTotalInCart + 1 > Number(productRef.stock_quantity)) {
+                        return Toast.fire({ icon: 'warning', title: `أقصى كمية متاحة بالمخزن: (${productRef.stock_quantity})` });
+                    }
+                }
+            }
+        
+            cart[idx].qty += delta;
+            if (cart[idx].qty <= 0) cart.splice(idx, 1);
+            persistStationCarts();
+            renderStationMatrix();
+            renderCartUI();
+            focusTenderInput();
         }
 
         function addItemToStationCart(id, name, price, cost) {
