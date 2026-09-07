@@ -89,7 +89,9 @@ async function initDB() {
 
             INSERT INTO users (id, username, pin, role) 
             VALUES (1, 'admin', '1234', 'admin'), (2, 'cashier', '1111', 'cashier')
-            ON CONFLICT (username) DO NOTHING;
+            ON CONFLICT DO NOTHING;
+        
+            SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));
         `);
         console.log('✅ تم إعداد وتحديث قاعدة بيانات حواسب كافيه بنجاح.');
     } catch (err) {
