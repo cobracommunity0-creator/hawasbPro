@@ -347,22 +347,26 @@ app.get('/api/product-variants/:id', async (req, res) => {
 
 // 5. Checkout with Transactions & Precise Stock Deductions
 app.post('/api/checkout', async (req, res) => {
-    const { shift_id, cart, is_staff_order, paid_amount, pc_number } = req.body;
-    if (!cart || cart.length === 0) return res.status(400).json({ error: 'السلة فارغة' });
-
-    let orderTotal = cart.reduce((sum, item) => {
-        const itemPrice = is_staff_order ? Number(item.cost) : Number(item.price);
-        return sum + (itemPrice * item.qty);
-    }, 0);
-
-    const paid = Number(paid_amount) || 0;
-    let calculatedTip = (paid > orderTotal && orderTotal > 0) ? (paid - orderTotal) : 0;
-    const targetPc = pc_number || 'الكاشير المباشر';
-
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
+        // 1. Validate available stock for all tracked items before proceeding
+        for (const item of cart) {
+            const prodRes = await client.query('SELECT name, stock_quantity, is_drink FROM products WHERE id = $1 FOR UPDATE', [item.id]);
+            if (prodRes.rows.length > 0) {
+                const prod = prodRes.rows[0];
+                // Check direct product stock if not a service/drink (is_drink = 0)
+                if (prod.is_drink === 0 && Number(prod.stock_quantity) < Number(item.qty)) {
+                    await client.query('ROLLBACK');
+                    return res.status(400).json({ 
+                        error: `عفواً، الكمية المتاحة من "${prod.name}" غير كافية بالمخزن (المتاح: ${prod.stock_quantity})` 
+                    });
+                }
+            }
+        }
+
+        // 2. Perform sales insertions and inventory deductions
         for (let i = 0; i < cart.length; i++) {
             const item = cart[i];
             const finalPrice = is_staff_order ? Number(item.cost) : Number(item.price);
@@ -373,18 +377,18 @@ app.post('/api/checkout', async (req, res) => {
                 [shift_id, item.id, item.name, item.qty, finalPrice, item.cost, is_staff_order ? 1 : 0, itemTip, targetPc, 'completed']
             );
 
-            // Deduct ingredients if configured; otherwise deduct product inventory
+            // Deduct ingredients if configured; otherwise deduct product inventory (only if is_drink = 0)
             const ingRes = await client.query('SELECT * FROM product_ingredients WHERE parent_product_id = $1', [item.id]);
             if (ingRes.rows.length > 0) {
                 for (const ing of ingRes.rows) {
                     await client.query(
-                        'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2',
+                        'UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - $1) WHERE id = $2',
                         [ing.quantity_required * item.qty, ing.ingredient_id]
                     );
                 }
             } else {
                 await client.query(
-                    'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2 AND is_drink = 0',
+                    'UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - $1) WHERE id = $2 AND is_drink = 0',
                     [item.qty, item.id]
                 );
             }
@@ -399,7 +403,6 @@ app.post('/api/checkout', async (req, res) => {
         client.release();
     }
 });
-
 // 6. Refund Transaction
 app.post('/api/sales/refund/:id', async (req, res) => {
     const saleId = req.params.id;
