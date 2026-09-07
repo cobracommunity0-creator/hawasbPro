@@ -204,6 +204,26 @@ app.post('/api/end-shift', async (req, res) => {
     }
 });
 
+// Live Shift Notes Auto-save
+app.post('/api/shift-notes', async (req, res) => {
+    const { shift_id, notes } = req.body;
+    try {
+        await pool.query('UPDATE shifts SET notes = $1 WHERE id = $2', [notes, shift_id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/shift-notes/:shift_id', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT notes FROM shifts WHERE id = $1', [req.params.shift_id]);
+        res.json({ notes: result.rows[0]?.notes || '' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 4. Products & Recipes Management
 app.get('/api/products', async (req, res) => {
     try {
