@@ -2384,70 +2384,124 @@
      let notesSaveDebounceTimer = null;
 
 // Open Modal and load persisted notes
-async function openCashierNotesModal() {
-    if (!currentShiftId) {
-        return Swal.fire({ title: 'تنبيه', text: 'لا يوجد شيفت نشط حالياً', icon: 'warning', background: '#172033', color: '#fff' });
-    }
-
-    const textarea = document.getElementById('cashier-scratchpad-input');
-    const localKey = `hawasb_notes_shift_${currentShiftId}`;
-    
-    // 1. Instant load from localStorage
-    const cached = localStorage.getItem(localKey);
-    if (cached !== null) textarea.value = cached;
-
-    document.getElementById('modal-cashier-notes').classList.remove('hidden');
-    textarea.focus();
-
-    // 2. Fetch latest from database in background
-    try {
-        const res = await fetch(`/api/shift-notes/${currentShiftId}`);
-        if (res.ok) {
-            const data = await res.json();
-            if (data.notes && !cached) {
-                textarea.value = data.notes;
-                localStorage.setItem(localKey, data.notes);
+// 1. التأكد من وجود async هنا
+        async function openCashierNotesModal() {
+            if (!currentShiftId) {
+                return Swal.fire({ title: 'تنبيه', text: 'لا يوجد شيفت نشط حالياً', icon: 'warning', background: '#172033', color: '#fff' });
             }
-        }
-    } catch (e) {
-        console.error('Error fetching shift notes:', e);
-    }
-}
-
-    // Auto-save on typing (Debounced to 500ms)
-    function handleCashierNotesTyping() {
-        const text = document.getElementById('cashier-scratchpad-input').value;
-        const indicator = document.getElementById('notes-save-indicator');
-        const localKey = `hawasb_notes_shift_${currentShiftId}`;
-    
-        // Instant offline backup
-        localStorage.setItem(localKey, text);
-        if (indicator) {
-            indicator.innerText = 'جاري الحفظ...';
-            indicator.style.color = 'var(--accent-amber)';
-        }
-    
-        clearTimeout(notesSaveDebounceTimer);
-        notesSaveDebounceTimer = setTimeout(async () => {
-            if (!currentShiftId) return;
+        
+            const textarea = document.getElementById('cashier-scratchpad-input');
+            const localKey = `hawasb_notes_shift_${currentShiftId}`;
+            
+            const cached = localStorage.getItem(localKey);
+            if (cached !== null && textarea) textarea.value = cached;
+        
+            const modal = document.getElementById('modal-cashier-notes');
+            if (modal) modal.classList.remove('hidden');
+            if (textarea) textarea.focus();
+        
             try {
-                await fetch('/api/shift-notes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shift_id: currentShiftId, notes: text })
-                });
-                if (indicator) {
-                    indicator.innerText = 'تم الحفظ ✓';
-                    indicator.style.color = 'var(--accent-emerald)';
+                const res = await fetch(`/api/shift-notes/${currentShiftId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.notes && !cached && textarea) {
+                        textarea.value = data.notes;
+                        localStorage.setItem(localKey, data.notes);
+                    }
                 }
             } catch (e) {
-                if (indicator) {
-                    indicator.innerText = 'محفوظ محلياً ⚠';
-                    indicator.style.color = 'var(--accent-rose)';
-                }
+                console.error('Error fetching shift notes:', e);
             }
-        }, 500);
-    }   
+        }
+
+        // 2. التأكد من وجود async قبل القوسين في setTimeout: async () =>
+        function handleCashierNotesTyping() {
+            const input = document.getElementById('cashier-scratchpad-input');
+            if (!input) return;
+            const text = input.value;
+            const indicator = document.getElementById('notes-save-indicator');
+            const localKey = `hawasb_notes_shift_${currentShiftId}`;
+        
+            localStorage.setItem(localKey, text);
+            if (indicator) {
+                indicator.innerText = 'جاري الحفظ...';
+                indicator.style.color = 'var(--accent-amber)';
+            }
+        
+            clearTimeout(notesSaveDebounceTimer);
+            // لاحظ كلمة async هنا:
+            notesSaveDebounceTimer = setTimeout(async () => {
+                if (!currentShiftId) return;
+                try {
+                    await fetch('/api/shift-notes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ shift_id: currentShiftId, notes: text })
+                    });
+                    if (indicator) {
+                        indicator.innerText = 'تم الحفظ ✓';
+                        indicator.style.color = 'var(--accent-emerald)';
+                    }
+                } catch (e) {
+                    if (indicator) {
+                        indicator.innerText = 'محفوظ محلياً ⚠';
+                        indicator.style.color = 'var(--accent-rose)';
+                    }
+                }
+            }, 500);
+        }
+        
+        // 3. التأكد من وجود async في بداية دالة تقفيل الشيفت
+        async function closeActiveShiftPrompt() {
+            const currentSavedNotes = localStorage.getItem(`hawasb_notes_shift_${currentShiftId}`) || '';
+        
+            const { value: formValues } = await Swal.fire({
+                title: 'إنهاء وتقفيل الشيفت',
+                html: `
+                    <div style="display:flex; flex-direction:column; gap:10px; text-align:right; margin-top:10px;">
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">المبلغ الفعلي في الدرج (ج.م):</label>
+                            <input type="number" id="swal-closing-cash" class="swal2-input" placeholder="0.00" style="margin:0; width:100%; box-sizing:border-box; background:var(--bg-input); color:#fff; border:1px solid var(--border);">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">ملاحظات تقفيل الشيفت:</label>
+                            <textarea id="swal-closing-notes" class="swal2-textarea" placeholder="أدخل أي عجز، زيادة، أو ملاحظات..." style="margin:0; width:100%; box-sizing:border-box; background:var(--bg-input); color:#fff; border:1px solid var(--border); resize:none; height:75px;">${currentSavedNotes}</textarea>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'تأكيد التقفيل',
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#f43f5e',
+                background: '#172033',
+                color: '#fff',
+                preConfirm: () => {
+                    const cashInput = document.getElementById('swal-closing-cash').value;
+                    return {
+                        closing_amount: parseFloat(cashInput) || 0,
+                        notes: document.getElementById('swal-closing-notes').value.trim()
+                    };
+                }
+            });
+        
+            if (formValues) {
+                await fetch('/api/end-shift', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shift_id: currentShiftId,
+                        closing_amount: formValues.closing_amount,
+                        notes: formValues.notes
+                    })
+                });
+        
+                localStorage.removeItem(`hawasb_notes_shift_${currentShiftId}`);
+                localStorage.removeItem('hawasb_station_carts');
+                localStorage.removeItem('hawasb_shift_id');
+                performLogout();
+            }
+        }   
     </script>
 </body>
 </html>
