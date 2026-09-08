@@ -422,6 +422,29 @@ app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
     }
 });
 
+app.get('/api/shift-tabs-summary/:shift_id', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                ct.customer_name,
+                p.name as product_name,
+                oi.quantity,
+                oi.subtotal_price,
+                TO_CHAR(o.created_at, 'HH:MI AM') as time_str
+            FROM customer_tab_orders cto
+            JOIN customer_tabs ct ON cto.tab_id = ct.id
+            JOIN orders o ON cto.order_id = o.id
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN products p ON oi.product_id = p.id
+            WHERE o.shift_id = $1
+            ORDER BY o.created_at DESC
+        `, [req.params.shift_id]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // تسوية وتحصيل حساب الشكك
 app.post('/api/admin/settle-tab', async (req, res) => {
     const { tab_id } = req.body;
