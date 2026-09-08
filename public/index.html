@@ -1451,6 +1451,61 @@
             </div>
         </div>
     </div>
+    <!-- نافذة تركيبة الخامات (BOM) -->
+<div id="modal-recipe-editor" class="modal-screen hidden">
+    <div class="modal-pane-dialog" style="max-width:550px;">
+        <div class="modal-header-strip">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-flask" style="color:var(--accent-sky); font-size:18px;"></i>
+                <h3 id="recipe-modal-title" style="font-size:15px; font-weight:700;">تركيبة الخامات المستهلكة</h3>
+            </div>
+            <button class="btn-modal-close" onclick="closeModal('modal-recipe-editor')">×</button>
+        </div>
+
+        <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+            حدد الخامات (كوب، شوكة، شاليموه.. إلخ) التي تُستهلك تلقائياً من المخزن عند بيع هذا الصنف:
+        </p>
+
+        <div id="recipe-rows-deck" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto; padding-right:4px;"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+            <button class="btn-tool" onclick="addRecipeRowItem()"><i class="fa-solid fa-plus"></i> إضافة خامة</button>
+            <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveRecipeConfiguration()">حفظ التركيبة</button>
+        </div>
+    </div>
+</div>
+
+<!-- نافذة إدارة خيارات الأحجام والأسعار والأرصدة (Variants) -->
+<div id="modal-variants-editor" class="modal-screen hidden">
+    <div class="modal-pane-dialog" style="max-width:620px;">
+        <div class="modal-header-strip">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-layer-group" style="color:var(--accent-amber); font-size:18px;"></i>
+                <h3 id="variants-modal-title" style="font-size:15px; font-weight:700;">خيارات الأحجام والأسعار والأرصدة</h3>
+            </div>
+            <button class="btn-modal-close" onclick="closeModal('modal-variants-editor')">×</button>
+        </div>
+
+        <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+            أدخل الأحجام المتاحة (مثال: صغير / كبير)، وسعر البيع والتكلفة، وعدد كل حجم عندك:
+        </p>
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap:6px; font-size:11px; font-weight:700; color:var(--text-muted); padding-bottom:4px; text-align:center;">
+            <div>اسم الحجم</div>
+            <div>سعر البيع</div>
+            <div>سعر التكلفة</div>
+            <div>العدد المتاح</div>
+            <div></div>
+        </div>
+
+        <div id="variants-rows-deck" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto;"></div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+            <button class="btn-tool" onclick="addVariantRowItem()"><i class="fa-solid fa-plus"></i> إضافة حجم جديد</button>
+            <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveVariantsConfiguration()">حفظ الأحجام والأرصدة</button>
+        </div>
+    </div>
+</div>
 
     <!-- =========================================================== -->
     <!-- APPLICATION JAVASCRIPT LOGIC                                -->
@@ -2401,8 +2456,15 @@
                         <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id})">
                             <i class="fa-solid fa-boxes-packing"></i> + توريد
                         </button>
-                        <button class="btn-tool" title="تعديل الصنف" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-tool danger" title="حذف" onclick="deleteProductItem(${p.id})"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-tool" style="color:var(--accent-sky);" title="تركيبة الخامات (BOM)" onclick="openRecipeConfigModal(${p.id}, '${p.name}')">
+                            <i class="fa-solid fa-flask"></i> خامات
+                        </button>
+                        <button class="btn-tool" style="color:var(--accent-amber);" title="خيارات الأحجام والأرصدة" onclick="openVariantsManagerModal(${p.id}, '${p.name}')">
+                            <i class="fa-solid fa-layer-group"></i> أحجام
+                        </button>
+                        <button class="btn-tool" title="تعديل الصنف" onclick="editProductById(${p.id})">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2808,6 +2870,147 @@
             if (conf.isConfirmed) {
                 await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
                 loadAdminUsers();
+            }
+        }
+        let activeBOMParentId = null;
+        let activeVariantParentId = null;
+
+        // 1. تشغيل نافذة الخامات (BOM)
+        async function openRecipeConfigModal(prodId, prodName) {
+            activeBOMParentId = prodId;
+            document.getElementById('recipe-modal-title').innerText = `تركيبة خامات: ${prodName}`;
+            const deck = document.getElementById('recipe-rows-deck');
+            deck.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">جاري التحميل...</div>';
+            document.getElementById('modal-recipe-editor').classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/product-ingredients/${prodId}`);
+                const list = await res.json();
+                deck.innerHTML = '';
+                if (list.length === 0) {
+                    addRecipeRowItem();
+                } else {
+                    list.forEach(item => addRecipeRowItem(item.ingredient_product_id, item.quantity_required));
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function addRecipeRowItem(selectedId = '', qty = 1) {
+            const deck = document.getElementById('recipe-rows-deck');
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:8px; align-items:center;';
+
+            let options = '<option value="">-- اختر الخامة --</option>';
+            products.forEach(p => {
+                options += `<option value="${p.id}" ${p.id == selectedId ? 'selected' : ''}>${p.name} (${formatCurrency(p.unit_cost_price)} ج.م / ${p.unit_type})</option>`;
+            });
+
+            row.innerHTML = `
+                <select class="bom-item-select" style="flex:2; padding:7px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; font-size:12px;">${options}</select>
+                <input type="number" step="0.1" value="${qty}" placeholder="الكمية" class="bom-item-qty" style="flex:1; padding:7px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; text-align:center; font-size:12px;">
+                <button class="btn-tool danger" onclick="this.parentElement.remove()" style="padding:5px 8px;">×</button>
+            `;
+            deck.appendChild(row);
+        }
+
+        async function saveRecipeConfiguration() {
+            if (!activeBOMParentId) return;
+            const rows = document.querySelectorAll('#recipe-rows-deck > div');
+            const ingredients = [];
+            rows.forEach(r => {
+                const id = r.querySelector('.bom-item-select').value;
+                const qty = r.querySelector('.bom-item-qty').value;
+                if (id) ingredients.push({ ingredient_id: parseInt(id), quantity: parseFloat(qty) || 1 });
+            });
+
+            try {
+                const res = await fetch(`/api/product-ingredients/${activeBOMParentId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ingredients })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                Toast.fire({ icon: 'success', title: 'تم حفظ تركيبة الخامات بنجاح' });
+                closeModal('modal-recipe-editor');
+            } catch (err) {
+                Swal.fire({ title: 'خطأ', text: err.message, icon: 'error' });
+            }
+        }
+
+        // 2. تشغيل نافذة الأحجام والخيارات والأرصدة (Variants)
+        async function openVariantsManagerModal(prodId, prodName) {
+            activeVariantParentId = prodId;
+            document.getElementById('variants-modal-title').innerText = `أحجام وأسعار: ${prodName}`;
+            const deck = document.getElementById('variants-rows-deck');
+            deck.innerHTML = '<div style="text-align:center; padding:10px; color:var(--text-muted);">جاري التحميل...</div>';
+            document.getElementById('modal-variants-editor').classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/product-variants/${prodId}`);
+                const list = await res.json();
+                deck.innerHTML = '';
+                if (list.length === 0) {
+                    addVariantRowItem('صغير', 0, 0, 10);
+                    addVariantRowItem('كبير', 0, 0, 15);
+                } else {
+                    list.forEach(v => addVariantRowItem(v.variant_name, v.selling_price, v.cost_price, v.stock_quantity));
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function addVariantRowItem(name = '', sell = 0, cost = 0, stock = 0) {
+            const deck = document.getElementById('variants-rows-deck');
+            const row = document.createElement('div');
+            row.style.cssText = 'display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap:6px; align-items:center;';
+
+            row.innerHTML = `
+                <input type="text" value="${name}" placeholder="مثال: كبير" class="variant-name" style="padding:7px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; font-size:12px;">
+                <input type="number" step="0.5" value="${sell}" placeholder="بيع" class="variant-sell" style="padding:7px; background:var(--bg-input); border:1px solid var(--border); color:var(--accent-emerald); border-radius:6px; text-align:center; font-weight:700; font-size:12px;">
+                <input type="number" step="0.5" value="${cost}" placeholder="تكلفة" class="variant-cost" style="padding:7px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; text-align:center; font-size:12px;">
+                <input type="number" value="${stock}" placeholder="رصيد" class="variant-stock" style="padding:7px; background:var(--bg-input); border:1px solid var(--border-emerald); color:var(--accent-sky); border-radius:6px; text-align:center; font-weight:700; font-size:12px;">
+                <button class="btn-tool danger" onclick="this.parentElement.remove()" style="padding:5px 8px;">×</button>
+            `;
+            deck.appendChild(row);
+        }
+
+        async function saveVariantsConfiguration() {
+            if (!activeVariantParentId) return;
+            const rows = document.querySelectorAll('#variants-rows-deck > div');
+            const variants = [];
+            rows.forEach(r => {
+                const name = r.querySelector('.variant-name').value.trim();
+                const sell = r.querySelector('.variant-sell').value;
+                const cost = r.querySelector('.variant-cost').value;
+                const stock = r.querySelector('.variant-stock').value;
+                if (name) {
+                    variants.push({
+                        variant_name: name,
+                        selling_price: parseFloat(sell) || 0,
+                        cost_price: parseFloat(cost) || 0,
+                        stock_quantity: parseFloat(stock) || 0
+                    });
+                }
+            });
+
+            try {
+                const res = await fetch(`/api/product-variants/${activeVariantParentId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ variants })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                Toast.fire({ icon: 'success', title: 'تم حفظ الأحجام والأسعار والأرصدة بنجاح' });
+                closeModal('modal-variants-editor');
+            } catch (err) {
+                Swal.fire({ title: 'خطأ', text: err.message, icon: 'error' });
             }
         }
     </script>
