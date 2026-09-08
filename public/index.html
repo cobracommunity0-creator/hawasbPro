@@ -2002,33 +2002,37 @@
         }
 
         // Customer Tab Prompt
+        // نافذة الشكك / الآجل (اسم العميل فقط)
         async function openCustomerTabPrompt() {
-            const { value: formValues } = await Swal.fire({
+            const { value: customerName } = await Swal.fire({
                 title: 'تسجيل على حساب آجل (شكك)',
                 html: `
-                    <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
-                        <input id="swal-tab-name" class="swal2-input" placeholder="اسم العميل" style="margin:0;">
-                        <input id="swal-tab-phone" class="swal2-input" placeholder="رقم الهاتف" style="margin:0;">
+                    <div style="text-align:right;">
+                        <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">اسم العميل:</label>
+                        <input id="swal-tab-name" class="swal2-input" placeholder="اكتب اسم العميل..." style="margin:6px 0 0 0; width:100%;">
                     </div>
                 `,
                 confirmButtonText: 'تسجيل الحساب',
                 showCancelButton: true,
                 cancelButtonText: 'إلغاء',
-                preConfirm: () => ({
-                    name: document.getElementById('swal-tab-name').value.trim(),
-                    phone: document.getElementById('swal-tab-phone').value.trim()
-                })
+                preConfirm: () => {
+                    const name = document.getElementById('swal-tab-name').value.trim();
+                    if (!name) {
+                        Swal.showValidationMessage('يرجى إدخال اسم العميل');
+                        return false;
+                    }
+                    return name;
+                }
             });
-
-            if (formValues && formValues.name && formValues.phone) {
+        
+            if (customerName) {
                 executeOrderCall({
                     payment_type: 'CREDIT_TAB',
-                    tab_customer_name: formValues.name,
-                    tab_customer_phone: formValues.phone
+                    tab_customer_name: customerName,
+                    tab_customer_phone: ''
                 });
             }
         }
-
         // Cashier Scratchpad
         async function openCashierNotesModal() {
             if (!currentShiftId) return;
