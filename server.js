@@ -258,76 +258,82 @@ async function initDB() {
             );
         `);
 
-        // 11. إضافة المستخدمين والمواقع والأقسام الافتراضية
+// 11. إضافة المستخدمين والمواقع والأقسام الافتراضية بأمان
         await pool.query(`
-            INSERT INTO employees (id, username, pin_code, full_name, phone, role) VALUES
-            (1, 'admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
-            (2, 'omar',   '1111', 'عمر - وردية 1',   '01100000001', 'cashier'),
-            (3, 'tareq',  '2222', 'طارق - وردية 2',  '01200000002', 'cashier'),
-            (4, 'antry',  '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
-            ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, pin_code = EXCLUDED.pin_code;
+            INSERT INTO employees (username, pin_code, full_name, phone, role) VALUES
+            ('admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
+            ('omar',   '1111', 'عمر - وردية 1',   '01100000001', 'cashier'),
+            ('tareq',  '2222', 'طارق - وردية 2',  '01200000002', 'cashier'),
+            ('antry',  '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
+            ON CONFLICT DO NOTHING;
 
-            INSERT INTO inventory_locations (id, code, name, description) VALUES
-            (1, 'BACKROOM',      'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
-            (2, 'FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع المباشر')
-            ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code;
+            INSERT INTO inventory_locations (code, name, description) VALUES
+            ('BACKROOM',      'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
+            ('FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع المباشر')
+            ON CONFLICT DO NOTHING;
 
-            INSERT INTO product_categories (id, name) VALUES
-            (1, 'مشروبات ساخنة'), (2, 'مشروبات ساقعة'), (3, 'شيبسيات وسناكس'), (4, 'البسكويت والحلويات'), (5, 'خامات ومواد تغليف')
-            ON CONFLICT (id) DO NOTHING;
+            INSERT INTO product_categories (name) VALUES
+            ('مشروبات ساخنة'), 
+            ('مشروبات ساقعة'), 
+            ('شيبسيات وسناكس'), 
+            ('البسكويت والحلويات'), 
+            ('خامات ومواد تغليف')
+            ON CONFLICT DO NOTHING;
         `);
 
-        // 12. حقن الأصناف الـ 37 تلقائياً وربطها بالمخزون إذا كان الجدول فارغاً
+        // 12. حقن الأصناف الـ 37 تلقائياً وربطها بالمخزون
         const prodCount = await pool.query('SELECT COUNT(*) FROM products');
         if (parseInt(prodCount.rows[0].count) === 0) {
             console.log('🔄 جاري إدخال أصناف السايبر والمخزون الأولي...');
             await pool.query(`
-                INSERT INTO products (id, name, category_id, unit_cost_price, unit_selling_price, unit_type, product_type) VALUES
-                (1, 'شاي', 1, 1.1, 10, 'قطعة', 'PREPARED_DRINK'),
-                (2, 'قهوه', 1, 4.7, 15, 'قطعة', 'PREPARED_DRINK'),
-                (3, 'نسكافيه 3x1', 1, 6.1, 15, 'قطعة', 'PREPARED_DRINK'),
-                (4, 'نسكافيه ريتشي', 1, 10.3, 20, 'قطعة', 'PREPARED_DRINK'),
-                (5, 'كوفي ميكس / كوفي بريك', 1, 5, 15, 'قطعة', 'PREPARED_DRINK'),
-                (6, 'موهيتو', 1, 17.5, 35, 'قطعة', 'PREPARED_DRINK'),
-                (7, 'فيوري', 2, 17.9, 23, 'قطعة', 'DIRECT_UNIT'),
-                (8, 'بلو شارك', 2, 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
-                (9, 'تويست', 2, 13.3, 17, 'قطعة', 'DIRECT_UNIT'),
-                (10, 'ماونتن ديو اكشن', 2, 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
-                (11, 'في كولا', 2, 13.5, 17, 'قطعة', 'DIRECT_UNIT'),
-                (12, 'فولت', 2, 9.2, 13, 'قطعة', 'DIRECT_UNIT'),
-                (13, 'مياه معدنية', 2, 5.5, 8, 'قطعة', 'DIRECT_UNIT'),
-                (14, 'صن توب', 2, 11.1, 17, 'قطعة', 'DIRECT_UNIT'),
-                (15, 'ميكس', 2, 11.5, 18, 'قطعة', 'DIRECT_UNIT'),
-                (16, 'جاكوار', 3, 9, 12, 'قطعة', 'DIRECT_UNIT'),
-                (17, 'شيتوس', 3, 9, 12, 'قطعة', 'DIRECT_UNIT'),
-                (18, 'توتس', 3, 10, 14, 'قطعة', 'DIRECT_UNIT'),
-                (19, 'دوريتوس', 3, 9, 12, 'قطعة', 'DIRECT_UNIT'),
-                (20, 'كرانشي', 3, 4.8, 7, 'قطعة', 'DIRECT_UNIT'),
-                (21, 'شيبسي', 3, 9.2, 12, 'قطعة', 'DIRECT_UNIT'),
-                (22, 'اندومي جامبو', 3, 8.6, 20, 'قطعة', 'DIRECT_UNIT'),
-                (23, 'اندومي صغير', 3, 4.5, 15, 'قطعة', 'DIRECT_UNIT'),
-                (24, 'ماجيك', 4, 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
-                (25, '4G', 4, 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
-                (26, 'هوهوز', 4, 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
-                (27, 'توينكز', 4, 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
-                (28, 'بيمبو/فريسكا موف و احمر /بسكريم', 4, 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
-                (29, 'تيبو', 4, 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
-                (30, 'تورتة', 4, 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
-                (31, 'مولتو', 4, 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
-                (32, 'شفاطة بلاستيك', 5, 0.2, 0.2, 'قطعة', 'PACKAGING_MATERIAL'),
-                (33, 'شوكة / معلقة بلاستيك', 5, 0.4, 0.4, 'قطعة', 'PACKAGING_MATERIAL'),
-                (34, 'كوب بلاستيك شفاف', 5, 1.7, 1.7, 'قطعة', 'PACKAGING_MATERIAL'),
-                (35, 'كوب إندومي صغير', 5, 1, 1, 'قطعة', 'PACKAGING_MATERIAL'),
-                (36, 'كوب إندومي كبير', 5, 1.1, 1.1, 'قطعة', 'PACKAGING_MATERIAL'),
-                (37, 'كوب ورقي ساخن', 5, 1.2, 1.2, 'قطعة', 'PACKAGING_MATERIAL')
-                ON CONFLICT (id) DO NOTHING;
+                INSERT INTO products (name, category_id, unit_cost_price, unit_selling_price, unit_type, product_type) VALUES
+                ('شاي', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 1.1, 10, 'قطعة', 'PREPARED_DRINK'),
+                ('قهوه', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 4.7, 15, 'قطعة', 'PREPARED_DRINK'),
+                ('نسكافيه 3x1', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 6.1, 15, 'قطعة', 'PREPARED_DRINK'),
+                ('نسكافيه ريتشي', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 10.3, 20, 'قطعة', 'PREPARED_DRINK'),
+                ('كوفي ميكس / كوفي بريك', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 5, 15, 'قطعة', 'PREPARED_DRINK'),
+                ('موهيتو', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 17.5, 35, 'قطعة', 'PREPARED_DRINK'),
+                ('فيوري', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 17.9, 23, 'قطعة', 'DIRECT_UNIT'),
+                ('بلو شارك', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
+                ('تويست', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 13.3, 17, 'قطعة', 'DIRECT_UNIT'),
+                ('ماونتن ديو اكشن', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
+                ('في كولا', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 13.5, 17, 'قطعة', 'DIRECT_UNIT'),
+                ('فولت', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 9.2, 13, 'قطعة', 'DIRECT_UNIT'),
+                ('مياه معدنية', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 5.5, 8, 'قطعة', 'DIRECT_UNIT'),
+                ('صن توب', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.1, 17, 'قطعة', 'DIRECT_UNIT'),
+                ('ميكس', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.5, 18, 'قطعة', 'DIRECT_UNIT'),
+                ('جاكوار', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('شيتوس', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('توتس', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 10, 14, 'قطعة', 'DIRECT_UNIT'),
+                ('دوريتوس', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('كرانشي', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 4.8, 7, 'قطعة', 'DIRECT_UNIT'),
+                ('شيبسي', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9.2, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('اندومي جامبو', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 8.6, 20, 'قطعة', 'DIRECT_UNIT'),
+                ('اندومي صغير', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 4.5, 15, 'قطعة', 'DIRECT_UNIT'),
+                ('ماجيك', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
+                ('4G', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
+                ('هوهوز', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
+                ('توينكز', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('بيمبو/فريسكا موف و احمر /بسكريم', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
+                ('تيبو', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('تورتة', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
+                ('مولتو', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
+                ('شفاطة بلاستيك', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 0.2, 0.2, 'قطعة', 'PACKAGING_MATERIAL'),
+                ('شوكة / معلقة بلاستيك', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 0.4, 0.4, 'قطعة', 'PACKAGING_MATERIAL'),
+                ('كوب بلاستيك شفاف', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1.7, 1.7, 'قطعة', 'PACKAGING_MATERIAL'),
+                ('كوب إندومي صغير', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1, 1, 'قطعة', 'PACKAGING_MATERIAL'),
+                ('كوب إندومي كبير', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1.1, 1.1, 'قطعة', 'PACKAGING_MATERIAL'),
+                ('كوب ورقي ساخن', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1.2, 1.2, 'قطعة', 'PACKAGING_MATERIAL')
+                ON CONFLICT DO NOTHING;
 
                 -- تعبئة رصيد الواجهة (Front Display) ورصيد المخزن (Backroom)
                 INSERT INTO location_inventory (product_id, location_id, quantity)
-                SELECT id, 2, 50 FROM products; -- 50 قطعة على الواجهة لكل صنف
+                SELECT id, (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1), 50 FROM products
+                ON CONFLICT DO NOTHING;
 
                 INSERT INTO location_inventory (product_id, location_id, quantity)
-                SELECT id, 1, 200 FROM products; -- 200 قطعة في المخزن الاحتياطي
+                SELECT id, (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1), 200 FROM products
+                ON CONFLICT DO NOTHING;
             `);
             console.log('✅ تم إدخال الأصناف والمخزون بنجاح.');
         }
