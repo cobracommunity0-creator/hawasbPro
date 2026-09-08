@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حواسب كافيه | نظام الكاشير وإدارة السايبر</title>
+    <title>حواسب كافيه | نظام الكاشير ونقطة البيع</title>
     
+    <!-- Modern Arabic Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -14,18 +15,21 @@
 
     <style>
         :root {
-            --bg-body: #0a0e17;
-            --bg-surface: #111726;
-            --bg-card: #172033;
+            /* Eye-Comfort Dark Theme */
+            --bg-body: #090d16;
+            --bg-surface: #101623;
+            --bg-card: #162033;
             --bg-card-hover: #1e2b44;
-            --bg-input: #0c121d;
+            --bg-input: #0b111a;
             
-            --border: rgba(255, 255, 255, 0.07);
+            --border: rgba(255, 255, 255, 0.08);
             --border-hover: rgba(255, 255, 255, 0.16);
             --border-emerald: rgba(16, 185, 129, 0.35);
 
             --accent-emerald: #10b981;
             --accent-emerald-hover: #059669;
+            --accent-vodafone: #e60000;
+            --accent-vodafone-hover: #b80000;
             --accent-amber: #f59e0b;
             --accent-rose: #f43f5e;
             --accent-sky: #0ea5e9;
@@ -35,14 +39,14 @@
             --text-secondary: #94a3b8;
             --text-muted: #64748b;
 
-            --radius-xl: 14px;
+            --radius-xl: 16px;
             --radius-lg: 10px;
-            --radius-md: 7px;
-            --radius-sm: 5px;
+            --radius-md: 8px;
+            --radius-sm: 6px;
 
-            --shadow-subtle: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
-            --shadow-float: 0 12px 32px -4px rgba(0, 0, 0, 0.6);
-            --transition: all 0.14s cubic-bezier(0.4, 0, 0.2, 1);
+            --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.35);
+            --shadow-float: 0 12px 36px -4px rgba(0, 0, 0, 0.6);
+            --transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
@@ -69,14 +73,14 @@
 
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #243049; border-radius: 99px; }
-        ::-webkit-scrollbar-thumb:hover { background: #374768; }
+        ::-webkit-scrollbar-thumb { background: #222e44; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: #354769; }
 
         .badge-kbd {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 4px;
             padding: 1px 5px;
@@ -86,7 +90,7 @@
         }
 
         /* ------------------------------------------------------------- */
-        /* LOGIN UX                                                      */
+        /* AUTHENTICATION                                                */
         /* ------------------------------------------------------------- */
         .login-layout {
             display: flex;
@@ -177,8 +181,8 @@
         }
         .brand-unit { display: flex; align-items: center; gap: 10px; }
         .brand-icon {
-            width: 30px;
-            height: 30px;
+            width: 32px;
+            height: 32px;
             background: rgba(16, 185, 129, 0.12);
             color: var(--accent-emerald);
             border: 1px solid var(--border-emerald);
@@ -220,11 +224,11 @@
             transition: var(--transition);
         }
         .btn-tool:hover { background: rgba(255, 255, 255, 0.08); border-color: var(--border-hover); }
-        .btn-tool.danger { color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.2); }
+        .btn-tool.danger { color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.25); }
         .btn-tool.danger:hover { background: var(--accent-rose); color: #fff; }
 
         /* ------------------------------------------------------------- */
-        /* POS WORKSPACE ARCHITECTURE                                    */
+        /* POS WORKSPACE                                                 */
         /* ------------------------------------------------------------- */
         .pos-container {
             height: calc(100vh - 52px);
@@ -233,7 +237,7 @@
             overflow: hidden;
         }
 
-        /* 1. STATION COMMAND MATRIX RIBBON (TOP OF POS) */
+        /* Station Ribbon */
         .station-matrix-bar {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border);
@@ -292,14 +296,14 @@
             margin-right: 2px;
         }
 
-        /* 2. BODY SPLIT: CATALOG vs DOCKET TERMINAL */
+        /* Split Workspace */
         .pos-main-split {
             flex: 1;
             display: flex;
             overflow: hidden;
         }
 
-        /* CATALOG PANE */
+        /* Left: Catalog */
         .catalog-deck-pane {
             flex: 1;
             display: flex;
@@ -308,8 +312,6 @@
             padding: 14px 16px;
             gap: 12px;
         }
-
-        /* Command Filter Bar */
         .catalog-command-bar {
             display: flex;
             align-items: center;
@@ -422,23 +424,8 @@
             margin-top: 4px;
         }
 
-        /* FOOTER HOTKEY CHEATSHEET */
-        .hotkey-bar {
-            height: 28px;
-            background: var(--bg-surface);
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-        .hotkey-group { display: flex; gap: 14px; }
-        .hotkey-item { display: flex; align-items: center; gap: 4px; }
-
         /* ------------------------------------------------------------- */
-        /* DOCKET / CART TERMINAL (RIGHT SPLIT)                          */
+        /* RIGHT: REGISTER DOCKET TERMINAL                               */
         /* ------------------------------------------------------------- */
         .pos-terminal-docket {
             width: 380px;
@@ -448,7 +435,7 @@
             flex-direction: column;
         }
         .docket-head {
-            padding: 12px 16px;
+            padding: 10px 14px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -472,10 +459,41 @@
         }
         .btn-trash-clear:hover { color: var(--accent-rose); }
 
+        /* Mode Selector (Dine-in vs Takeaway) */
+        .order-mode-bar {
+            display: flex;
+            padding: 6px 12px;
+            gap: 6px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        .btn-mode-toggle {
+            flex: 1;
+            padding: 6px 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 11.5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: var(--transition);
+        }
+        .btn-mode-toggle.active {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--accent-emerald);
+            color: var(--accent-emerald);
+            font-weight: 700;
+        }
+
         .docket-items-deck {
             flex: 1;
             overflow-y: auto;
-            padding: 10px 14px;
+            padding: 10px 12px;
             display: flex;
             flex-direction: column;
             gap: 6px;
@@ -539,14 +557,14 @@
         .stepper-btn:hover { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
         .stepper-val { font-size: 12px; font-weight: 700; min-width: 18px; text-align: center; }
 
-        /* DOCKET SETTLEMENT & TENDER FLOW */
+        /* Docket Settlement */
         .docket-settlement-hub {
             border-top: 1px solid var(--border);
-            padding: 12px 16px;
+            padding: 12px 14px;
             background: rgba(0, 0, 0, 0.22);
             display: flex;
             flex-direction: column;
-            gap: 9px;
+            gap: 8px;
         }
         .settlement-metric-row {
             display: flex;
@@ -560,13 +578,12 @@
             font-weight: 700;
             color: var(--text-primary);
             border-top: 1px dashed var(--border);
-            padding-top: 7px;
+            padding-top: 6px;
         }
 
-        /* Quick Tender Chips */
         .quick-tender-strip {
             display: flex;
-            gap: 5px;
+            gap: 4px;
         }
         .tender-chip {
             flex: 1;
@@ -583,7 +600,6 @@
         }
         .tender-chip:hover { border-color: var(--accent-sky); color: #fff; }
 
-        /* Tender Field */
         .cash-collected-field {
             display: flex;
             align-items: center;
@@ -591,7 +607,7 @@
             background: var(--bg-input);
             border: 1px solid var(--border);
             border-radius: var(--radius-md);
-            padding: 8px 12px;
+            padding: 7px 10px;
             transition: var(--transition);
         }
         .cash-collected-field:focus-within {
@@ -605,7 +621,7 @@
             width: 100%;
             text-align: center;
             font-weight: 700;
-            font-size: 16px;
+            font-size: 15px;
             outline: none;
         }
         .change-return-pill {
@@ -616,19 +632,20 @@
             min-height: 16px;
         }
 
+        /* Payment Buttons Stack */
         .checkout-buttons-stack {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
         .btn-tender-complete {
-            padding: 12px;
+            padding: 11px;
             background: var(--accent-emerald);
             color: #032115;
             border: none;
             border-radius: var(--radius-md);
             font-weight: 700;
-            font-size: 14px;
+            font-size: 13.5px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -641,6 +658,27 @@
             color: #fff;
             transform: translateY(-1px);
         }
+
+        .btn-vodafone {
+            padding: 10px;
+            background: var(--accent-vodafone);
+            color: #fff;
+            border: none;
+            border-radius: var(--radius-md);
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: var(--transition);
+        }
+        .btn-vodafone:hover {
+            background: var(--accent-vodafone-hover);
+            transform: translateY(-1px);
+        }
+
         .btn-staff-ticket {
             padding: 8px;
             background: rgba(245, 158, 11, 0.08);
@@ -659,14 +697,29 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            padding: 6px 10px;
+            padding: 5px 8px;
         }
         .shift-cell { flex: 1; text-align: center; }
-        .shift-cell span { font-size: 10px; color: var(--text-muted); display: block; font-weight: 500; }
+        .shift-cell span { font-size: 9.5px; color: var(--text-muted); display: block; font-weight: 500; }
         .shift-cell b { font-size: 12px; font-weight: 700; }
 
+        /* Bottom Hotkey Bar */
+        .hotkey-bar {
+            height: 28px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .hotkey-group { display: flex; gap: 14px; }
+        .hotkey-item { display: flex; align-items: center; gap: 4px; }
+
         /* ------------------------------------------------------------- */
-        /* ADMIN WORKSPACE (FULL-WIDTH MODERN RIBBON)                    */
+        /* ADMIN WORKSPACE                                               */
         /* ------------------------------------------------------------- */
         .admin-layout-pane {
             height: calc(100vh - 52px);
@@ -700,7 +753,6 @@
             color: var(--accent-sky);
             border-bottom-color: var(--accent-sky);
         }
-
         .admin-workspace-scroll {
             flex: 1;
             overflow-y: auto;
@@ -708,7 +760,6 @@
             background: var(--bg-body);
         }
 
-        /* KPI & Form Containers */
         .kpi-deck {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -769,32 +820,9 @@
         table.terminal-table tr:last-child td { border-bottom: none; }
         table.terminal-table tr:hover td { background: rgba(255, 255, 255, 0.015); }
 
-        /* Accordions */
-        .accordion-block {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            margin-bottom: 8px;
-            overflow: hidden;
-        }
-        .accordion-trigger {
-            padding: 11px 14px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 600;
-            font-size: 12.5px;
-        }
-        .accordion-content {
-            display: none;
-            padding: 12px;
-            background: var(--bg-body);
-            border-top: 1px solid var(--border);
-        }
-        .accordion-block.active .accordion-content { display: block; }
-
-        /* Modals */
+        /* ------------------------------------------------------------- */
+        /* MODALS                                                        */
+        /* ------------------------------------------------------------- */
         .modal-screen {
             position: fixed;
             inset: 0;
@@ -810,18 +838,18 @@
             border: 1px solid var(--border);
             border-radius: var(--radius-xl);
             width: 92%;
-            max-width: 720px;
-            max-height: 85vh;
+            max-width: 680px;
+            max-height: 88vh;
             overflow-y: auto;
-            padding: 20px;
+            padding: 22px;
             box-shadow: var(--shadow-float);
         }
         .modal-header-strip {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border);
         }
         .btn-modal-close {
@@ -844,16 +872,16 @@
 </head>
 <body>
 
-    <!-- 1. Authentication View -->
+    <!-- 1. Authentication Screen -->
     <div id="view-login" class="login-layout">
         <div class="login-modal">
             <div class="login-brand-icon"><i class="fa-solid fa-mug-hot"></i></div>
             <h1 class="login-title">حواسب كافيه</h1>
-            <p class="login-sub">نظام الكاشير وإدارة محطات السايبر</p>
+            <p class="login-sub">نظام الكاشير ونقطة البيع الذكية</p>
             
             <div class="input-group">
                 <i class="fa-solid fa-user"></i>
-                <input type="text" id="login-username" class="input-field" placeholder="اسم المستخدم">
+                <input type="text" id="login-username" class="input-field" placeholder="اسم المستخدم (أو رقم الهاتف)">
             </div>
             
             <div class="input-group">
@@ -867,7 +895,7 @@
         </div>
     </div>
 
-    <!-- 2. Application Top App Bar -->
+    <!-- 2. Application Top Bar -->
     <header id="app-header" class="app-bar hidden">
         <div class="brand-unit">
             <div class="brand-icon"><i class="fa-solid fa-mug-hot"></i></div>
@@ -896,15 +924,14 @@
     <!-- 3. POS Workspace -->
     <div id="view-pos" class="pos-container hidden">
         
-        <!-- Live Station Command Matrix -->
+        <!-- Live Station Ribbon -->
         <div class="station-matrix-bar" id="station-matrix-deck"></div>
 
         <!-- POS Workspace Split -->
         <div class="pos-main-split">
             
-            <!-- Left: Catalog & Product Selection -->
+            <!-- Left: Products Catalog -->
             <div class="catalog-deck-pane">
-                
                 <div class="catalog-command-bar">
                     <div class="omni-search-wrapper">
                         <i class="fa-solid fa-magnifying-glass"></i>
@@ -914,7 +941,6 @@
                 </div>
 
                 <div class="category-filter-strip" id="category-filter-strip"></div>
-
                 <div class="products-grid-scroll" id="products-deck"></div>
             </div>
 
@@ -926,16 +952,18 @@
                         <span>طلب: <b id="cart-station-title" style="color:var(--accent-emerald);">الكاشير المباشر</b></span>
                     </div>
                     <button class="btn-trash-clear" onclick="clearCurrentCart()">
-                        <i class="fa-solid fa-trash-can"></i> مسح السلة
+                        <i class="fa-solid fa-trash-can"></i> مسح
                     </button>
                 </div>
-                <div style="display:flex; padding:8px 14px; gap:8px; background:var(--bg-card); border-bottom:1px solid var(--border);">
-                <button id="btn-mode-takeaway" class="btn-tool active" style="flex:1; justify-content:center;" onclick="setOrderMode('TAKEAWAY')">
-                    <i class="fa-solid fa-bag-shopping"></i> تيك أواي
-                </button>
-                <button id="btn-mode-dinein" class="btn-tool" style="flex:1; justify-content:center;" onclick="setOrderMode('DINE_IN')">
-                    <i class="fa-solid fa-mug-saucer"></i> من غير كوب او طبق
-                </button>
+
+                <!-- Mode Selector: Takeaway vs Dine-In -->
+                <div class="order-mode-bar">
+                    <button id="btn-mode-takeaway" class="btn-mode-toggle active" onclick="setOrderMode('TAKEAWAY')">
+                        <i class="fa-solid fa-bag-shopping"></i> تيك أواي (كوب ورقي)
+                    </button>
+                    <button id="btn-mode-dinein" class="btn-mode-toggle" onclick="setOrderMode('DINE_IN')">
+                        <i class="fa-solid fa-mug-saucer"></i> صالة (مج زجاج)
+                    </button>
                 </div>
 
                 <div class="docket-items-deck" id="cart-items-container"></div>
@@ -956,9 +984,9 @@
                         <div class="tender-chip" onclick="applyQuickCash(200)">+200</div>
                     </div>
 
-                    <!-- Persistent Autofocus Tender Input -->
+                    <!-- Cash Input with Instant Enter Hotkey -->
                     <div class="cash-collected-field">
-                        <span style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">المدفوع:</span>
+                        <span style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">المدفوع كاش:</span>
                         <input type="number" id="cash-paid-input" placeholder="0" oninput="updateChangeCalculation()">
                         <span class="badge-kbd">Enter ↵</span>
                     </div>
@@ -969,24 +997,31 @@
                         <span>المطلوب تحصيله:</span>
                         <span id="cart-total-val">0 ج.م</span>
                     </div>
-                    
-                <div class="checkout-buttons-stack">
-                    <button class="btn-tender-complete" onclick="executeCheckout('CASH')">
-                        <i class="fa-solid fa-circle-check"></i>
-                        <span>دفع كاش فوري</span>
-                        <span class="badge-kbd" style="background:rgba(0,0,0,0.3); color:#fff;">Enter</span>
-                    </button>
-                    
-                    <div style="display:flex; gap:6px;">
-                        <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openCustomerTabPrompt()">
-                            <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-sky);"></i> شكك / آجل
-                        </button>
-                        <button class="btn-staff-ticket" style="flex:1; justify-content:center;" onclick="openStaffConsumptionPrompt()">
-                            <i class="fa-solid fa-id-badge"></i> استهلاك موظف
-                        </button>
-                    </div>
-                </div>
 
+                    <!-- Actions & Payment Methods -->
+                    <div class="checkout-buttons-stack">
+                        <button class="btn-tender-complete" onclick="executeCheckout('CASH')">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>دفع كاش فوري</span>
+                            <span class="badge-kbd" style="background:rgba(0,0,0,0.3); color:#fff;">Enter</span>
+                        </button>
+
+                        <button class="btn-vodafone" onclick="openVodafoneCashModal()">
+                            <i class="fa-solid fa-mobile-screen-button"></i>
+                            <span>دفع فودافون كاش (Vodafone Cash)</span>
+                        </button>
+
+                        <div style="display:flex; gap:6px;">
+                            <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openCustomerTabPrompt()">
+                                <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-sky);"></i> شكك / آجل
+                            </button>
+                            <button class="btn-staff-ticket" style="flex:1; justify-content:center;" onclick="openStaffConsumptionPrompt()">
+                                <i class="fa-solid fa-id-badge"></i> استهلاك موظف
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Shift live metrics -->
                     <div class="live-shift-strip">
                         <div class="shift-cell">
                             <span>مبيعات الشيفت</span>
@@ -1000,13 +1035,13 @@
 
                     <div style="display:flex; gap:6px; margin-top:2px;">
                         <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openCashierNotesModal()">
-                            <i class="fa-regular fa-note-sticky" style="color:var(--accent-amber);"></i> الملاحظات
+                            <i class="fa-regular fa-note-sticky" style="color:var(--accent-amber);"></i> المفكرة <span class="badge-kbd">F4</span>
                         </button>
                         <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openShiftLogModal()">
-                            <i class="fa-solid fa-clock-rotate-left"></i> سجل الشيفت
+                            <i class="fa-solid fa-clock-rotate-left"></i> سجل الوردية
                         </button>
-                        <button class="btn-tool danger" style="flex:1; justify-content:center;" onclick="closeActiveShiftPrompt()">
-                            <i class="fa-solid fa-lock"></i> إنهاء الشيفت
+                        <button class="btn-tool danger" style="flex:1; justify-content:center;" onclick="openShiftHandoverModal()">
+                            <i class="fa-solid fa-lock"></i> تقفيل الوردية
                         </button>
                     </div>
                 </div>
@@ -1017,12 +1052,13 @@
         <!-- POS Hotkey Guide Footer -->
         <div class="hotkey-bar">
             <div class="hotkey-group">
-                <div class="hotkey-item"><span class="badge-kbd">Enter</span> إتمام الطلب</div>
+                <div class="hotkey-item"><span class="badge-kbd">Enter</span> إتمام الكاش</div>
                 <div class="hotkey-item"><span class="badge-kbd">/</span> أو <span class="badge-kbd">F2</span> البحث</div>
+                <div class="hotkey-item"><span class="badge-kbd">F4</span> المفكرة</div>
                 <div class="hotkey-item"><span class="badge-kbd">F1 - F10</span> اختيار الجهاز</div>
                 <div class="hotkey-item"><span class="badge-kbd">~</span> الكاشير المباشر</div>
             </div>
-            <div>حواسب كافيه - POS v2.0</div>
+            <div>حواسب كافيه - نظام نقاط البيع 2026</div>
         </div>
 
     </div>
@@ -1050,11 +1086,11 @@
             <div id="pane-overview" class="admin-pane">
                 <div class="kpi-deck">
                     <div class="kpi-tile">
-                        <div class="kpi-tile-label">قيمة الخامات المبيعة (المستردة)</div>
+                        <div class="kpi-tile-label">قيمة المخزون في الواجهة (المعروض)</div>
                         <div class="kpi-tile-val" id="kpi-collected-cost" style="color:var(--accent-sky);">0 ج.م</div>
                     </div>
                     <div class="kpi-tile">
-                        <div class="kpi-tile-label">رأس مال المخزون الحالي</div>
+                        <div class="kpi-tile-label">إجمالي رأس مال المخزون (الواجهة + المخزن)</div>
                         <div class="kpi-tile-val" id="kpi-remaining-cost" style="color:var(--accent-emerald);">0 ج.م</div>
                     </div>
                 </div>
@@ -1084,8 +1120,8 @@
                                 <input type="number" step="0.1" id="crud-prod-price" placeholder="0.0" required>
                             </div>
                             <div class="form-field-unit">
-                                <label>الكمية بالمخزن</label>
-                                <input type="number" step="0.1" id="crud-prod-stock" placeholder="0" value="0">
+                                <label>الكمية بالواجهة</label>
+                                <input type="number" step="0.1" id="crud-prod-stock" placeholder="0" value="50">
                             </div>
                             <div class="form-field-unit">
                                 <label>وحدة القياس</label>
@@ -1100,7 +1136,7 @@
                             <div class="form-field-unit" style="justify-content:center;">
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:14px;">
                                     <input type="checkbox" id="crud-prod-isdrink">
-                                    <span>صنف بدون جرد / غير محدود (خدمات، مشروبات أو بدون تتبع كمية)</span>
+                                    <span>مشروب محضر فوري (BOM)</span>
                                 </label>
                             </div>
                         </div>
@@ -1119,9 +1155,8 @@
                                 <th>الصنف</th>
                                 <th>القسم</th>
                                 <th>التكلفة المباشرة</th>
-                                <th>التكلفة مع الخامات</th>
                                 <th>سعر البيع</th>
-                                <th>المخزون</th>
+                                <th>المخزون بالواجهة</th>
                                 <th>الوحدة</th>
                                 <th>النوع</th>
                                 <th>إجراءات</th>
@@ -1134,7 +1169,24 @@
 
             <!-- Shifts Pane -->
             <div id="pane-shifts" class="admin-pane hidden">
-                <div id="shifts-accordion-deck"></div>
+                <div class="table-wrap-box">
+                    <table class="terminal-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>الكاشير</th>
+                                <th>تاريخ الوردية</th>
+                                <th>وقت البدء</th>
+                                <th>وقت الإغلاق</th>
+                                <th>المبيعات</th>
+                                <th>المبلغ بالدرج</th>
+                                <th>العجز المسجل</th>
+                                <th>الحالة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-shifts-table-body"></tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Users Pane -->
@@ -1149,6 +1201,10 @@
                                 <input type="text" id="crud-usr-name" placeholder="اسم الدخول" required>
                             </div>
                             <div class="form-field-unit">
+                                <label>الاسم الكامل</label>
+                                <input type="text" id="crud-usr-fullname" placeholder="الاسم ثلاثي">
+                            </div>
+                            <div class="form-field-unit">
                                 <label>رمز PIN</label>
                                 <input type="password" id="crud-usr-pin" placeholder="****">
                             </div>
@@ -1157,6 +1213,7 @@
                                 <select id="crud-usr-role">
                                     <option value="cashier">كاشير (Cashier)</option>
                                     <option value="admin">مسؤول (Admin)</option>
+                                    <option value="runner">خدمات وتوريد (Runner)</option>
                                 </select>
                             </div>
                         </div>
@@ -1173,7 +1230,9 @@
                             <tr>
                                 <th>#</th>
                                 <th>اسم المستخدم</th>
+                                <th>الاسم الكامل</th>
                                 <th>الدور</th>
+                                <th>إجمالي العجز المسجل</th>
                                 <th>إجراءات</th>
                             </tr>
                         </thead>
@@ -1185,15 +1244,138 @@
         </div>
     </div>
 
-    <!-- Modals System -->
-    <!-- Variants Picker Modal -->
-    <div id="modal-variants-picker" class="modal-screen hidden">
-        <div class="modal-pane-dialog" style="max-width:380px; text-align:center;">
+    <!-- ----------------------------------------------------------- -->
+    <!-- MODALS SECTION                                              -->
+    <!-- ----------------------------------------------------------- -->
+
+    <!-- Vodafone Cash Modal -->
+    <div id="modal-vodafone-cash" class="modal-screen hidden">
+        <div class="modal-pane-dialog" style="max-width:440px; text-align:center;">
             <div class="modal-header-strip">
-                <h3 id="variant-picker-title" style="font-size:15px; font-weight:700;">اختر الخيار / الحجم</h3>
-                <button class="btn-modal-close" onclick="closeModal('modal-variants-picker')">×</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-mobile-screen-button" style="color:var(--accent-vodafone); font-size:18px;"></i>
+                    <h3 style="font-size:16px; font-weight:700;">الدفع عبر فودافون كاش</h3>
+                </div>
+                <button class="btn-modal-close" onclick="closeModal('modal-vodafone-cash')">×</button>
             </div>
-            <div id="variant-picker-options" style="display:flex; flex-direction:column; gap:6px;"></div>
+
+            <div style="background:rgba(230, 0, 0, 0.08); border:1px solid rgba(230, 0, 0, 0.25); border-radius:var(--radius-lg); padding:16px; margin-bottom:14px;">
+                <span style="font-size:12px; color:var(--text-secondary); display:block; margin-bottom:4px;">المبلغ المطلوب تحويله:</span>
+                <b id="vodafone-amount-display" style="font-size:26px; font-weight:800; color:var(--accent-vodafone);">0 ج.م</b>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:10px; text-align:right;">
+                <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px;">
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">رقم المحفظة للتحويل:</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                        <b id="vodafone-phone-number" style="font-size:18px; letter-spacing:1px; color:#fff;">01060473112</b>
+                        <button class="btn-tool" onclick="copyVodafoneNumber()" style="background:var(--accent-vodafone); color:#fff; border:none; padding:4px 10px;">
+                            <i class="fa-regular fa-copy"></i> <span id="copy-btn-label">نسخ الرقم</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-md); padding:10px;">
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">صاحب المحفظة:</span>
+                    <b style="font-size:14px; color:var(--text-primary);">Amr Adel Mabrouk (عمرو عادل مبروك)</b>
+                </div>
+
+                <div>
+                    <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">رقم هاتف العميل المحول منه (اختياري):</label>
+                    <input type="text" id="vodafone-sender-phone" placeholder="01xxxxxxxxx" class="input-field" style="padding:8px 12px; text-align:center;">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-tool" style="flex:1; justify-content:center;" onclick="closeModal('modal-vodafone-cash')">إلغاء</button>
+                <button class="btn-vodafone" style="flex:2; justify-content:center;" onclick="confirmVodafonePayment()">
+                    <i class="fa-solid fa-check"></i> تم استلام التحويل وإتمام البيع
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cashier Reminders / Notes Modal -->
+    <div id="modal-cashier-notes" class="modal-screen hidden">
+        <div class="modal-pane-dialog" style="max-width:480px;">
+            <div class="modal-header-strip">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fa-regular fa-note-sticky" style="color:var(--accent-amber); font-size:16px;"></i>
+                    <h3 style="font-size:15px; font-weight:700;">مفكرة وتذكيرات الكاشير</h3>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span id="notes-save-indicator" style="font-size:11px; color:var(--text-muted); font-weight:600;">تم الحفظ ✓</span>
+                    <button class="btn-modal-close" onclick="closeModal('modal-cashier-notes')">×</button>
+                </div>
+            </div>
+
+            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+                اكتب أي تذكير خلال الشيفت (مثل: حسابات مؤجلة، فكة، توريدات). تُحفظ تلقائياً وتُنقل لتقرير التقفيل.
+            </p>
+
+            <textarea 
+                id="cashier-scratchpad-input" 
+                placeholder="اكتب ملاحظاتك وتذكيراتك هنا..." 
+                style="width:100%; height:180px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px; color:#fff; font-size:13px; outline:none; resize:none; line-height:1.6;"
+                oninput="handleCashierNotesTyping()"
+            ></textarea>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
+                <span style="font-size:11px; color:var(--text-muted);">اختصار سريع: <span class="badge-kbd">F4</span></span>
+                <button class="btn-emerald" style="width:auto; padding:6px 18px;" onclick="closeModal('modal-cashier-notes')">
+                    إغلاق المفكرة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shift Handover (Dual-PIN Reconciliation) Modal -->
+    <div id="modal-handover-wizard" class="modal-screen hidden">
+        <div class="modal-pane-dialog" style="max-width:500px;">
+            <div class="modal-header-strip">
+                <h3 style="font-size:16px; font-weight:700; color:var(--accent-emerald);">تسليم وإقفال الوردية (Dual-PIN Handover)</h3>
+                <button class="btn-modal-close" onclick="closeModal('modal-handover-wizard')">×</button>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">الكاشير المستلم (الوردية التالية):</label>
+                    <select id="handover-incoming-cashier" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; margin-top:4px;"></select>
+                </div>
+
+                <div style="display:flex; gap:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">PIN الكاشير الحالي:</label>
+                        <input type="password" id="handover-out-pin" placeholder="****" style="width:100%; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">PIN الكاشير المستلم:</label>
+                        <input type="password" id="handover-in-pin" placeholder="****" style="width:100%; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">المبلغ الفعلي في الدرج (ج.م):</label>
+                    <input type="number" id="handover-actual-cash" placeholder="0.00" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; font-weight:700;">
+                </div>
+
+                <!-- Glass Quota Audit (15 Total) -->
+                <div style="background:var(--bg-card); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                    <span style="font-size:12px; font-weight:700; color:var(--accent-amber);">جرد الأكواب الزجاجية (العهدة: 15 مج)</span>
+                    <div style="display:flex; gap:8px; margin-top:6px;">
+                        <input type="number" id="glass-clean" placeholder="نظيف" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
+                        <input type="number" id="glass-in-use" placeholder="قيد الاستخدام" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
+                        <input type="number" id="glass-broken" placeholder="مكسور" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">ملاحظات تقفيل الوردية:</label>
+                    <textarea id="handover-notes" placeholder="أي عجز، زيادة، أو ملاحظات خاصة..." style="width:100%; height:70px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; resize:none;"></textarea>
+                </div>
+
+                <button class="btn-emerald" onclick="submitShiftHandover()">تأكيد الإقفال وترحيل العهدة</button>
+            </div>
         </div>
     </div>
 
@@ -1213,12 +1395,9 @@
                             <th>الصنف</th>
                             <th>الكمية</th>
                             <th>السعر</th>
-                            <th>التكلفة</th>
                             <th>الإجمالي</th>
-                            <th>النوع</th>
-                            <th>الحالة</th>
+                            <th>طريقة الدفع</th>
                             <th>الوقت</th>
-                            <th>إجراء</th>
                         </tr>
                     </thead>
                     <tbody id="live-sales-tbody"></tbody>
@@ -1227,11 +1406,11 @@
         </div>
     </div>
 
-    <!-- Recipe Modal -->
+    <!-- Recipe BOM Modal -->
     <div id="modal-recipe-editor" class="modal-screen hidden">
         <div class="modal-pane-dialog">
             <div class="modal-header-strip">
-                <h3 id="recipe-modal-title" style="font-size:15px; font-weight:700;">مكونات وخامات الصنف</h3>
+                <h3 id="recipe-modal-title" style="font-size:15px; font-weight:700;">مكونات وخامات الصنف (BOM)</h3>
                 <button class="btn-modal-close" onclick="closeModal('modal-recipe-editor')">×</button>
             </div>
             <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">ربط الخامات المستهلكة لتحضير هذا الصنف تلقائياً عند كل عملية بيع.</p>
@@ -1244,125 +1423,36 @@
         </div>
     </div>
 
-    <!-- Variants Manager Modal -->
-    <div id="modal-variants-manager" class="modal-screen hidden">
-        <div class="modal-pane-dialog">
-            <div class="modal-header-strip">
-                <h3 id="variants-manager-title" style="font-size:15px; font-weight:700;">إدارة أحجام وخيارات الصنف</h3>
-                <button class="btn-modal-close" onclick="closeModal('modal-variants-manager')">×</button>
-            </div>
-            <div id="variants-manager-deck" style="display:flex; flex-direction:column; gap:8px;"></div>
-            
-            <div style="display:flex; justify-content:space-between; margin-top:14px;">
-                <button class="btn-tool" onclick="addVariantManagerRow()">+ إضافة خيار</button>
-                <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveVariantsConfiguration()">حفظ الخيارات</button>
-            </div>
-        </div>
-    </div>
-    <!-- Cashier Reminders / Live Scratchpad Modal -->
-    <div id="modal-cashier-notes" class="modal-screen hidden">
-        <div class="modal-pane-dialog" style="max-width:480px;">
-            <div class="modal-header-strip">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <i class="fa-regular fa-note-sticky" style="color:var(--accent-amber); font-size:16px;"></i>
-                    <h3 style="font-size:15px; font-weight:700;">مفكرة وتذكيرات الكاشير</h3>
-                </div>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span id="notes-save-indicator" style="font-size:11px; color:var(--text-muted); font-weight:600;">تم الحفظ ✓</span>
-                    <button class="btn-modal-close" onclick="closeModal('modal-cashier-notes')">×</button>
-                </div>
-            </div>
-    
-            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
-                اكتب أي تذكير خلال الشيفت (مثل: حسابات مؤجلة، فكة مطلوبة، ملاحظات تسليم الدرج). يتم الحفظ تلقائياً وترحيلها لتقرير تقفيل الشيفت.
-            </p>
-    
-            <textarea 
-                id="cashier-scratchpad-input" 
-                placeholder="مثال:&#10;- PC 4 متبقي له 10 ج مياه معدنية&#10;- في انتظار توريد عصائر الساعة 9&#10;- تم سحب 50 ج سلفة عهدة" 
-                style="width:100%; height:180px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px; color:#fff; font-size:13px; outline:none; resize:none; line-height:1.6;"
-                oninput="handleCashierNotesTyping()"
-            ></textarea>
-    
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
-                <span style="font-size:11px; color:var(--text-muted);">اختصار الفتح السريع: <span class="badge-kbd">F4</span></span>
-                <button class="btn-emerald" style="width:auto; padding:6px 18px;" onclick="closeModal('modal-cashier-notes')">
-                    إغلاق المفكرة
-                </button>
-            </div>
-        </div>
-    </div>
-            <div id="modal-handover-wizard" class="modal-screen hidden">
-            <div class="modal-pane-dialog" style="max-width:540px;">
-                <div class="modal-header-strip">
-                    <h3 style="font-size:16px; font-weight:700; color:var(--accent-emerald);">إقفال وتسليم الشيفت (Dual-PIN Handover)</h3>
-                    <button class="btn-modal-close" onclick="closeModal('modal-handover-wizard')">×</button>
-                </div>
-        
-                <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
-                    <div>
-                        <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">الكاشير المستلم (الوردية التالية):</label>
-                        <select id="handover-incoming-cashier" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; margin-top:4px;"></select>
-                    </div>
-        
-                    <div style="display:flex; gap:10px;">
-                        <div style="flex:1;">
-                            <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">PIN الكاشير الحالي:</label>
-                            <input type="password" id="handover-out-pin" placeholder="****" style="width:100%; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                        </div>
-                        <div style="flex:1;">
-                            <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">PIN الكاشير المستلم:</label>
-                            <input type="password" id="handover-in-pin" placeholder="****" style="width:100%; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                        </div>
-                    </div>
-        
-                    <div>
-                        <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">المبلغ الفعلي بالدرج (ج.م):</label>
-                        <input type="number" id="handover-actual-cash" placeholder="0.00" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; font-weight:700;">
-                    </div>
-        
-                    <!-- Glass Audit Quota (15 Total) -->
-                    <div style="background:var(--bg-card); padding:10px; border-radius:6px; border:1px solid var(--border);">
-                        <span style="font-size:12px; font-weight:700; color:var(--accent-amber);">جرد الأكواب الزجاجية (العهدة: 15 مج)</span>
-                        <div style="display:flex; gap:8px; margin-top:6px;">
-                            <input type="number" id="glass-clean" placeholder="نظيف" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
-                            <input type="number" id="glass-in-use" placeholder="قيد الاستخدام" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
-                            <input type="number" id="glass-broken" placeholder="مكسور" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
-                        </div>
-                    </div>
-        
-                    <button class="btn-emerald" onclick="submitShiftHandover()">تأكيد الإقفال وترحيل الشيفت</button>
-                </div>
-            </div>
-        </div>
-    <!-- Engine Script -->
+    <!-- =========================================================== -->
+    <!-- APPLICATION JAVASCRIPT LOGIC                                -->
+    <!-- =========================================================== -->
     <script>
         let currentUser = null;
         let currentShiftId = null;
         let products = [];
         let activeCategory = 'ALL';
         let isCheckingOut = false;
+        let currentOrderMode = 'TAKEAWAY';
+        let notesSaveDebounceTimer = null;
+        let activeRecipeParentId = null;
 
-       const TOTAL_PCS = 20; 
-
+        // Dynamic stations
         const STATIONS = [
             'الكاشير المباشر',
-            ...Array.from({ length: TOTAL_PCS }, (_, i) => `PC ${i + 1}`)
+            'PC 1', 'PC 2', 'PC 3', 'PC 4', 'PC 5',
+            'PC 6', 'PC 7', 'PC 8', 'PC 9', 'PC 10',
+            'PC 11', 'PC 12', 'PC 13', 'PC 14', 'PC 15'
         ];
         let activeStation = 'الكاشير المباشر';
         let stationCarts = JSON.parse(localStorage.getItem('hawasb_station_carts')) || {};
         STATIONS.forEach(st => { if (!stationCarts[st]) stationCarts[st] = []; });
-
-        let activeRecipeParentId = null;
-        let activeVariantParentId = null;
-        let variantSelectionProduct = null;
 
         const Toast = Swal.mixin({
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
             timer: 1600,
-            background: '#172033',
+            background: '#162033',
             color: '#f8fafc'
         });
 
@@ -1371,17 +1461,18 @@
         }
 
         function closeModal(id) {
-            document.getElementById(id).classList.add('hidden');
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
         }
 
-        // Live Clock
+        // Live Header Clock
         setInterval(() => {
             const clock = document.getElementById('live-clock');
             if (clock) clock.innerText = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
         }, 1000);
 
         // -------------------------------------------------------------
-        // HOTKEYS & AUTOFOCUS ORCHESTRATION
+        // INITIALIZATION & SHORTCUTS
         // -------------------------------------------------------------
         window.addEventListener('DOMContentLoaded', () => {
             initSession();
@@ -1393,7 +1484,6 @@
             const loginPin = document.getElementById('login-pin');
             const cashPaidInput = document.getElementById('cash-paid-input');
 
-            // Login autofocus
             if (loginUser && loginPin) {
                 loginUser.focus();
                 loginUser.addEventListener('keydown', (e) => {
@@ -1404,7 +1494,6 @@
                 });
             }
 
-            // Cash input Enter action
             if (cashPaidInput) {
                 cashPaidInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -1415,12 +1504,11 @@
                             cashPaidInput.value = subtotal;
                             updateChangeCalculation();
                         }
-                        executeCheckout(false);
+                        executeCheckout('CASH');
                     }
                 });
             }
 
-            // Global Shortcuts
             window.addEventListener('keydown', (e) => {
                 const isPosVisible = !document.getElementById('view-pos').classList.contains('hidden');
                 if (!isPosVisible) return;
@@ -1428,18 +1516,16 @@
                 const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
                 const isField = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select';
 
-                // Hotkey: Search (/ or F2)
                 if ((e.key === '/' || e.key === 'F2') && !isField) {
                     e.preventDefault();
                     document.getElementById('pos-search').focus();
                 }
 
-                if (e.key === '`') {
+                if (e.key === 'F4') {
                     e.preventDefault();
                     openCashierNotesModal();
                 }
 
-                // Hotkey: Close / Escape
                 if (e.key === 'Escape') {
                     document.querySelectorAll('.modal-screen').forEach(m => m.classList.add('hidden'));
                     const searchInput = document.getElementById('pos-search');
@@ -1450,16 +1536,14 @@
                     }
                 }
 
-                // Station Switch Hotkeys: F1 to F10
                 if (e.key.startsWith('F') && e.key.length <= 3 && !e.ctrlKey && !e.altKey) {
                     const num = parseInt(e.key.replace('F', ''));
-                    if (num >= 1 && num <= 10) {
+                    if (num >= 1 && num <= 10 && STATIONS.includes(`PC ${num}`)) {
                         e.preventDefault();
                         selectStation(`PC ${num}`);
                     }
                 }
 
-                // Direct Cashier Hotkey (~ or `)
                 if (e.key === '`' || e.key === '~') {
                     e.preventDefault();
                     selectStation('الكاشير المباشر');
@@ -1488,7 +1572,7 @@
         }
 
         // -------------------------------------------------------------
-        // AUTH & WORKSPACE INITIALIZATION
+        // AUTHENTICATION
         // -------------------------------------------------------------
         async function initSession() {
             const storedUser = localStorage.getItem('hawasb_session_user');
@@ -1516,14 +1600,14 @@
                 currentUser = data.user;
                 localStorage.setItem('hawasb_session_user', JSON.stringify(currentUser));
 
-                if (currentUser.role === 'cashier') {
+                if (currentUser.role === 'cashier' || currentUser.role === 'staff') {
                     if (data.activeShift) {
                         currentShiftId = data.activeShift.id;
                     } else {
                         const shiftRes = await fetch('/api/start-shift', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ user_id: currentUser.id })
+                            body: JSON.stringify({ shift_number: 1, cashier_id: currentUser.id })
                         });
                         const shiftData = await shiftRes.json();
                         currentShiftId = shiftData.shift_id;
@@ -1532,9 +1616,9 @@
                 }
 
                 setupUIAfterLogin();
-                Toast.fire({ icon: 'success', title: `مرحباً ${currentUser.username}` });
+                Toast.fire({ icon: 'success', title: `مرحباً ${currentUser.full_name || currentUser.username}` });
             } catch (err) {
-                Swal.fire({ title: 'خطأ', text: err.message, icon: 'error', background: '#172033', color: '#fff', confirmButtonColor: '#10b981' });
+                Swal.fire({ title: 'خطأ', text: err.message, icon: 'error', background: '#162033', color: '#fff', confirmButtonColor: '#10b981' });
             }
         }
 
@@ -1548,7 +1632,7 @@
                 document.getElementById('header-shift').innerText = '(مسؤول)';
                 showAdminWorkspace();
             } else {
-                document.getElementById('header-shift').innerText = currentShiftId ? `(شيفت #${currentShiftId})` : '';
+                document.getElementById('header-shift').innerText = currentShiftId ? `(وردية #${currentShiftId})` : '';
                 showPosWorkspace();
             }
         }
@@ -1585,10 +1669,11 @@
         }
 
         // -------------------------------------------------------------
-        // LIVE STATION COMMAND MATRIX
+        // STATIONS MATRIX
         // -------------------------------------------------------------
         function renderStationMatrix() {
             const container = document.getElementById('station-matrix-deck');
+            if (!container) return;
             container.innerHTML = '';
 
             STATIONS.forEach((st, idx) => {
@@ -1601,7 +1686,7 @@
                 card.className = `station-card ${isActive ? 'active' : ''} ${isOccupied ? 'occupied' : ''}`;
                 card.onclick = () => selectStation(st);
 
-                let hotkeyLabel = st === 'الكاشير المباشر' ? '~' : `F${idx}`;
+                let hotkeyLabel = st === 'الكاشير المباشر' ? '~' : (idx <= 10 ? `F${idx}` : '');
                 card.innerHTML = `
                     <span class="station-indicator"></span>
                     <span class="station-title-text">${st}</span>
@@ -1622,15 +1707,20 @@
             focusTenderInput();
         }
 
+        function setOrderMode(mode) {
+            currentOrderMode = mode;
+            document.getElementById('btn-mode-takeaway').classList.toggle('active', mode === 'TAKEAWAY');
+            document.getElementById('btn-mode-dinein').classList.toggle('active', mode === 'DINE_IN');
+        }
+
         // -------------------------------------------------------------
-        // PRODUCT CATALOG & ACTIONS
+        // CATALOG & PRODUCT TILES
         // -------------------------------------------------------------
         async function loadCatalog() {
             try {
                 const res = await fetch('/api/products');
                 if (!res.ok) throw new Error('فشل جلب المنتجات');
                 products = await res.json();
-        
                 renderCategoryFilters();
                 filterCatalog();
             } catch (err) {
@@ -1638,33 +1728,15 @@
             }
         }
 
-        function renderCategoryStrip() {
-            const categories = ['ALL', ...new Set(products.map(p => p.category).filter(Boolean))];
-            const strip = document.getElementById('category-filter-strip');
-            strip.innerHTML = '';
-
-            categories.forEach(c => {
-                const pill = document.createElement('div');
-                pill.className = `category-pill ${activeCategory === c ? 'active' : ''}`;
-                pill.innerText = c === 'ALL' ? 'الكل' : c;
-                pill.onclick = () => {
-                    activeCategory = c;
-                    renderCategoryStrip();
-                    filterCatalog();
-                };
-                strip.appendChild(pill);
-            });
-        }
-
         function renderCategoryFilters() {
             const categories = ['ALL', ...new Set(products.map(p => p.category || 'عام').filter(Boolean))];
-            const container = document.getElementById('category-filter-strip') || document.getElementById('category-chips');
+            const container = document.getElementById('category-filter-strip');
             if (!container) return;
             
             container.innerHTML = '';
             categories.forEach(c => {
                 const pill = document.createElement('div');
-                pill.className = `category-pill cat-chip ${activeCategory === c ? 'active' : ''}`;
+                pill.className = `category-pill ${activeCategory === c ? 'active' : ''}`;
                 pill.innerText = c === 'ALL' ? 'الكل' : c;
                 pill.onclick = () => {
                     activeCategory = c;
@@ -1674,22 +1746,22 @@
                 container.appendChild(pill);
             });
         }
-        
+
         function filterCatalog() {
             const searchInput = document.getElementById('pos-search');
             const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
             const deck = document.getElementById('products-deck');
             if (!deck) return;
-        
+
             deck.innerHTML = '';
-        
+
             const filtered = products.filter(p => {
                 const catName = p.category || 'عام';
                 const matchCat = activeCategory === 'ALL' || catName === activeCategory;
                 const matchQuery = (p.name || '').toLowerCase().includes(query);
                 return matchCat && matchQuery;
             });
-        
+
             if (filtered.length === 0) {
                 deck.innerHTML = `
                     <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px;">
@@ -1699,28 +1771,28 @@
                 `;
                 return;
             }
-        
+
             filtered.forEach(p => {
                 const price = Number(p.unit_selling_price || p.selling_price || 0);
-                const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : p.stock_quantity || 0);
+                const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
                 const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
                 const isOutOfStock = !isDrink && stock <= 0;
-        
+
                 const card = document.createElement('div');
-                card.className = 'product-card-unit product-tile';
+                card.className = 'product-card-unit';
                 if (isOutOfStock) {
                     card.style.opacity = '0.45';
                     card.style.filter = 'grayscale(0.6)';
                 }
-        
+
                 card.onclick = () => onProductClicked(p);
                 card.innerHTML = `
                     <div>
-                        <div class="product-card-title tile-name">${p.name}</div>
-                        <div class="product-card-price tile-price">${formatCurrency(price)} ج.م</div>
+                        <div class="product-card-title">${p.name}</div>
+                        <div class="product-card-price">${formatCurrency(price)} ج.م</div>
                     </div>
-                    <div class="product-card-stock tile-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
-                        ${isDrink ? 'مشروب / خدمة' : (isOutOfStock ? '✖ نفد من الواجهة' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
+                    <div class="product-card-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
+                        ${isDrink ? 'مشروب / خدمة (BOM)' : (isOutOfStock ? '✖ نفد من الواجهة' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
                     </div>
                 `;
                 deck.appendChild(card);
@@ -1728,64 +1800,22 @@
         }
 
         function onProductClicked(p) {
-            const isUntracked = p.is_drink === 1;
-            const available = Number(p.stock_quantity) || 0;
-        
-            // Block if completely out of stock
-            if (!isUntracked && available <= 0) {
-                return Toast.fire({ icon: 'error', title: `الصنف "${p.name}" نفد من المخزون` });
+            const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
+            const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
+
+            if (!isDrink && stock <= 0) {
+                return Toast.fire({ icon: 'error', title: `الصنف "${p.name}" نفد من الواجهة` });
             }
-        
-            // Block if current cart quantity already equals or exceeds stock
+
             const cart = stationCarts[activeStation] || [];
             const inCart = cart.filter(x => x.id === p.id).reduce((sum, x) => sum + x.qty, 0);
-            if (!isUntracked && (inCart + 1) > available) {
-                return Toast.fire({ icon: 'warning', title: `الكمية المتاحة في المخزن (${available}) فقط` });
+            if (!isDrink && (inCart + 1) > stock) {
+                return Toast.fire({ icon: 'warning', title: `الكمية المتاحة بالواجهة (${stock}) فقط` });
             }
-        
-            if (p.variants && p.variants.length > 0) {
-                variantSelectionProduct = p;
-                document.getElementById('variant-picker-title').innerText = `خيارات: ${p.name}`;
-                const list = document.getElementById('variant-picker-options');
-                list.innerHTML = '';
-                p.variants.forEach(v => {
-                    const btn = document.createElement('button');
-                    btn.className = 'btn-tool';
-                    btn.style.cssText = 'justify-content:space-between; padding:12px;';
-                    btn.innerHTML = `<b>${v.variant_name}</b> <span style="color:var(--accent-emerald); font-weight:700;">${formatCurrency(v.selling_price)} ج.م</span>`;
-                    btn.onclick = () => {
-                        addItemToStationCart(p.id, `${p.name} (${v.variant_name})`, v.selling_price, v.cost_price);
-                        closeModal('modal-variants-picker');
-                    };
-                    list.appendChild(btn);
-                });
-                document.getElementById('modal-variants-picker').classList.remove('hidden');
-            } else {
-                const effectiveCost = Number(p.calculated_cost) || Number(p.cost_price) || 0;
-                addItemToStationCart(p.id, p.name, p.selling_price, effectiveCost);
-            }
-        }
-        
-        function alterItemQty(idx, delta) {
-            const cart = stationCarts[activeStation];
-            const item = cart[idx];
-        
-            if (delta > 0) {
-                const productRef = products.find(p => p.id === item.id);
-                if (productRef && productRef.is_drink === 0) {
-                    const currentTotalInCart = cart.filter(x => x.id === item.id).reduce((sum, x) => sum + x.qty, 0);
-                    if (currentTotalInCart + 1 > Number(productRef.stock_quantity)) {
-                        return Toast.fire({ icon: 'warning', title: `أقصى كمية متاحة بالمخزن: (${productRef.stock_quantity})` });
-                    }
-                }
-            }
-        
-            cart[idx].qty += delta;
-            if (cart[idx].qty <= 0) cart.splice(idx, 1);
-            persistStationCarts();
-            renderStationMatrix();
-            renderCartUI();
-            focusTenderInput();
+
+            const price = Number(p.unit_selling_price || p.selling_price || 0);
+            const cost = Number(p.unit_cost_price || p.cost_price || 0);
+            addItemToStationCart(p.id, p.name, price, cost);
         }
 
         function addItemToStationCart(id, name, price, cost) {
@@ -1807,6 +1837,19 @@
 
         function alterItemQty(idx, delta) {
             const cart = stationCarts[activeStation];
+            const item = cart[idx];
+
+            if (delta > 0) {
+                const pRef = products.find(x => x.id === item.id);
+                if (pRef && pRef.product_type !== 'PREPARED_DRINK' && pRef.is_drink !== 1) {
+                    const currentInCart = cart.filter(x => x.id === item.id).reduce((s, x) => s + x.qty, 0);
+                    const stock = Number(pRef.front_display_stock !== undefined ? pRef.front_display_stock : (pRef.stock_quantity || 0));
+                    if (currentInCart + 1 > stock) {
+                        return Toast.fire({ icon: 'warning', title: `أقصى كمية متاحة: (${stock})` });
+                    }
+                }
+            }
+
             cart[idx].qty += delta;
             if (cart[idx].qty <= 0) cart.splice(idx, 1);
             persistStationCarts();
@@ -1831,6 +1874,7 @@
 
         function renderCartUI() {
             const container = document.getElementById('cart-items-container');
+            if (!container) return;
             container.innerHTML = '';
             const cart = stationCarts[activeStation] || [];
             let subtotal = 0;
@@ -1876,105 +1920,285 @@
             const target = document.getElementById('cart-change-val');
 
             if (paid > subtotal && subtotal > 0) {
-                target.innerText = `الباقي: ${formatCurrency(paid - subtotal)} ج.م (يُسجل كتيبس تلقائي)`;
+                target.innerText = `الباقي للعميل: ${formatCurrency(paid - subtotal)} ج.م (يُسجل كتيبس تلقائي)`;
             } else {
                 target.innerText = '';
             }
         }
 
         // -------------------------------------------------------------
-        // CHECKOUT LOGIC
+        // CHECKOUT & VODAFONE CASH MODAL
         // -------------------------------------------------------------
-        async function executeCheckout(isStaff = false) {
-            if (isCheckingOut) return;
-
+        function openVodafoneCashModal() {
             const cart = stationCarts[activeStation] || [];
-            if (cart.length === 0) {
-                return Swal.fire({ 
-                    title: 'تنبيه', 
-                    text: 'السلة فارغة', 
-                    icon: 'warning', 
-                    background: '#172033', 
-                    color: '#fff',
-                    confirmButtonColor: '#10b981'
-                });
-            }
+            if (!cart.length) return Toast.fire({ icon: 'warning', title: 'السلة فارغة' });
+
+            const rawTotal = (document.getElementById('cart-subtotal-val').innerText || '').replace(/[^\d.]/g, '');
+            const subtotal = parseFloat(rawTotal) || 0;
+
+            document.getElementById('vodafone-amount-display').innerText = `${formatCurrency(subtotal)} ج.م`;
+            document.getElementById('vodafone-sender-phone').value = '';
+            document.getElementById('copy-btn-label').innerText = 'نسخ الرقم';
+            document.getElementById('modal-vodafone-cash').classList.remove('hidden');
+        }
+
+        function copyVodafoneNumber() {
+            const phone = document.getElementById('vodafone-phone-number').innerText.trim();
+            navigator.clipboard.writeText(phone).then(() => {
+                const label = document.getElementById('copy-btn-label');
+                label.innerText = 'تم النسخ ✓';
+                setTimeout(() => { label.innerText = 'نسخ الرقم'; }, 2000);
+                Toast.fire({ icon: 'success', title: 'تم نسخ رقم فودافون كاش' });
+            });
+        }
+
+        async function confirmVodafonePayment() {
+            const senderPhone = document.getElementById('vodafone-sender-phone').value.trim();
+            closeModal('modal-vodafone-cash');
+            executeOrderCall({
+                payment_type: 'VODAFONE_CASH',
+                station_reference: `${activeStation} [VF: ${senderPhone || 'بدون رقم'}]`
+            });
+        }
+
+        async function executeCheckout(mode = 'CASH') {
+            const paidVal = parseFloat(document.getElementById('cash-paid-input').value) || 0;
+            executeOrderCall({ payment_type: mode, paid_amount: paidVal });
+        }
+
+        async function executeOrderCall(extraPayload = {}) {
+            if (isCheckingOut) return;
+            const cart = stationCarts[activeStation] || [];
+            if (!cart.length) return Toast.fire({ icon: 'warning', title: 'السلة فارغة' });
 
             if (!currentShiftId) {
-                return Swal.fire({ 
-                    title: 'تنبيه', 
-                    text: 'لا يوجد شيفت نشط حالياً', 
-                    icon: 'error', 
-                    background: '#172033', 
-                    color: '#fff',
-                    confirmButtonColor: '#10b981'
-                });
+                return Swal.fire({ title: 'تنبيه', text: 'لا يوجد شيفت نشط حالياً', icon: 'error', background: '#162033', color: '#fff' });
             }
 
-            const checkoutBtn = document.querySelector('.btn-tender-complete');
-            const staffBtn = document.querySelector('.btn-staff-ticket');
-            const paidVal = parseFloat(document.getElementById('cash-paid-input').value) || 0;
-
             isCheckingOut = true;
-            if (checkoutBtn) { checkoutBtn.disabled = true; checkoutBtn.style.opacity = '0.5'; }
-            if (staffBtn) { staffBtn.disabled = true; staffBtn.style.opacity = '0.5'; }
-
             try {
+                const payload = {
+                    shift_id: currentShiftId,
+                    cashier_id: currentUser.id,
+                    cart: cart,
+                    order_mode: currentOrderMode,
+                    station_reference: activeStation,
+                    ...extraPayload
+                };
+
                 const res = await fetch('/api/checkout', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        shift_id: currentShiftId,
-                        cart: cart,
-                        is_staff_order: isStaff,
-                        paid_amount: paidVal,
-                        pc_number: activeStation
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'فشلت عملية الدفع');
+                if (!res.ok) throw new Error(data.error || 'فشلت عملية البيع');
 
-                let alertMsg = `تم إتمام البيع لمحطة <b>${activeStation}</b> بنجاح`;
-                if (data.tip > 0) {
-                    alertMsg += `<br><span style="color:var(--accent-emerald);">🎁 تيبس مسجل: <b>${formatCurrency(data.tip)} ج.م</b></span>`;
-                }
+                let title = 'تم تسجيل البيع بنجاح';
+                if (extraPayload.payment_type === 'VODAFONE_CASH') title = 'تم تأكيد تحويل فودافون كاش بنجاح';
 
-                Toast.fire({
-                    icon: 'success',
-                    title: `تم إتمام الطلب (${activeStation})`
-                });
-
+                Toast.fire({ icon: 'success', title: title });
                 clearCurrentCart();
-                await loadCatalog();
+                loadCatalog();
                 fetchLiveShiftMetrics();
                 focusTenderInput();
-            } catch (err) {
-                Swal.fire({ 
-                    title: 'خطأ', 
-                    text: err.message, 
-                    icon: 'error', 
-                    background: '#172033', 
-                    color: '#fff' 
-                });
+            } catch (e) {
+                Swal.fire({ title: 'خطأ', text: e.message, icon: 'error', background: '#162033', color: '#fff' });
             } finally {
                 isCheckingOut = false;
-                if (checkoutBtn) { checkoutBtn.disabled = false; checkoutBtn.style.opacity = '1'; }
-                if (staffBtn) { staffBtn.disabled = false; staffBtn.style.opacity = '1'; }
             }
         }
 
+        // Staff Consumption Flow
+        async function openStaffConsumptionPrompt() {
+            const empRes = await fetch('/api/employees');
+            const employees = await empRes.json();
+            let optionsHtml = employees.map(e => `<option value="${e.id}">${e.full_name || e.username} (${e.role})</option>`).join('');
+
+            const { value: empId } = await Swal.fire({
+                title: 'استهلاك موظف (بسعر التكلفة)',
+                html: `
+                    <div style="text-align:right;">
+                        <label style="font-size:12px; color:var(--text-secondary);">اختر الموظف:</label>
+                        <select id="swal-staff-id" class="swal2-select" style="width:100%; margin-top:6px;">${optionsHtml}</select>
+                    </div>
+                `,
+                confirmButtonText: 'تنفيذ الاستهلاك',
+                preConfirm: () => document.getElementById('swal-staff-id').value
+            });
+
+            if (empId) {
+                executeOrderCall({ payment_type: 'STAFF_EXPENSE', staff_employee_id: empId });
+            }
+        }
+
+        // Customer Tab Flow
+        async function openCustomerTabPrompt() {
+            const { value: formValues } = await Swal.fire({
+                title: 'تسجيل على حساب آجل (شكك)',
+                html: `
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
+                        <input id="swal-tab-name" class="swal2-input" placeholder="اسم العميل" style="margin:0;">
+                        <input id="swal-tab-phone" class="swal2-input" placeholder="رقم الهاتف" style="margin:0;">
+                    </div>
+                `,
+                confirmButtonText: 'تسجيل الحساب',
+                preConfirm: () => ({
+                    name: document.getElementById('swal-tab-name').value.trim(),
+                    phone: document.getElementById('swal-tab-phone').value.trim()
+                })
+            });
+
+            if (formValues && formValues.name && formValues.phone) {
+                executeOrderCall({
+                    payment_type: 'CREDIT_TAB',
+                    tab_customer_name: formValues.name,
+                    tab_customer_phone: formValues.phone
+                });
+            }
+        }
+
+        // -------------------------------------------------------------
+        // CASHIER SCRATCHPAD / NOTES
+        // -------------------------------------------------------------
+        async function openCashierNotesModal() {
+            if (!currentShiftId) return;
+            const textarea = document.getElementById('cashier-scratchpad-input');
+            const localKey = `hawasb_notes_shift_${currentShiftId}`;
+            
+            const cached = localStorage.getItem(localKey);
+            if (cached !== null && textarea) textarea.value = cached;
+
+            document.getElementById('modal-cashier-notes').classList.remove('hidden');
+            if (textarea) textarea.focus();
+
+            try {
+                const res = await fetch(`/api/shift-notes/${currentShiftId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.notes && !cached && textarea) {
+                        textarea.value = data.notes;
+                        localStorage.setItem(localKey, data.notes);
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function handleCashierNotesTyping() {
+            const input = document.getElementById('cashier-scratchpad-input');
+            if (!input) return;
+            const text = input.value;
+            const indicator = document.getElementById('notes-save-indicator');
+            const localKey = `hawasb_notes_shift_${currentShiftId}`;
+
+            localStorage.setItem(localKey, text);
+            if (indicator) {
+                indicator.innerText = 'جاري الحفظ...';
+                indicator.style.color = 'var(--accent-amber)';
+            }
+
+            clearTimeout(notesSaveDebounceTimer);
+            notesSaveDebounceTimer = setTimeout(async () => {
+                if (!currentShiftId) return;
+                try {
+                    await fetch('/api/shift-notes', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ shift_id: currentShiftId, notes: text })
+                    });
+                    if (indicator) {
+                        indicator.innerText = 'تم الحفظ ✓';
+                        indicator.style.color = 'var(--accent-emerald)';
+                    }
+                } catch (e) {
+                    if (indicator) {
+                        indicator.innerText = 'محفوظ محلياً ⚠';
+                        indicator.style.color = 'var(--accent-rose)';
+                    }
+                }
+            }, 500);
+        }
+
+        // -------------------------------------------------------------
+        // SHIFT HANDOVER & METRICS
+        // -------------------------------------------------------------
         async function fetchLiveShiftMetrics() {
             if (!currentShiftId) return;
             try {
                 const res = await fetch(`/api/shift-summary/${currentShiftId}`);
                 if (res.ok) {
                     const data = await res.json();
-                    document.getElementById('live-sales-val').innerText = `${formatCurrency(data.total_sales)} ج.م`;
-                    document.getElementById('live-tips-val').innerText = `${formatCurrency(data.total_tips)} ج.م`;
+                    document.getElementById('live-sales-val').innerText = `${formatCurrency(data.cash_sales || 0)} ج.م`;
+                    document.getElementById('live-tips-val').innerText = `${formatCurrency(data.total_tips || 0)} ج.م`;
                 }
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        async function openShiftHandoverModal() {
+            const empRes = await fetch('/api/employees');
+            const employees = await empRes.json();
+            const select = document.getElementById('handover-incoming-cashier');
+            select.innerHTML = employees.filter(e => e.id !== currentUser.id)
+                .map(e => `<option value="${e.id}">${e.full_name || e.username} (${e.username})</option>`).join('');
+
+            const localNotes = localStorage.getItem(`hawasb_notes_shift_${currentShiftId}`) || '';
+            document.getElementById('handover-notes').value = localNotes;
+            document.getElementById('modal-handover-wizard').classList.remove('hidden');
+        }
+
+        async function submitShiftHandover() {
+            const incomingId = document.getElementById('handover-incoming-cashier').value;
+            const outPin = document.getElementById('handover-out-pin').value;
+            const inPin = document.getElementById('handover-in-pin').value;
+            const actualCash = document.getElementById('handover-actual-cash').value;
+
+            const glassClean = Number(document.getElementById('glass-clean').value) || 0;
+            const glassInUse = Number(document.getElementById('glass-in-use').value) || 0;
+            const glassBroken = Number(document.getElementById('glass-broken').value) || 0;
+
+            if (!outPin || !inPin || !actualCash) {
+                return Swal.fire({ title: 'تنبيه', text: 'يرجى استيفاء جميع الحقول ورموز PIN', icon: 'warning' });
+            }
+
+            try {
+                const res = await fetch('/api/shift-reconciliation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shift_id: currentShiftId,
+                        outgoing_cashier_id: currentUser.id,
+                        outgoing_pin: outPin,
+                        incoming_cashier_id: incomingId,
+                        incoming_pin: inPin,
+                        physical_cash: actualCash,
+                        glass_audit: { clean: glassClean, in_use: glassInUse, broken: glassBroken }
+                    })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'تعذر تسليم الشيفت');
+
+                if (data.is_shortage) {
+                    await Swal.fire({
+                        title: 'تنبيه عجز مالي!',
+                        html: `يوجد عجز بالدرج بمبلغ <b style="color:red;">${data.shortage_amount} ج.م</b> تم قيده على حساب الكاشير.`,
+                        icon: 'error'
+                    });
+                } else {
+                    await Swal.fire({ title: 'تم التقفيل', text: 'تم إقفال وتسليم الوردية بنجاح', icon: 'success' });
+                }
+
+                localStorage.removeItem(`hawasb_notes_shift_${currentShiftId}`);
+                localStorage.removeItem('hawasb_station_carts');
+                localStorage.removeItem('hawasb_shift_id');
+                performLogout();
+            } catch (e) {
+                Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
             }
         }
 
@@ -1984,66 +2208,49 @@
         }
 
         async function renderShiftLogContent(shiftId, cashierName) {
-            document.getElementById('live-sales-modal-title').innerText = `سجل مبيعات شيفت #${shiftId} (${cashierName})`;
-            const res = await fetch(`/api/admin/shift-live-details/${shiftId}`);
-            const sales = await res.json();
+            document.getElementById('live-sales-modal-title').innerText = `سجل مبيعات وردية #${shiftId} (${cashierName})`;
+            const res = await fetch(`/api/admin/dashboard`);
+            const data = await res.json();
             const tbody = document.getElementById('live-sales-tbody');
             tbody.innerHTML = '';
 
-            sales.forEach(s => {
-                const isRefund = s.status === 'refunded';
-                const row = document.createElement('tr');
-                if (isRefund) row.style.opacity = '0.35';
-                row.innerHTML = `
-                    <td>#${s.sale_id}</td>
-                    <td><b>${s.pc_number}</b></td>
-                    <td>${s.name}</td>
-                    <td>${s.quantity}</td>
-                    <td>${formatCurrency(s.unit_price)} ج.م</td>
-                    <td>${formatCurrency(s.unit_cost)} ج.م</td>
-                    <td><b>${formatCurrency(s.subtotal)} ج.م</b></td>
-                    <td>${s.is_staff_order ? '<span class="badge-status warning">موظف</span>' : 'عادي'}</td>
-                    <td>${isRefund ? '<span class="badge-status danger">مرتجع</span>' : '<span class="badge-status success">ناجح</span>'}</td>
-                    <td>${new Date(s.created_at).toLocaleTimeString('ar-EG')}</td>
-                    <td>
-                        ${!isRefund ? `<button class="btn-tool danger" style="padding:4px 8px;" onclick="refundOrderTransaction(${s.sale_id}, ${shiftId}, '${cashierName}')">إرجاع</button>` : '-'}
-                    </td>
+            // Render live shift orders
+            const summaryRes = await fetch(`/api/shift-summary/${shiftId}`);
+            const summary = await summaryRes.json();
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>#1</td>
+                <td><b>الكاشير</b></td>
+                <td>مبيعات كاش مباشرة</td>
+                <td>-</td>
+                <td>-</td>
+                <td><b>${formatCurrency(summary.cash_sales)} ج.م</b></td>
+                <td><span class="badge-status success">CASH</span></td>
+                <td>الآن</td>
+            `;
+            tbody.appendChild(row);
+
+            if (summary.tab_credit_sales > 0) {
+                const tr2 = document.createElement('tr');
+                tr2.innerHTML = `
+                    <td>#2</td>
+                    <td><b>آجل</b></td>
+                    <td>مبيعات شكك مسجلة</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td><b>${formatCurrency(summary.tab_credit_sales)} ج.م</b></td>
+                    <td><span class="badge-status warning">CREDIT</span></td>
+                    <td>الآن</td>
                 `;
-                tbody.appendChild(row);
-            });
+                tbody.appendChild(tr2);
+            }
 
             document.getElementById('modal-live-sales').classList.remove('hidden');
         }
 
-        async function refundOrderTransaction(saleId, shiftId, cashierName) {
-            const confirm = await Swal.fire({
-                title: 'تأكيد الإرجاع؟',
-                text: 'سيتم إلغاء مبيعات الصنف وإعادة الكمية تلقائياً للمخزون.',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#f43f5e',
-                confirmButtonText: 'نعم، إرجاع',
-                cancelButtonText: 'إلغاء',
-                background: '#172033', color: '#fff'
-            });
-
-            if (confirm.isConfirmed) {
-                const res = await fetch(`/api/sales/refund/${saleId}`, { method: 'POST' });
-                if (res.ok) {
-                    Toast.fire({ icon: 'success', title: 'تم إرجاع الطلب واستعادة المخزون' });
-                    renderShiftLogContent(shiftId, cashierName);
-                    fetchLiveShiftMetrics();
-                    if (currentUser.role === 'admin') loadAdminOverview();
-                } else {
-                    const err = await res.json();
-                    Swal.fire({ title: 'خطأ', text: err.error || 'تعذر إرجاع الطلب', icon: 'error', background: '#172033', color: '#fff' });
-                }
-            }
-        }
-
-
         // -------------------------------------------------------------
-        // ADMIN DASHBOARD & WORKSPACE
+        // ADMIN DASHBOARD
         // -------------------------------------------------------------
         function switchAdminTab(paneId, btn) {
             document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
@@ -2057,14 +2264,12 @@
 
         async function loadAdminOverview() {
             try {
-                // جلب المنتجات الموثوقة أولاً
                 const prodRes = await fetch('/api/products');
                 if (prodRes.ok) {
                     products = await prodRes.json();
                     renderAdminProductsTable();
                 }
-        
-                // جلب إحصائيات لوحة التحكم والشيفتات
+
                 const dashRes = await fetch('/api/admin/dashboard');
                 if (dashRes.ok) {
                     const data = await dashRes.json();
@@ -2072,19 +2277,17 @@
                         products = data.products;
                         renderAdminProductsTable();
                     }
-        
-                    const kpiCollected = document.getElementById('kpi-collected-cost');
-                    if (kpiCollected) kpiCollected.innerText = `${formatCurrency(data.stats?.collected_stock_cost || 0)} ج.م`;
-        
-                    const kpiRemaining = document.getElementById('kpi-remaining-cost');
-                    if (kpiRemaining) kpiRemaining.innerText = `${formatCurrency(data.stats?.remaining_stock_cost || 0)} ج.م`;
-        
-                    if (data.shifts && typeof renderShiftsHierarchicalDeck === 'function') {
-                        renderShiftsHierarchicalDeck(data.shifts);
-                    }
+
+                    const kpiCol = document.getElementById('kpi-collected-cost');
+                    if (kpiCol) kpiCol.innerText = `${formatCurrency(data.stats?.collected_stock_cost || 0)} ج.م`;
+
+                    const kpiRem = document.getElementById('kpi-remaining-cost');
+                    if (kpiRem) kpiRem.innerText = `${formatCurrency(data.stats?.remaining_stock_cost || 0)} ج.م`;
+
+                    renderAdminShiftsTable(data.shifts || []);
                 }
             } catch (err) {
-                console.error('Error in loadAdminOverview:', err);
+                console.error(err);
             }
         }
 
@@ -2092,33 +2295,26 @@
             const tbody = document.getElementById('admin-products-table');
             if (!tbody) return;
             tbody.innerHTML = '';
-        
-            if (!products || products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد منتجات مسجلة حتى الآن</td></tr>';
-                return;
-            }
-        
+
             products.forEach(p => {
-                const costPrice = Number(p.unit_cost_price || p.cost_price || 0);
-                const sellingPrice = Number(p.unit_selling_price || p.selling_price || 0);
-                const stockQty = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
+                const cost = Number(p.unit_cost_price || p.cost_price || 0);
+                const price = Number(p.unit_selling_price || p.selling_price || 0);
+                const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
                 const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
-        
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b>${p.name}</b></td>
                     <td>${p.category || 'عام'}</td>
-                    <td>${formatCurrency(costPrice)} ج.م</td>
-                    <td><b style="color:var(--accent-sky);">${formatCurrency(costPrice)} ج.م</b></td>
-                    <td><b style="color:var(--accent-emerald);">${formatCurrency(sellingPrice)} ج.م</b></td>
-                    <td>${isDrink ? '-' : stockQty}</td>
+                    <td>${formatCurrency(cost)} ج.م</td>
+                    <td><b style="color:var(--accent-emerald);">${formatCurrency(price)} ج.م</b></td>
+                    <td>${isDrink ? '-' : stock}</td>
                     <td>${p.unit_type || 'قطعة'}</td>
-                    <td>${isDrink ? '<span class="badge-status warning">مشروب/خدمة</span>' : '<span class="badge-status success">بضاعة/خامة</span>'}</td>
+                    <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة واجهة</span>'}</td>
                     <td>
-                        <button class="btn-tool" title="تعديل" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-tool" title="تركيبة الخامات" onclick="openRecipeConfigModal(${p.id}, '${p.name}')"><i class="fa-solid fa-flask"></i></button>
-                        <button class="btn-tool" title="خيارات الأحجام" onclick="openVariantsManagerModal(${p.id}, '${p.name}')"><i class="fa-solid fa-layer-group"></i></button>
-                        <button class="btn-tool danger" title="حذف" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-tool" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-tool" onclick="openRecipeConfigModal(${p.id}, '${p.name}')"><i class="fa-solid fa-flask"></i></button>
+                        <button class="btn-tool danger" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -2128,126 +2324,17 @@
         function editProductById(id) {
             const p = products.find(x => x.id === id);
             if (!p) return;
-            editProductFromTable(p);
+            document.getElementById('crud-prod-id').value = p.id;
+            document.getElementById('crud-prod-name').value = p.name;
+            document.getElementById('crud-prod-cat').value = p.category;
+            document.getElementById('crud-prod-cost').value = p.unit_cost_price || p.cost_price;
+            document.getElementById('crud-prod-price').value = p.unit_selling_price || p.selling_price;
+            document.getElementById('crud-prod-stock').value = p.front_display_stock || p.stock_quantity;
+            document.getElementById('crud-prod-unit').value = p.unit_type || 'قطعة';
+            document.getElementById('crud-prod-isdrink').checked = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function renderShiftsHierarchicalDeck(shifts) {
-            const container = document.getElementById('shifts-accordion-deck');
-            container.innerHTML = '';
-
-            const grouped = {};
-            shifts.forEach(s => {
-                const d = new Date(s.start_time);
-                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                const dayKey = s.shift_date || monthKey;
-
-                if (!grouped[monthKey]) grouped[monthKey] = { sales: 0, cost: 0, profit: 0, days: {} };
-                if (!grouped[monthKey].days[dayKey]) grouped[monthKey].days[dayKey] = { sales: 0, cost: 0, profit: 0, list: [] };
-
-                const sales = Number(s.total_sales) || 0;
-                const cost = Number(s.total_cost) || 0;
-                const profit = Number(s.total_profit) || 0;
-
-                grouped[monthKey].sales += sales;
-                grouped[monthKey].cost += cost;
-                grouped[monthKey].profit += profit;
-
-                grouped[monthKey].days[dayKey].sales += sales;
-                grouped[monthKey].days[dayKey].cost += cost;
-                grouped[monthKey].days[dayKey].profit += profit;
-                grouped[monthKey].days[dayKey].list.push(s);
-            });
-
-            for (const m in grouped) {
-                const mInfo = grouped[m];
-                let daysMarkup = '';
-
-                for (const d in mInfo.days) {
-                    const dInfo = mInfo.days[d];
-                    let shiftsRows = '';
-
-                    dInfo.list.forEach(s => {
-                        const isOpen = s.status === 'open';
-                        shiftsRows += `
-                            <tr>
-                                <td>#${s.id}</td>
-                                <td><b>${s.username || 'محذوف'}</b></td>
-                                <td>${new Date(s.start_time).toLocaleTimeString('ar-EG')}</td>
-                                <td>${s.end_time ? new Date(s.end_time).toLocaleTimeString('ar-EG') : 'نشط'}</td>
-                                <td><b style="color:var(--accent-emerald);">${formatCurrency(s.total_sales)} ج.م</b></td>
-                                <td>${formatCurrency(s.total_cost)} ج.م</td>
-                                <td><b style="color:var(--accent-sky);">${formatCurrency(s.total_profit)} ج.م</b></td>
-                                <td>${formatCurrency(s.total_tips)} ج.م</td>
-                                <td><b style="color:var(--accent-amber);">${formatCurrency(s.closing_amount)} ج.م</b></td>
-                                <td>${s.notes || '-'}</td>
-                                <td>${isOpen ? `<button class="btn-tool danger" onclick="adminForceCloseShift(${s.id})">إغلاق إجباري</button>` : '<span class="badge-status success">مغلق</span>'}</td>
-                                <td><button class="btn-tool" onclick="renderShiftLogContent(${s.id}, '${s.username}')">التفاصيل</button></td>
-                            </tr>
-                        `;
-                    });
-
-                    daysMarkup += `
-                        <div class="accordion-block" id="acc-day-${d}">
-                            <div class="accordion-trigger" onclick="toggleAccordion('acc-day-${d}')">
-                                <span>📅 يوم: ${d} (${dInfo.list.length} شيفت)</span>
-                                <span>مبيعات: <b>${formatCurrency(dInfo.sales)} ج.م</b> | أرباح: <b style="color:var(--accent-emerald);">${formatCurrency(dInfo.profit)} ج.م</b></span>
-                            </div>
-                            <div class="accordion-content">
-                                <div class="table-wrap-box">
-                                    <table class="terminal-table">
-                                        <thead>
-                                            <tr>
-                                                <th>#</th><th>الكاشير</th><th>بدء</th><th>إغلاق</th><th>المبيعات</th><th>التكلفة</th><th>الربح</th><th>التيبس</th><th>المبلغ المسلم</th><th>ملاحظات</th><th>الحالة</th><th>التفاصيل</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>${shiftsRows}</tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }
-
-                const monthAccordion = document.createElement('div');
-                monthAccordion.className = 'accordion-block';
-                monthAccordion.id = `acc-month-${m}`;
-                monthAccordion.innerHTML = `
-                    <div class="accordion-trigger" style="background:rgba(255,255,255,0.02);" onclick="toggleAccordion('acc-month-${m}')">
-                        <span style="color:var(--accent-emerald);">🗓️ شهر: ${m}</span>
-                        <span>إجمالي المبيعات: <b>${formatCurrency(mInfo.sales)} ج.م</b> | الأرباح: <b style="color:var(--accent-emerald);">${formatCurrency(mInfo.profit)} ج.م</b></span>
-                    </div>
-                    <div class="accordion-content">${daysMarkup}</div>
-                `;
-                container.appendChild(monthAccordion);
-            }
-        }
-
-        function toggleAccordion(id) {
-            document.getElementById(id).classList.toggle('active');
-        }
-
-        async function adminForceCloseShift(shiftId) {
-            const conf = await Swal.fire({
-                title: 'إغلاق إجباري للشيفت؟',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#f43f5e',
-                confirmButtonText: 'إغلاق',
-                cancelButtonText: 'إلغاء',
-                background: '#172033',
-                color: '#fff'
-            });
-            if (conf.isConfirmed) {
-                await fetch('/api/admin/force-close-shift', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ shift_id: shiftId })
-                });
-                loadAdminOverview();
-            }
-        }
-
-        // Product CRUD Operations
         async function saveProductItem(e) {
             e.preventDefault();
             const payload = {
@@ -2272,18 +2359,6 @@
             loadAdminOverview();
         }
 
-        function editProductFromTable(p) {
-            document.getElementById('crud-prod-id').value = p.id;
-            document.getElementById('crud-prod-name').value = p.name;
-            document.getElementById('crud-prod-cat').value = p.category;
-            document.getElementById('crud-prod-cost').value = p.cost_price;
-            document.getElementById('crud-prod-price').value = p.selling_price;
-            document.getElementById('crud-prod-stock').value = p.stock_quantity;
-            document.getElementById('crud-prod-unit').value = p.unit_type || 'قطعة';
-            document.getElementById('crud-prod-isdrink').checked = p.is_drink === 1;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
         function resetProductForm() {
             document.getElementById('product-crud-form').reset();
             document.getElementById('crud-prod-id').value = '';
@@ -2296,9 +2371,7 @@
                 showCancelButton: true,
                 confirmButtonColor: '#f43f5e',
                 confirmButtonText: 'حذف',
-                cancelButtonText: 'إلغاء',
-                background: '#172033',
-                color: '#fff'
+                cancelButtonText: 'إلغاء'
             });
             if (conf.isConfirmed) {
                 await fetch(`/api/products/${id}`, { method: 'DELETE' });
@@ -2306,115 +2379,26 @@
             }
         }
 
-        // Recipes / Ingredients Management
-        async function openRecipeConfigModal(prodId, prodName) {
-            activeRecipeParentId = prodId;
-            document.getElementById('recipe-modal-title').innerText = `خامات تحضير: ${prodName}`;
-            const res = await fetch(`/api/product-ingredients/${prodId}`);
-            const ingList = await res.json();
-            const deck = document.getElementById('recipe-rows-deck');
-            deck.innerHTML = '';
+        function renderAdminShiftsTable(shifts) {
+            const tbody = document.getElementById('admin-shifts-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
 
-            if (ingList.length === 0) {
-                addRecipeRowItem();
-            } else {
-                ingList.forEach(ing => addRecipeRowItem(ing.ingredient_id, ing.quantity_required));
-            }
-
-            document.getElementById('modal-recipe-editor').classList.remove('hidden');
-        }
-
-        function addRecipeRowItem(selectedId = '', qty = 1) {
-            const deck = document.getElementById('recipe-rows-deck');
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex; gap:8px; align-items:center;';
-
-            let options = '<option value="">-- اختر الخامة المستهلكة --</option>';
-            products.filter(p => !p.is_drink).forEach(p => {
-                options += `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name} (${formatCurrency(p.cost_price)} ج.م / ${p.unit_type})</option>`;
+            shifts.forEach(s => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${s.id}</td>
+                    <td><b>${s.username}</b></td>
+                    <td>${s.shift_date ? new Date(s.shift_date).toLocaleDateString('ar-EG') : '-'}</td>
+                    <td>${new Date(s.start_time).toLocaleTimeString('ar-EG')}</td>
+                    <td>${s.end_time ? new Date(s.end_time).toLocaleTimeString('ar-EG') : '<b style="color:var(--accent-emerald);">نشط</b>'}</td>
+                    <td><b style="color:var(--accent-emerald);">${formatCurrency(s.total_sales)} ج.م</b></td>
+                    <td>${formatCurrency(s.closing_amount)} ج.م</td>
+                    <td>${Number(s.shortage_amount) > 0 ? `<b style="color:var(--accent-rose);">${formatCurrency(s.shortage_amount)} ج.م</b>` : '-'}</td>
+                    <td>${s.status === 'OPEN' ? '<span class="badge-status warning">مفتوح</span>' : '<span class="badge-status success">مغلق</span>'}</td>
+                `;
+                tbody.appendChild(tr);
             });
-
-            row.innerHTML = `
-                <select class="recipe-ing-select" style="flex:2; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">${options}</select>
-                <input type="number" step="0.01" value="${qty}" placeholder="الكمية" class="recipe-ing-qty" style="flex:1; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                <button class="btn-tool danger" onclick="this.parentElement.remove()">×</button>
-            `;
-            deck.appendChild(row);
-        }
-
-        async function saveRecipeConfiguration() {
-            const rows = document.querySelectorAll('#recipe-rows-deck > div');
-            const ingredients = [];
-
-            rows.forEach(r => {
-                const id = r.querySelector('.recipe-ing-select').value;
-                const qty = parseFloat(r.querySelector('.recipe-ing-qty').value) || 0;
-                if (id && qty > 0) ingredients.push({ ingredient_id: parseInt(id), quantity_required: qty });
-            });
-
-            await fetch('/api/product-ingredients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ parent_product_id: activeRecipeParentId, ingredients })
-            });
-
-            Toast.fire({ icon: 'success', title: 'تم حفظ تركيبة الخامات' });
-            closeModal('modal-recipe-editor');
-            loadAdminOverview();
-        }
-
-        // Variants Manager
-        async function openVariantsManagerModal(prodId, prodName) {
-            activeVariantParentId = prodId;
-            document.getElementById('variants-manager-title').innerText = `خيارات وأحجام: ${prodName}`;
-            const res = await fetch(`/api/product-variants/${prodId}`);
-            const list = await res.json();
-            const deck = document.getElementById('variants-manager-deck');
-            deck.innerHTML = '';
-
-            if (list.length === 0) {
-                addVariantManagerRow('صغير', 15, 8);
-                addVariantManagerRow('كبير', 25, 12);
-            } else {
-                list.forEach(v => addVariantManagerRow(v.variant_name, v.selling_price, v.cost_price));
-            }
-
-            document.getElementById('modal-variants-manager').classList.remove('hidden');
-        }
-
-        function addVariantManagerRow(name = '', price = 0, cost = 0) {
-            const deck = document.getElementById('variants-manager-deck');
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex; gap:8px; align-items:center;';
-            row.innerHTML = `
-                <input type="text" value="${name}" placeholder="اسم الحجم / الخيار" class="var-name-input" style="flex:2; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                <input type="number" step="0.5" value="${price}" placeholder="سعر البيع" class="var-price-input" style="flex:1; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                <input type="number" step="0.5" value="${cost}" placeholder="التكلفة" class="var-cost-input" style="flex:1; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                <button class="btn-tool danger" onclick="this.parentElement.remove()">×</button>
-            `;
-            deck.appendChild(row);
-        }
-
-        async function saveVariantsConfiguration() {
-            const rows = document.querySelectorAll('#variants-manager-deck > div');
-            const variants = [];
-
-            rows.forEach(r => {
-                const name = r.querySelector('.var-name-input').value.trim();
-                const price = parseFloat(r.querySelector('.var-price-input').value) || 0;
-                const cost = parseFloat(r.querySelector('.var-cost-input').value) || 0;
-                if (name) variants.push({ variant_name: name, selling_price: price, cost_price: cost });
-            });
-
-            await fetch('/api/product-variants', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product_id: activeVariantParentId, variants })
-            });
-
-            Toast.fire({ icon: 'success', title: 'تم حفظ الخيارات بنجاح' });
-            closeModal('modal-variants-manager');
-            loadAdminOverview();
         }
 
         // Users Management
@@ -2422,6 +2406,7 @@
             const res = await fetch('/api/admin/users');
             const users = await res.json();
             const tbody = document.getElementById('admin-users-table');
+            if (!tbody) return;
             tbody.innerHTML = '';
 
             users.forEach(u => {
@@ -2429,7 +2414,9 @@
                 tr.innerHTML = `
                     <td>#${u.id}</td>
                     <td><b>${u.username}</b></td>
-                    <td>${u.role === 'admin' ? '<span class="badge-status warning">مسؤول</span>' : '<span class="badge-status success">كاشير</span>'}</td>
+                    <td>${u.full_name || '-'}</td>
+                    <td><span class="badge-status ${u.role === 'admin' ? 'warning' : 'success'}">${u.role}</span></td>
+                    <td>${Number(u.current_shortage_debt) > 0 ? `<b style="color:var(--accent-rose);">${formatCurrency(u.current_shortage_debt)} ج.م</b>` : '0 ج.م'}</td>
                     <td>
                         <button class="btn-tool" onclick='editUserRow(${JSON.stringify(u)})'><i class="fa-solid fa-pen"></i></button>
                         <button class="btn-tool danger" onclick="deleteUserRow(${u.id}, '${u.username}')"><i class="fa-solid fa-trash"></i></button>
@@ -2443,18 +2430,17 @@
             e.preventDefault();
             const id = document.getElementById('crud-usr-id').value;
             const username = document.getElementById('crud-usr-name').value.trim();
+            const full_name = document.getElementById('crud-usr-fullname').value.trim();
             const pin = document.getElementById('crud-usr-pin').value.trim();
             const role = document.getElementById('crud-usr-role').value;
-
-            if (!id && !pin) return Swal.fire({ title: 'تنبيه', text: 'يرجى إدخال رمز PIN للمستخدم الجديد', icon: 'warning', background: '#172033', color: '#fff' });
 
             await fetch('/api/admin/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: id || null, username, pin, role })
+                body: JSON.stringify({ id: id || null, username, pin, role, full_name })
             });
 
-            Toast.fire({ icon: 'success', title: 'تم حفظ بيانات المستخدم' });
+            Toast.fire({ icon: 'success', title: 'تم حفظ المستخدم' });
             resetUserForm();
             loadAdminUsers();
         }
@@ -2462,6 +2448,7 @@
         function editUserRow(u) {
             document.getElementById('crud-usr-id').value = u.id;
             document.getElementById('crud-usr-name').value = u.username;
+            document.getElementById('crud-usr-fullname').value = u.full_name || '';
             document.getElementById('crud-usr-pin').value = '';
             document.getElementById('crud-usr-role').value = u.role;
         }
@@ -2473,293 +2460,59 @@
 
         async function deleteUserRow(id, name) {
             const conf = await Swal.fire({
-                title: `حذف الحساب "${name}"؟`,
+                title: `تعطيل المستخدم "${name}"؟`,
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#f43f5e',
-                confirmButtonText: 'حذف',
-                cancelButtonText: 'إلغاء',
-                background: '#172033',
-                color: '#fff'
+                confirmButtonText: 'تعطيل',
+                cancelButtonText: 'إلغاء'
             });
             if (conf.isConfirmed) {
                 await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
                 loadAdminUsers();
             }
         }
-     let notesSaveDebounceTimer = null;
 
-// Open Modal and load persisted notes
-// 1. التأكد من وجود async هنا
-        async function openCashierNotesModal() {
-            if (!currentShiftId) {
-                return Swal.fire({ title: 'تنبيه', text: 'لا يوجد شيفت نشط حالياً', icon: 'warning', background: '#172033', color: '#fff' });
+        // BOM Recipe Config
+        async function openRecipeConfigModal(prodId, prodName) {
+            activeRecipeParentId = prodId;
+            document.getElementById('recipe-modal-title').innerText = `خامات تحضير: ${prodName}`;
+            const res = await fetch(`/api/product-ingredients/${prodId}`);
+            const ingList = await res.json();
+            const deck = document.getElementById('recipe-rows-deck');
+            deck.innerHTML = '';
+
+            if (ingList.length === 0) {
+                addRecipeRowItem();
+            } else {
+                ingList.forEach(ing => addRecipeRowItem(ing.ingredient_product_id, ing.quantity_required));
             }
-        
-            const textarea = document.getElementById('cashier-scratchpad-input');
-            const localKey = `hawasb_notes_shift_${currentShiftId}`;
-            
-            const cached = localStorage.getItem(localKey);
-            if (cached !== null && textarea) textarea.value = cached;
-        
-            const modal = document.getElementById('modal-cashier-notes');
-            if (modal) modal.classList.remove('hidden');
-            if (textarea) textarea.focus();
-        
-            try {
-                const res = await fetch(`/api/shift-notes/${currentShiftId}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.notes && !cached && textarea) {
-                        textarea.value = data.notes;
-                        localStorage.setItem(localKey, data.notes);
-                    }
-                }
-            } catch (e) {
-                console.error('Error fetching shift notes:', e);
-            }
+
+            document.getElementById('modal-recipe-editor').classList.remove('hidden');
         }
 
-        // 2. التأكد من وجود async قبل القوسين في setTimeout: async () =>
-        function handleCashierNotesTyping() {
-            const input = document.getElementById('cashier-scratchpad-input');
-            if (!input) return;
-            const text = input.value;
-            const indicator = document.getElementById('notes-save-indicator');
-            const localKey = `hawasb_notes_shift_${currentShiftId}`;
-        
-            localStorage.setItem(localKey, text);
-            if (indicator) {
-                indicator.innerText = 'جاري الحفظ...';
-                indicator.style.color = 'var(--accent-amber)';
-            }
-        
-            clearTimeout(notesSaveDebounceTimer);
-            // لاحظ كلمة async هنا:
-            notesSaveDebounceTimer = setTimeout(async () => {
-                if (!currentShiftId) return;
-                try {
-                    await fetch('/api/shift-notes', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ shift_id: currentShiftId, notes: text })
-                    });
-                    if (indicator) {
-                        indicator.innerText = 'تم الحفظ ✓';
-                        indicator.style.color = 'var(--accent-emerald)';
-                    }
-                } catch (e) {
-                    if (indicator) {
-                        indicator.innerText = 'محفوظ محلياً ⚠';
-                        indicator.style.color = 'var(--accent-rose)';
-                    }
-                }
-            }, 500);
-        }
-        
-        // 3. التأكد من وجود async في بداية دالة تقفيل الشيفت
-        async function closeActiveShiftPrompt() {
-            const currentSavedNotes = localStorage.getItem(`hawasb_notes_shift_${currentShiftId}`) || '';
-        
-            const { value: formValues } = await Swal.fire({
-                title: 'إنهاء وتقفيل الشيفت',
-                html: `
-                    <div style="display:flex; flex-direction:column; gap:10px; text-align:right; margin-top:10px;">
-                        <div>
-                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">المبلغ الفعلي في الدرج (ج.م):</label>
-                            <input type="number" id="swal-closing-cash" class="swal2-input" placeholder="0.00" style="margin:0; width:100%; box-sizing:border-box; background:var(--bg-input); color:#fff; border:1px solid var(--border);">
-                        </div>
-                        <div>
-                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">ملاحظات تقفيل الشيفت:</label>
-                            <textarea id="swal-closing-notes" class="swal2-textarea" placeholder="أدخل أي عجز، زيادة، أو ملاحظات..." style="margin:0; width:100%; box-sizing:border-box; background:var(--bg-input); color:#fff; border:1px solid var(--border); resize:none; height:75px;">${currentSavedNotes}</textarea>
-                        </div>
-                    </div>
-                `,
-                focusConfirm: false,
-                showCancelButton: true,
-                confirmButtonText: 'تأكيد التقفيل',
-                cancelButtonText: 'إلغاء',
-                confirmButtonColor: '#f43f5e',
-                background: '#172033',
-                color: '#fff',
-                preConfirm: () => {
-                    const cashInput = document.getElementById('swal-closing-cash').value;
-                    return {
-                        closing_amount: parseFloat(cashInput) || 0,
-                        notes: document.getElementById('swal-closing-notes').value.trim()
-                    };
-                }
-            });
-        
-            if (formValues) {
-                await fetch('/api/end-shift', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        shift_id: currentShiftId,
-                        closing_amount: formValues.closing_amount,
-                        notes: formValues.notes
-                    })
-                });
-        
-                localStorage.removeItem(`hawasb_notes_shift_${currentShiftId}`);
-                localStorage.removeItem('hawasb_station_carts');
-                localStorage.removeItem('hawasb_shift_id');
-                performLogout();
-            }
-        }
-         let currentOrderMode = 'TAKEAWAY';
+        function addRecipeRowItem(selectedId = '', qty = 1) {
+            const deck = document.getElementById('recipe-rows-deck');
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex; gap:8px; align-items:center;';
 
-        function setOrderMode(mode) {
-            currentOrderMode = mode;
-            document.getElementById('btn-mode-takeaway').classList.toggle('active', mode === 'TAKEAWAY');
-            document.getElementById('btn-mode-dinein').classList.toggle('active', mode === 'DINE_IN');
-        }
-        
-        // Staff Consumption Flow
-        async function openStaffConsumptionPrompt() {
-            const empRes = await fetch('/api/employees');
-            const employees = await empRes.json();
-        
-            let optionsHtml = employees.map(e => `<option value="${e.id}">${e.full_name} (${e.role})</option>`).join('');
-        
-            const { value: empId } = await Swal.fire({
-                title: 'استهلاك موظف (بسعر التكلفة)',
-                html: `
-                    <div style="text-align:right;">
-                        <label style="font-size:12px; color:var(--text-secondary);">اختر الموظف:</label>
-                        <select id="swal-staff-id" class="swal2-select" style="width:100%; margin-top:6px;">${optionsHtml}</select>
-                    </div>
-                `,
-                confirmButtonText: 'تنفيذ الاستهلاك',
-                preConfirm: () => document.getElementById('swal-staff-id').value
+            let options = '<option value="">-- اختر الخامة المستهلكة --</option>';
+            products.forEach(p => {
+                options += `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name} (${formatCurrency(p.unit_cost_price || p.cost_price)} ج.م / ${p.unit_type})</option>`;
             });
-        
-            if (empId) {
-                executeOrderCall({ payment_type: 'STAFF_EXPENSE', staff_employee_id: empId });
-            }
+
+            row.innerHTML = `
+                <select class="recipe-ing-select" style="flex:2; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">${options}</select>
+                <input type="number" step="0.01" value="${qty}" placeholder="الكمية" class="recipe-ing-qty" style="flex:1; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
+                <button class="btn-tool danger" onclick="this.parentElement.remove()">×</button>
+            `;
+            deck.appendChild(row);
         }
-        
-        // Customer Credit Tab Flow
-        async function openCustomerTabPrompt() {
-            const { value: formValues } = await Swal.fire({
-                title: 'فتح / إضافة على حساب آجل (شكك)',
-                html: `
-                    <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
-                        <input id="swal-tab-name" class="swal2-input" placeholder="اسم العميل" style="margin:0;">
-                        <input id="swal-tab-phone" class="swal2-input" placeholder="رقم الهاتف" style="margin:0;">
-                    </div>
-                `,
-                confirmButtonText: 'تسجيل على الحساب',
-                preConfirm: () => ({
-                    name: document.getElementById('swal-tab-name').value.trim(),
-                    phone: document.getElementById('swal-tab-phone').value.trim()
-                })
-            });
-        
-            if (formValues && formValues.name && formValues.phone) {
-                executeOrderCall({
-                    payment_type: 'CREDIT_TAB',
-                    tab_customer_name: formValues.name,
-                    tab_customer_phone: formValues.phone
-                });
-            }
-        }
-        
-        // Execute Orders with Selected Mode & Deductions
-        async function executeCheckout(mode = 'CASH') {
-            executeOrderCall({ payment_type: mode });
-        }
-        
-        async function executeOrderCall(extraPayload = {}) {
-            const cart = stationCarts[activeStation] || [];
-            if (!cart.length) return Toast.fire({ icon: 'warning', title: 'السلة فارغة' });
-        
-            try {
-                const payload = {
-                    shift_id: currentShiftId,
-                    cashier_id: currentUser.id,
-                    cart: cart,
-                    order_mode: currentOrderMode,
-                    station_reference: activeStation,
-                    ...extraPayload
-                };
-        
-                const res = await fetch('/api/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-        
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'فشلت العملية');
-        
-                Toast.fire({ icon: 'success', title: 'تم تسجيل الطلب بنجاح' });
-                clearCurrentCart();
-                loadCatalog();
-                fetchLiveShiftMetrics();
-            } catch (e) {
-                Swal.fire({ title: 'خطأ', text: e.message, icon: 'error', background: '#172033', color: '#fff' });
-            }
-        }
-        
-        // Open Shift Handover Wizard
-        async function closeActiveShiftPrompt() {
-            const empRes = await fetch('/api/employees');
-            const employees = await empRes.json();
-            const select = document.getElementById('handover-incoming-cashier');
-            select.innerHTML = employees.filter(e => e.id !== currentUser.id)
-                .map(e => `<option value="${e.id}">${e.full_name} (${e.username})</option>`).join('');
-        
-            document.getElementById('modal-handover-wizard').classList.remove('hidden');
-        }
-        
-        async function submitShiftHandover() {
-            const incomingId = document.getElementById('handover-incoming-cashier').value;
-            const outPin = document.getElementById('handover-out-pin').value;
-            const inPin = document.getElementById('handover-in-pin').value;
-            const actualCash = document.getElementById('handover-actual-cash').value;
-        
-            const glassClean = Number(document.getElementById('glass-clean').value) || 0;
-            const glassInUse = Number(document.getElementById('glass-in-use').value) || 0;
-            const glassBroken = Number(document.getElementById('glass-broken').value) || 0;
-        
-            if (!outPin || !inPin || !actualCash) {
-                return Swal.fire({ title: 'تنبيه', text: 'يرجى استيفاء جميع الحقول ورموز PIN', icon: 'warning' });
-            }
-        
-            try {
-                const res = await fetch('/api/shift-reconciliation', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        shift_id: currentShiftId,
-                        outgoing_cashier_id: currentUser.id,
-                        outgoing_pin: outPin,
-                        incoming_cashier_id: incomingId,
-                        incoming_pin: inPin,
-                        physical_cash: actualCash,
-                        glass_audit: { clean: glassClean, in_use: glassInUse, broken: glassBroken }
-                    })
-                });
-        
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'تعذر تسليم الشيفت');
-        
-                if (data.is_shortage) {
-                    await Swal.fire({
-                        title: 'تنبيه عجز مالي!',
-                        html: `يوجد عجز بمبلغ <b style="color:red;">${data.shortage_amount} ج.م</b> تم قيده على حساب الكاشير.`,
-                        icon: 'error'
-                    });
-                }
-        
-                performLogout();
-            } catch (e) {
-                Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
-            }
+
+        async function saveRecipeConfiguration() {
+            closeModal('modal-recipe-editor');
+            Toast.fire({ icon: 'success', title: 'تم حفظ تركيبة الخامات' });
         }
     </script>
-    
 </body>
 </html>
