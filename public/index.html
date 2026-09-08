@@ -1495,6 +1495,15 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             initSession();
+            setInterval(() => {
+                const isPosVisible = !document.getElementById('view-pos').classList.contains('hidden');
+                // يتحدث فقط إذا كان الكاشير مش بيكتب في خانة البحث
+                const searchInput = document.getElementById('pos-search');
+                const isSearching = searchInput && document.activeElement === searchInput && searchInput.value.trim() !== '';
+                if (isPosVisible && !isSearching) {
+                    loadCatalog();
+                }
+            }, 30000);
             bindUniversalShortcuts();
         });
 
@@ -2454,6 +2463,60 @@
                 `;
                 tbody.appendChild(tr);
             });
+            // دالة التوريد السريع بضغطة واحدة من جدول الإدارة
+            async function quickRestockInward(prodId, prodName) {
+                const { value: formValues } = await Swal.fire({
+                    title: `توريد شحنة جديدة لـ "${prodName}"`,
+                    html: `
+                        <div style="text-align:right; display:flex; flex-direction:column; gap:10px;">
+                            <div>
+                                <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">الكمية المستلمة من المورد / التاجر:</label>
+                                <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="مثال: 24" style="width:100%; margin:4px 0 0 0;">
+                            </div>
+                            <div>
+                                <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">أدخلتها فين؟</label>
+                                <select id="swal-inward-loc" class="swal2-select" style="width:100%; margin:4px 0 0 0;">
+                                    <option value="BACKROOM">المخزن الداخلي الاحتياطي</option>
+                                    <option value="FRONT_DISPLAY">الواجهة والمعروض (بيع فوري للكاشير)</option>
+                                </select>
+                            </div>
+                        </div>
+                    `,
+                    confirmButtonText: 'إضافة للرصيد فوراً',
+                    showCancelButton: true,
+                    cancelButtonText: 'إلغاء',
+                    preConfirm: () => {
+                        const qty = parseFloat(document.getElementById('swal-inward-qty').value);
+                        const loc = document.getElementById('swal-inward-loc').value;
+                        if (!qty || qty <= 0) {
+                            Swal.showValidationMessage('يرجى كتابة كمية صحيحة');
+                            return false;
+                        }
+                        return { qty, loc };
+                    }
+                });
+            
+                if (formValues) {
+                    try {
+                        const res = await fetch('/api/admin/restock-inward', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                product_id: prodId,
+                                quantity: formValues.qty,
+                                destination: formValues.loc
+                            })
+                        });
+                        const data = await res.json();
+                        if (!res.ok) throw new Error(data.error);
+            
+                        Toast.fire({ icon: 'success', title: `تمت إضافة ${formValues.qty} قطعة بنجاح` });
+                        loadAdminOverview();
+                    } catch (e) {
+                        Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
+                    }
+                }
+            }
         }
 
         function editProductById(id) {
@@ -2535,6 +2598,9 @@
                     <td>${formatCurrency(s.closing_amount)} ج.م</td>
                     <td>${Number(s.shortage_amount) > 0 ? `<b style="color:var(--accent-rose);">${formatCurrency(s.shortage_amount)} ج.م</b>` : '-'}</td>
                     <td>${s.status === 'OPEN' ? '<span class="badge-status warning">مفتوح</span>' : '<span class="badge-status success">مغلق</span>'}</td>
+                    <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id}, '${p.name}')">
+                        <i class="fa-solid fa-boxes-packing"></i> + توريد
+                    </button>
                 `;
                 tbody.appendChild(tr);
             });
