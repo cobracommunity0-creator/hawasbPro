@@ -389,6 +389,38 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
+app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                ct.id as tab_id,
+                ct.customer_name,
+                ct.remaining_balance,
+                COALESCE(SUM(o.total_cost), 0) as total_cogs_owed,
+                (ct.remaining_balance - COALESCE(SUM(o.total_cost), 0)) as total_profit_owed,
+                COALESCE(json_agg(json_build_object(
+                    'product_name', p.name,
+                    'qty', oi.quantity,
+                    'packaging', oi.packaging_name,
+                    'price', oi.subtotal_price,
+                    'cost', oi.subtotal_cost,
+                    'date', o.created_at
+                )) FILTER (WHERE p.id IS NOT NULL), '[]'::json) as items
+            FROM customer_tabs ct
+            LEFT JOIN customer_tab_orders cto ON ct.id = cto.tab_id
+            LEFT JOIN orders o ON cto.order_id = o.id
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            LEFT JOIN products p ON oi.product_id = p.id
+            WHERE ct.status != 'SETTLED'
+            GROUP BY ct.id, ct.customer_name, ct.remaining_balance
+            ORDER BY ct.id DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/products/:id', async (req, res) => {
     try {
         await pool.query('UPDATE products SET is_active = FALSE WHERE id = $1', [req.params.id]);
