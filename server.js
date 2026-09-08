@@ -72,7 +72,10 @@ async function initDB() {
                 OR (p.category = 'شيبسيات و اندومي' AND c.name = 'شيبسيات وسناكس')
             );
         `);
-
+        await pool.query(`
+            ALTER TABLE order_items ADD COLUMN IF NOT EXISTS packaging_name VARCHAR(100);
+            ALTER TABLE order_items ADD COLUMN IF NOT EXISTS packaging_cost NUMERIC(10, 4) DEFAULT 0;
+        `);
         console.log('✅ تم تصحيح الأسعار وربط الأقسام وتوليد الـ SKU بنجاح.');
     } catch (err) {
         console.error('❌ خطأ في فحص قاعدة البيانات:', err.message);
@@ -546,12 +549,12 @@ app.post('/api/stock-transfer', async (req, res) => {
 // ============================================================================
 // POS CHECKOUT & STAFF BENEFICIARIES
 // ============================================================================
+// تنفيذ البيع واحتساب تكلفة وخصم خامات وعاء التقديم (كوب / طبق / كروانة)
 app.post('/api/checkout', async (req, res) => {
     const {
         shift_id,
         cashier_id,
         cart,
-        order_mode,
         payment_type,
         staff_employee_id,
         staff_beneficiary_name,
@@ -567,23 +570,27 @@ app.post('/api/checkout', async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY'");
+        const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1");
         const frontLocationId = frontLoc.rows[0].id;
 
         let totalOrderAmount = 0;
         let totalOrderCost = 0;
 
+        // 1. التحقق من توافر بضاعة الواجهة وخامات الأوعية المطلوبة
         for (const item of cart) {
             const pRes = await client.query('SELECT * FROM products WHERE id = $1', [item.id]);
             const prod = pRes.rows[0];
 
-            let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0);
+            const packaging = item.packaging || { name: 'عادي', cost: 0, items: [] };
+            const packagingCost = Number(packaging.cost || 0);
+
+            let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0) + packagingCost;
             let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price || prod.selling_price || 0);
 
             totalOrderAmount += unitPrice * item.qty;
             totalOrderCost += unitCost * item.qty;
 
-            // التحقق من رصيد بضاعة الواجهة
+            // التحقق من الصنف المباشر
             if (prod.product_type === 'DIRECT_UNIT') {
                 const stockRes = await client.query(
                     'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
@@ -595,20 +602,18 @@ app.post('/api/checkout', async (req, res) => {
                 }
             }
 
-            // التحقق من الأكواب الورقية في حالة التيك أواي
-            if (prod.product_type === 'PREPARED_DRINK' && order_mode === 'TAKEAWAY') {
-                const cupBom = await client.query(
-                    "SELECT ingredient_product_id, quantity_required FROM product_boms WHERE parent_product_id = $1 AND rule = 'TAKEAWAY_ONLY'",
-                    [prod.id]
-                );
-                for (const b of cupBom.rows) {
-                    const cupStock = await client.query(
+            // التحقق من خامات الوعاء (أكواب / أطباق / شوك) إن وجدت
+            if (packaging.items && Array.isArray(packaging.items)) {
+                for (const packItem of packaging.items) {
+                    const packStock = await client.query(
                         'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
-                        [b.ingredient_product_id, frontLocationId]
+                        [packItem.product_id, frontLocationId]
                     );
-                    const cupsAvailable = Number(cupStock.rows[0]?.quantity || 0);
-                    if (cupsAvailable < (b.quantity_required * item.qty)) {
-                        throw new Error('الأكواب الورقية غير كافية بالواجهة لتنفيذ طلب التيك أواي');
+                    const availablePack = Number(packStock.rows[0]?.quantity || 0);
+                    const needed = Number(packItem.qty || 1) * item.qty;
+                    if (availablePack < needed) {
+                        const packInfo = await client.query('SELECT name FROM products WHERE id = $1', [packItem.product_id]);
+                        throw new Error(`رصيد "${packInfo.rows[0]?.name || 'خامة التقديم'}" بالواجهة غير كافٍ (المتاح: ${availablePack})`);
                     }
                 }
             }
@@ -619,44 +624,96 @@ app.post('/api/checkout', async (req, res) => {
 
         const orderInsert = await client.query(`
             INSERT INTO orders (shift_id, cashier_id, order_mode, payment_type, total_amount, total_cost, station_reference, status)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, 'COMPLETED') RETURNING id
-        `, [shift_id, cashier_id, order_mode || 'TAKEAWAY', payment_type || 'CASH', totalOrderAmount, totalOrderCost, station_reference || 'الكاشير المباشر']);
+            VALUES ($1, $2, 'DIRECT', $3, $4, $5, $6, 'COMPLETED') RETURNING id
+        `, [shift_id, cashier_id, payment_type || 'CASH', totalOrderAmount, totalOrderCost, station_reference || 'الكاشير المباشر']);
         const orderId = orderInsert.rows[0].id;
 
+        // 2. تسجيل العناصر وخصم خامات المنتجات والأوعية
         for (const item of cart) {
             const pRes = await client.query('SELECT * FROM products WHERE id = $1', [item.id]);
             const prod = pRes.rows[0];
 
-            let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0);
+            const packaging = item.packaging || { name: 'عادي', cost: 0, items: [] };
+            const packagingCost = Number(packaging.cost || 0);
+
+            let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0) + packagingCost;
             let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price || prod.selling_price || 0);
             
             const subtotalPrice = Number(item.qty) * unitPrice;
             const subtotalCost = Number(item.qty) * unitCost;
 
             await client.query(`
-                INSERT INTO order_items (order_id, product_id, quantity, unit_price, unit_cost, subtotal_price, subtotal_cost)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-            `, [orderId, prod.id, item.qty, unitPrice, unitCost, subtotalPrice, subtotalCost]);
+                INSERT INTO order_items (order_id, product_id, quantity, unit_price, unit_cost, subtotal_price, subtotal_cost, packaging_name, packaging_cost)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            `, [orderId, prod.id, item.qty, unitPrice, unitCost, subtotalPrice, subtotalCost, packaging.name, packagingCost]);
 
-            // خصم المخزون من الواجهة
+            // خصم الصنف المباشر
             if (prod.product_type === 'DIRECT_UNIT') {
                 await client.query(`
                     UPDATE location_inventory SET quantity = quantity - $1
                     WHERE product_id = $2 AND location_id = $3
                 `, [item.qty, prod.id, frontLocationId]);
-            } else if (prod.product_type === 'PREPARED_DRINK') {
-                const boms = await client.query('SELECT * FROM product_boms WHERE parent_product_id = $1', [prod.id]);
+            } 
+            // خصم خامات التحضير الدائمة (مثل البن/الشاي)
+            else if (prod.product_type === 'PREPARED_DRINK') {
+                const boms = await client.query("SELECT * FROM product_boms WHERE parent_product_id = $1 AND rule = 'ALWAYS'", [prod.id]);
                 for (const bom of boms.rows) {
-                    const shouldDeduct = (bom.rule === 'ALWAYS') || (bom.rule === 'TAKEAWAY_ONLY' && order_mode === 'TAKEAWAY');
-                    if (shouldDeduct) {
-                        await client.query(`
-                            UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
-                            WHERE product_id = $2 AND location_id = $3
-                        `, [bom.quantity_required * item.qty, bom.ingredient_product_id, frontLocationId]);
-                    }
+                    await client.query(`
+                        UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
+                        WHERE product_id = $2 AND location_id = $3
+                    `, [bom.quantity_required * item.qty, bom.ingredient_product_id, frontLocationId]);
+                }
+            }
+
+            // خصم خامات وعاء التقديم المختار (العلبة / الكوب / الطبق / الشوكة)
+            if (packaging.items && Array.isArray(packaging.items)) {
+                for (const packItem of packaging.items) {
+                    await client.query(`
+                        UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
+                        WHERE product_id = $2 AND location_id = $3
+                    `, [Number(packItem.qty || 1) * item.qty, packItem.product_id, frontLocationId]);
                 }
             }
         }
+
+        // استهلاك موظف أو حساب آجل
+        if (payment_type === 'STAFF_EXPENSE') {
+            const beneficiary = (staff_beneficiary_name && staff_beneficiary_name.trim()) ? staff_beneficiary_name.trim() : 'موظف';
+            await client.query(`
+                INSERT INTO staff_consumptions (order_id, shift_id, employee_id, beneficiary_name, total_cost_charged)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [orderId, shift_id, staff_employee_id || null, beneficiary, totalOrderCost]);
+        } else if (payment_type === 'CREDIT_TAB') {
+            const custName = (tab_customer_name || '').trim();
+            const custPhone = (tab_customer_phone || '').trim();
+            let tabId;
+            const existingTab = await client.query(
+                "SELECT id FROM customer_tabs WHERE TRIM(LOWER(customer_name)) = TRIM(LOWER($1)) AND status != 'SETTLED' LIMIT 1",
+                [custName]
+            );
+
+            if (existingTab.rows.length > 0) {
+                tabId = existingTab.rows[0].id;
+                await client.query('UPDATE customer_tabs SET total_debt = total_debt + $1, remaining_balance = remaining_balance + $1 WHERE id = $2', [totalOrderAmount, tabId]);
+            } else {
+                const newTab = await client.query(`
+                    INSERT INTO customer_tabs (customer_name, phone, total_debt, remaining_balance, status, origin_shift_id)
+                    VALUES ($1, $2, $3, $3, 'UNPAID', $4) RETURNING id
+                `, [custName, custPhone, totalOrderAmount, shift_id]);
+                tabId = newTab.rows[0].id;
+            }
+            await client.query('INSERT INTO customer_tab_orders (tab_id, order_id) VALUES ($1, $2)', [tabId, orderId]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, order_id: orderId, total: totalOrderAmount, tip: calculatedTip });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
 
         // استهلاك موظف أو مستفيد مخصص (مثل صاحب العمارة)
         if (payment_type === 'STAFF_EXPENSE') {
