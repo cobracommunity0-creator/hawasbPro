@@ -107,6 +107,17 @@
             box-shadow: var(--shadow-float);
             text-align: center;
         }
+        /* تثبيت فورم إضافة وتعديل الصنف أثناء التمرير */
+    .sticky-product-form {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: #141c2e !important;
+        border: 1px solid rgba(14, 165, 233, 0.35) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+        border-radius: var(--radius-lg);
+        margin-bottom: 16px;
+    }
         .login-brand-icon {
             width: 56px;
             height: 56px;
@@ -1133,22 +1144,39 @@
             </div>
 
             <!-- Products Pane -->
+<!-- Products Pane -->
             <div id="pane-products" class="admin-pane hidden">
-                <div class="admin-card-section">
-                    <h3 style="margin-bottom:12px; font-weight:700;"><i class="fa-solid fa-plus-circle" style="color:var(--accent-emerald);"></i> إضافة / تعديل صنف</h3>
+                
+                <!-- كارت الإضافة والتعديل مثبت في قمة الشاشة ويتحرك معك دائماً -->
+                <div class="admin-card-section sticky-product-form" id="product-form-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 id="form-heading-title" style="font-size:15px; font-weight:700; color:var(--accent-sky);">
+                            <i class="fa-solid fa-plus-circle"></i> إضافة / تعديل صنف
+                        </h3>
+                        <!-- أزرار سريعة تظهر إذا كان الصنف محدد للتعديل -->
+                        <div id="selected-prod-extra-tools" class="hidden" style="display:flex; gap:6px;">
+                            <button type="button" class="btn-tool" style="color:var(--accent-sky); font-weight:700;" onclick="openRecipeForCurrentEdit()">
+                                <i class="fa-solid fa-flask"></i> خامات هذا الصنف
+                            </button>
+                            <button type="button" class="btn-tool" style="color:var(--accent-amber); font-weight:700;" onclick="openVariantsForCurrentEdit()">
+                                <i class="fa-solid fa-layer-group"></i> أحجام هذا الصنف
+                            </button>
+                        </div>
+                    </div>
+
                     <form id="product-crud-form" onsubmit="saveProductItem(event)">
                         <input type="hidden" id="crud-prod-id">
                         <div class="form-grid-layout">
                             <div class="form-field-unit">
                                 <label>اسم الصنف</label>
-                                <input type="text" id="crud-prod-name" placeholder="مثال: شيبسي جامبو" required>
+                                <input type="text" id="crud-prod-name" placeholder="مثال: دوريتوس" required>
                             </div>
                             <div class="form-field-unit">
                                 <label>القسم</label>
                                 <input type="text" id="crud-prod-cat" placeholder="مثال: شيبسيات وسناكس" required>
                             </div>
                             <div class="form-field-unit">
-                                <label>سعر التكلفة المباشر</label>
+                                <label>سعر التكلفة</label>
                                 <input type="number" step="0.1" id="crud-prod-cost" placeholder="0.0" value="0">
                             </div>
                             <div class="form-field-unit">
@@ -1156,19 +1184,18 @@
                                 <input type="number" step="0.1" id="crud-prod-price" placeholder="0.0" required>
                             </div>
                             <div class="form-field-unit">
-                                <label>الكمية بالواجهة (Front)</label>
+                                <label>رصيد الواجهة</label>
                                 <input type="number" step="0.1" id="crud-prod-stock" placeholder="0" value="50">
                             </div>
                             <div class="form-field-unit">
-                                <label>الكمية بالمخزن الاحتياطي (Backroom)</label>
+                                <label>رصيد المخزن الاحتياطي</label>
                                 <input type="number" step="0.1" id="crud-prod-backstock" placeholder="0" value="100">
                             </div>
                             <div class="form-field-unit">
-                                <label>وحدة القياس</label>
+                                <label>الوحدة</label>
                                 <select id="crud-prod-unit">
                                     <option value="قطعة">قطعة</option>
                                     <option value="جرام">جرام</option>
-                                    <option value="كيلو">كيلو</option>
                                     <option value="كوب">كوب</option>
                                     <option value="علبة">علبة</option>
                                 </select>
@@ -1176,18 +1203,19 @@
                             <div class="form-field-unit" style="justify-content:center;">
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:14px;">
                                     <input type="checkbox" id="crud-prod-isdrink">
-                                    <span>مشروب محضر فوري (BOM - لا يحسب كرأس مال مستقل)</span>
+                                    <span>مشروب محضر (BOM)</span>
                                 </label>
                             </div>
                         </div>
 
-                        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
-                            <button type="button" class="btn-tool" onclick="resetProductForm()">إلغاء</button>
-                            <button type="submit" class="btn-emerald" style="width:auto; padding:8px 20px;">حفظ الصنف</button>
+                        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+                            <button type="button" class="btn-tool" onclick="resetProductForm()">إلغاء وتفريغ الخانات</button>
+                            <button type="submit" class="btn-emerald" style="width:auto; padding:7px 22px;">حفظ الصنف</button>
                         </div>
                     </form>
                 </div>
 
+                <!-- جدول الأصناف -->
                 <div class="table-wrap-box">
                     <table class="terminal-table">
                         <thead>
@@ -1196,38 +1224,14 @@
                                 <th>القسم</th>
                                 <th>التكلفة</th>
                                 <th>سعر البيع</th>
-                                <th>رصيد الواجهة</th>
-                                <th>رصيد المخزن الاحتياطي</th>
+                                <th>الواجهة</th>
+                                <th>المخزن</th>
                                 <th>الوحدة</th>
                                 <th>النوع</th>
-                                <th>إجراءات</th>
+                                <th style="min-width: 290px;">إجراءات</th>
                             </tr>
                         </thead>
                         <tbody id="admin-products-table"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Shifts Archive Pane -->
-            <div id="pane-shifts" class="admin-pane hidden">
-                <div class="table-wrap-box">
-                    <table class="terminal-table">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>الكاشير</th>
-                                <th>تاريخ الوردية</th>
-                                <th>البدء</th>
-                                <th>الإغلاق</th>
-                                <th>مبيعات الكاش</th>
-                                <th>فودافون كاش</th>
-                                <th>مبيعات الشكك</th>
-                                <th>المبلغ المسلم</th>
-                                <th>العجز</th>
-                                <th>الحالة</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-shifts-table-body"></tbody>
                     </table>
                 </div>
             </div>
@@ -2425,13 +2429,14 @@
         }
 
         // رسم جدول الأصناف في الإدارة
+        // رسم جدول أصناف الإدارة مع الأزرار الأربعة بوضوح
         function renderAdminProductsTable() {
             const tbody = document.getElementById('admin-products-table');
             if (!tbody) return;
             tbody.innerHTML = '';
 
             if (!products || products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد منتجات مسجلة أو جاري التحميل...</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد أصناف مسجلة حتى الآن</td></tr>';
                 return;
             }
 
@@ -2451,24 +2456,85 @@
                     <td>${isDrink ? '-' : `<b style="${frontStock <= 5 ? 'color:var(--accent-rose);' : ''}">${frontStock}</b>`}</td>
                     <td>${isDrink ? '-' : `<b style="color:var(--accent-amber);">${backStock}</b>`}</td>
                     <td>${p.unit_type || 'قطعة'}</td>
-                    <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة واجهة</span>'}</td>
-                    <td>
-                        <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id})">
+                    <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة</span>'}</td>
+                    <td style="white-space: nowrap;">
+                        <!-- 1. زرار توريد شحنة -->
+                        <button class="btn-tool" style="color:var(--accent-emerald); font-weight:600;" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id})">
                             <i class="fa-solid fa-boxes-packing"></i> + توريد
                         </button>
-                        <button class="btn-tool" style="color:var(--accent-sky);" title="تركيبة الخامات (BOM)" onclick="openRecipeConfigModal(${p.id}, '${p.name}')">
+                        
+                        <!-- 2. زرار الخامات المستهلكة -->
+                        <button class="btn-tool" style="color:var(--accent-sky); font-weight:700; border-color:rgba(14, 165, 233, 0.3);" title="تحديد الخامات والمكونات المستهلكة" onclick="openRecipeConfigModal(${p.id}, '${p.name}')">
                             <i class="fa-solid fa-flask"></i> خامات
                         </button>
-                        <button class="btn-tool" style="color:var(--accent-amber);" title="خيارات الأحجام والأرصدة" onclick="openVariantsManagerModal(${p.id}, '${p.name}')">
+
+                        <!-- 3. زرار الأحجام والخيارات والأرصدة -->
+                        <button class="btn-tool" style="color:var(--accent-amber); font-weight:700; border-color:rgba(245, 158, 11, 0.3);" title="إضافة أحجام (صغير/كبير) ورصيد كل حجم" onclick="openVariantsManagerModal(${p.id}, '${p.name}')">
                             <i class="fa-solid fa-layer-group"></i> أحجام
                         </button>
-                        <button class="btn-tool" title="تعديل الصنف" onclick="editProductById(${p.id})">
+
+                        <!-- 4. تعديل الصنف -->
+                        <button class="btn-tool" title="تعديل بيانات الصنف" onclick="editProductById(${p.id})">
                             <i class="fa-solid fa-pen"></i>
+                        </button>
+
+                        <!-- 5. حذف الصنف -->
+                        <button class="btn-tool danger" title="حذف الصنف" onclick="deleteProductItem(${p.id})">
+                            <i class="fa-solid fa-trash"></i>
                         </button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // عند الضغط على تعديل صنف: يتم تعبئة الفورم المثبت أعلى الشاشة مباشرة
+        function editProductById(id) {
+            const p = products.find(x => x.id === id);
+            if (!p) return;
+            document.getElementById('crud-prod-id').value = p.id;
+            document.getElementById('crud-prod-name').value = p.name;
+            document.getElementById('crud-prod-cat').value = p.category || '';
+            document.getElementById('crud-prod-cost').value = p.unit_cost_price || p.cost_price;
+            document.getElementById('crud-prod-price').value = p.unit_selling_price || p.selling_price;
+            document.getElementById('crud-prod-stock').value = p.front_display_stock || 0;
+            document.getElementById('crud-prod-backstock').value = p.backroom_stock || 0;
+            document.getElementById('crud-prod-unit').value = p.unit_type || 'قطعة';
+            document.getElementById('crud-prod-isdrink').checked = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
+
+            // إظهار أزرار الخامات والأحجام السريعة في الفورم العلوي أيضاً
+            const tools = document.getElementById('selected-prod-extra-tools');
+            if (tools) tools.classList.remove('hidden');
+
+            const title = document.getElementById('form-heading-title');
+            if (title) {
+                title.innerHTML = `<i class="fa-solid fa-pen-to-square"></i> تعديل الصنف: <b style="color:#fff;">${p.name}</b>`;
+                title.style.color = 'var(--accent-emerald)';
+            }
+        }
+
+        function resetProductForm() {
+            document.getElementById('product-crud-form').reset();
+            document.getElementById('crud-prod-id').value = '';
+            const tools = document.getElementById('selected-prod-extra-tools');
+            if (tools) tools.classList.add('hidden');
+            const title = document.getElementById('form-heading-title');
+            if (title) {
+                title.innerHTML = `<i class="fa-solid fa-plus-circle"></i> إضافة / تعديل صنف`;
+                title.style.color = 'var(--accent-sky)';
+            }
+        }
+
+        function openRecipeForCurrentEdit() {
+            const id = document.getElementById('crud-prod-id').value;
+            const name = document.getElementById('crud-prod-name').value;
+            if (id) openRecipeConfigModal(id, name);
+        }
+
+        function openVariantsForCurrentEdit() {
+            const id = document.getElementById('crud-prod-id').value;
+            const name = document.getElementById('crud-prod-name').value;
+            if (id) openVariantsManagerModal(id, name);
         }
 
         // دالة التوريد السريع بضغطة زر
@@ -2689,21 +2755,6 @@
             }
         }
 
-        function editProductById(id) {
-            const p = products.find(x => x.id === id);
-            if (!p) return;
-            document.getElementById('crud-prod-id').value = p.id;
-            document.getElementById('crud-prod-name').value = p.name;
-            document.getElementById('crud-prod-cat').value = p.category || '';
-            document.getElementById('crud-prod-cost').value = p.unit_cost_price || p.cost_price;
-            document.getElementById('crud-prod-price').value = p.unit_selling_price || p.selling_price;
-            document.getElementById('crud-prod-stock').value = p.front_display_stock || 0;
-            document.getElementById('crud-prod-backstock').value = p.backroom_stock || 0;
-            document.getElementById('crud-prod-unit').value = p.unit_type || 'قطعة';
-            document.getElementById('crud-prod-isdrink').checked = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
         async function saveProductItem(e) {
             e.preventDefault();
             const payload = {
@@ -2729,10 +2780,6 @@
             loadAdminOverview();
         }
 
-        function resetProductForm() {
-            document.getElementById('product-crud-form').reset();
-            document.getElementById('crud-prod-id').value = '';
-        }
 
         async function deleteProductItem(id, name) {
             const conf = await Swal.fire({
