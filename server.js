@@ -23,7 +23,6 @@ const pool = new Pool({
 async function initDB() {
     try {
         await pool.query(`
-            -- جدول الموظفين
             CREATE TABLE IF NOT EXISTS employees (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(50) UNIQUE NOT NULL,
@@ -36,7 +35,6 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- مواقع المخزن
             CREATE TABLE IF NOT EXISTS inventory_locations (
                 id SERIAL PRIMARY KEY,
                 code VARCHAR(30) UNIQUE NOT NULL,
@@ -44,13 +42,11 @@ async function initDB() {
                 description TEXT
             );
 
-            -- أقسام المنتجات
             CREATE TABLE IF NOT EXISTS product_categories (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) UNIQUE NOT NULL
             );
 
-            -- جدول المنتجات الرئيسي
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
                 sku VARCHAR(50) UNIQUE,
@@ -69,7 +65,6 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- أرصدة المخازن
             CREATE TABLE IF NOT EXISTS location_inventory (
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
                 location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
@@ -78,7 +73,6 @@ async function initDB() {
                 PRIMARY KEY (product_id, location_id)
             );
 
-            -- تركيبات الخامات (BOM)
             CREATE TABLE IF NOT EXISTS product_boms (
                 id SERIAL PRIMARY KEY,
                 parent_product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -87,7 +81,6 @@ async function initDB() {
                 rule VARCHAR(30) NOT NULL DEFAULT 'ALWAYS'
             );
 
-            -- خيارات الأحجام والأسعار والأرصدة (Variants)
             CREATE TABLE IF NOT EXISTS product_variants (
                 id SERIAL PRIMARY KEY,
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -97,7 +90,6 @@ async function initDB() {
                 stock_quantity NUMERIC(12, 4) NOT NULL DEFAULT 0.0000
             );
 
-            -- أوعية وطرق التقديم المخصصة ديناميكياً (Serving Options)
             CREATE TABLE IF NOT EXISTS product_serving_options (
                 id SERIAL PRIMARY KEY,
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -109,7 +101,6 @@ async function initDB() {
                 secondary_material_qty NUMERIC(10, 4) DEFAULT 1.0000
             );
 
-            -- الشيفتات والورديات
             CREATE TABLE IF NOT EXISTS shifts (
                 id SERIAL PRIMARY KEY,
                 shift_number SMALLINT NOT NULL DEFAULT 1,
@@ -123,7 +114,6 @@ async function initDB() {
                 notes TEXT
             );
 
-            -- مطابقة وتقفيل الشيفت
             CREATE TABLE IF NOT EXISTS shift_reconciliations (
                 shift_id INT PRIMARY KEY REFERENCES shifts(id) ON DELETE CASCADE,
                 expected_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
@@ -139,7 +129,6 @@ async function initDB() {
                 reconciled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- جرد أصناف التلاجة والإندومي عند كل تسليم
             CREATE TABLE IF NOT EXISTS shift_inventory_counts (
                 id SERIAL PRIMARY KEY,
                 shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
@@ -153,7 +142,6 @@ async function initDB() {
                 UNIQUE (shift_id, product_id, location_id, count_type)
             );
 
-            -- الطلبات
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
                 shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
@@ -167,7 +155,6 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- عناصر الطلبات
             CREATE TABLE IF NOT EXISTS order_items (
                 id SERIAL PRIMARY KEY,
                 order_id INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -181,7 +168,6 @@ async function initDB() {
                 packaging_cost NUMERIC(10, 4) DEFAULT 0
             );
 
-            -- استهلاك الموظفين وأصحاب العقار
             CREATE TABLE IF NOT EXISTS staff_consumptions (
                 id SERIAL PRIMARY KEY,
                 order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
@@ -192,7 +178,6 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- الحسابات الآجلة (الشكك)
             CREATE TABLE IF NOT EXISTS customer_tabs (
                 id SERIAL PRIMARY KEY,
                 customer_name VARCHAR(100) NOT NULL,
@@ -212,31 +197,17 @@ async function initDB() {
             );
         `);
 
-        // تعديلات الأمان والتأكد من الأعمدة
         await pool.query(`
             ALTER TABLE customer_tabs ALTER COLUMN phone DROP NOT NULL;
             ALTER TABLE staff_consumptions ADD COLUMN IF NOT EXISTS beneficiary_name VARCHAR(150) DEFAULT 'موظف';
             ALTER TABLE staff_consumptions ALTER COLUMN employee_id DROP NOT NULL;
             ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS stock_quantity NUMERIC(12, 4) DEFAULT 0;
 
-            -- تصحيح التكاليف والأسعار في حال وجود أصفار قديمة
-            UPDATE products 
-            SET unit_cost_price = cost_price 
-            WHERE (unit_cost_price = 0 OR unit_cost_price IS NULL) AND cost_price > 0;
+            UPDATE products SET unit_cost_price = cost_price WHERE (unit_cost_price = 0 OR unit_cost_price IS NULL) AND cost_price > 0;
+            UPDATE products SET unit_selling_price = selling_price WHERE (unit_selling_price = 0 OR unit_selling_price IS NULL) AND selling_price > 0;
+            UPDATE products SET sku = 'SKU-' || LPAD(id::text, 4, '0') WHERE sku IS NULL OR sku = '';
 
-            UPDATE products 
-            SET unit_selling_price = selling_price 
-            WHERE (unit_selling_price = 0 OR unit_selling_price IS NULL) AND selling_price > 0;
-
-            -- توليد أكواد SKU تلقائية
-            UPDATE products 
-            SET sku = 'SKU-' || LPAD(id::text, 4, '0') 
-            WHERE sku IS NULL OR sku = '';
-
-            -- ربط category_id بجدول الأقسام
-            UPDATE products p
-            SET category_id = c.id
-            FROM product_categories c
+            UPDATE products p SET category_id = c.id FROM product_categories c
             WHERE p.category_id IS NULL AND (
                 p.category = c.name 
                 OR (p.category = '1' AND c.name = 'خامات ومواد تغليف')
@@ -246,7 +217,6 @@ async function initDB() {
             );
         `);
 
-        // المواقع والمستخدمين الافتراضيين
         await pool.query(`
             INSERT INTO inventory_locations (code, name, description) VALUES
             ('BACKROOM', 'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
@@ -261,7 +231,7 @@ async function initDB() {
             ON CONFLICT (username) DO NOTHING;
         `);
 
-        console.log('✅ تم إعداد وفحص وتحديث كافة جداول النظام بنجاح.');
+        console.log('✅ تم إعداد وفحص وتحديث جداول النظام بنجاح.');
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
     }
@@ -269,7 +239,7 @@ async function initDB() {
 initDB();
 
 // ============================================================================
-// تسجيل الدخول والمستخدمين
+// تسجيل الدخول
 // ============================================================================
 app.post('/api/login', async (req, res) => {
     const { username, pin } = req.body;
@@ -298,7 +268,7 @@ app.get('/api/employees', async (req, res) => {
 });
 
 // ============================================================================
-// المنتجات والمخزون
+// جلب المنتجات محملة مسبقاً بالأحجام والأوعية (سرعة استجابة فائقة 0ms)
 // ============================================================================
 app.get('/api/products', async (req, res) => {
     try {
@@ -318,7 +288,36 @@ app.get('/api/products', async (req, res) => {
                 COALESCE(li_front.quantity, 0) AS front_display_stock,
                 COALESCE(li_front.quantity, 0) AS stock_quantity,
                 COALESCE(li_back.quantity, 0) AS backroom_stock,
-                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END AS is_drink
+                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END AS is_drink,
+                COALESCE((
+                    SELECT json_agg(json_build_object(
+                        'id', pv.id,
+                        'variant_name', pv.variant_name,
+                        'selling_price', pv.selling_price,
+                        'cost_price', pv.cost_price,
+                        'stock_quantity', pv.stock_quantity
+                    ))
+                    FROM product_variants pv WHERE pv.product_id = p.id
+                ), '[]'::json) AS variants,
+                COALESCE((
+                    SELECT json_agg(json_build_object(
+                        'id', so.id,
+                        'option_name', so.option_name,
+                        'extra_price', so.extra_price,
+                        'material_id', so.material_id,
+                        'material_qty', so.material_qty,
+                        'material_name', p1.name,
+                        'material_cost', COALESCE(NULLIF(p1.unit_cost_price, 0), p1.cost_price, 0),
+                        'secondary_material_id', so.secondary_material_id,
+                        'secondary_material_qty', so.secondary_material_qty,
+                        'secondary_material_name', p2.name,
+                        'secondary_material_cost', COALESCE(NULLIF(p2.unit_cost_price, 0), p2.cost_price, 0)
+                    ))
+                    FROM product_serving_options so
+                    LEFT JOIN products p1 ON so.material_id = p1.id
+                    LEFT JOIN products p2 ON so.secondary_material_id = p2.id
+                    WHERE so.product_id = p.id
+                ), '[]'::json) AS serving_options
             FROM products p
             LEFT JOIN product_categories c ON p.category_id = c.id
             LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
@@ -403,7 +402,7 @@ app.delete('/api/products/:id', async (req, res) => {
     }
 });
 
-// توريد شحنة جديدة (+ Restock)
+// توريد شحنة جديدة
 app.post('/api/admin/restock-inward', async (req, res) => {
     const { product_id, quantity, destination } = req.body;
     const client = await pool.connect();
@@ -432,9 +431,7 @@ app.post('/api/admin/restock-inward', async (req, res) => {
     }
 });
 
-// ============================================================================
-// مسارات خيارات التقديم والأوعية المخصصة (Serving Options)
-// ============================================================================
+// مسارات الأوعية والخامات والأحجام
 app.get('/api/product-serving-options/:productId', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -493,9 +490,6 @@ app.post('/api/product-serving-options/:productId', async (req, res) => {
     }
 });
 
-// ============================================================================
-// تركيبات الخامات (BOM) وخيارات الأحجام (Variants)
-// ============================================================================
 app.get('/api/product-ingredients/:id', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -588,9 +582,7 @@ app.post('/api/product-variants/:id', async (req, res) => {
     }
 });
 
-// ============================================================================
-// تنفيذ البيع واحتساب التكاليف والأوعية (Checkout Engine)
-// ============================================================================
+// تنفيذ البيع
 app.post('/api/checkout', async (req, res) => {
     const {
         shift_id,
@@ -633,7 +625,6 @@ app.post('/api/checkout', async (req, res) => {
             totalOrderAmount += unitPrice * item.qty;
             totalOrderCost += unitCost * item.qty;
 
-            // التحقق من توافر رصيد بضاعة الواجهة
             if (prod.product_type === 'DIRECT_UNIT') {
                 const stockRes = await client.query(
                     'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
@@ -645,7 +636,6 @@ app.post('/api/checkout', async (req, res) => {
                 }
             }
 
-            // التحقق من خامات الوعاء المختار
             if (opt) {
                 if (opt.material_id) {
                     const mStock = await client.query('SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE', [opt.material_id, frontLocationId]);
@@ -693,15 +683,12 @@ app.post('/api/checkout', async (req, res) => {
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             `, [orderId, prod.id, item.qty, unitPrice, unitCost, subtotalPrice, subtotalCost, optName, optCost]);
 
-            // خصم الصنف المباشر
             if (prod.product_type === 'DIRECT_UNIT') {
                 await client.query(`
                     UPDATE location_inventory SET quantity = quantity - $1
                     WHERE product_id = $2 AND location_id = $3
                 `, [item.qty, prod.id, frontLocationId]);
-            } 
-            // خصم خامات التحضير
-            else if (prod.product_type === 'PREPARED_DRINK') {
+            } else if (prod.product_type === 'PREPARED_DRINK') {
                 const boms = await client.query("SELECT * FROM product_boms WHERE parent_product_id = $1 AND rule = 'ALWAYS'", [prod.id]);
                 for (const bom of boms.rows) {
                     await client.query(`
@@ -711,7 +698,6 @@ app.post('/api/checkout', async (req, res) => {
                 }
             }
 
-            // خصم خامات الوعاء المختار
             if (opt) {
                 if (opt.material_id) {
                     await client.query(`
@@ -728,16 +714,13 @@ app.post('/api/checkout', async (req, res) => {
             }
         }
 
-        // تسجيل استهلاك موظف / صاحب العمارة
         if (payment_type === 'STAFF_EXPENSE') {
             const beneficiary = (staff_beneficiary_name && staff_beneficiary_name.trim()) ? staff_beneficiary_name.trim() : 'موظف';
             await client.query(`
                 INSERT INTO staff_consumptions (order_id, shift_id, employee_id, beneficiary_name, total_cost_charged)
                 VALUES ($1, $2, $3, $4, $5)
             `, [orderId, shift_id, staff_employee_id || null, beneficiary, totalOrderCost]);
-        } 
-        // تسجيل حساب شكك (بالاسم فقط بدون هاتف إجباري)
-        else if (payment_type === 'CREDIT_TAB') {
+        } else if (payment_type === 'CREDIT_TAB') {
             const custName = (tab_customer_name || '').trim();
             const custPhone = (tab_customer_phone || '').trim();
             let tabId;
@@ -769,9 +752,7 @@ app.post('/api/checkout', async (req, res) => {
     }
 });
 
-// ============================================================================
-// الشيفتات وتسليم الوردية
-// ============================================================================
+// الشيفتات وجرد التلاجة
 app.get('/api/critical-handover-items', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -841,7 +822,6 @@ app.get('/api/shift-summary/:shift_id', async (req, res) => {
     }
 });
 
-// تسليم الوردية بدون PIN نهائياً
 app.post('/api/shift-reconciliation', async (req, res) => {
     const { shift_id, outgoing_cashier_id, incoming_cashier_id, physical_cash, counts, notes } = req.body;
     const client = await pool.connect();
@@ -908,7 +888,6 @@ app.post('/api/shift-reconciliation', async (req, res) => {
     }
 });
 
-// مفكرة الكاشير (F4)
 app.post('/api/shift-notes', async (req, res) => {
     const { shift_id, notes } = req.body;
     try {
@@ -928,9 +907,7 @@ app.get('/api/shift-notes/:shift_id', async (req, res) => {
     }
 });
 
-// ============================================================================
-// لوحة تحكم الإدارة الشاملة (الأرباح والمخزون والورديات)
-// ============================================================================
+// لوحة الإدارة
 app.get('/api/admin/dashboard', async (req, res) => {
     try {
         const valuationRes = await pool.query(`
@@ -1041,7 +1018,6 @@ app.get('/api/admin/dashboard', async (req, res) => {
     }
 });
 
-// المستخدمين
 app.get('/api/admin/users', async (req, res) => {
     try {
         const result = await pool.query('SELECT id, username, full_name, role, current_shortage_debt FROM employees WHERE is_active = TRUE ORDER BY id ASC');
@@ -1086,4 +1062,4 @@ app.get('*', (req, res) => {
     res.sendFile(indexPath);
 });
 
-app.listen(PORT, () => console.log(`🚀 النظام يعمل بنجاح على المنفذ ${PORT} - حواسب كافيه`));
+app.listen(PORT, () => console.log(`🚀 النظام يعمل بنجاح فائق على المنفذ ${PORT} - حواسب كافيه`));
