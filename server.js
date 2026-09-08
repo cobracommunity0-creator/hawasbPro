@@ -511,22 +511,22 @@ app.get('/api/admin/shifts-archive', async (req, res) => {
             SELECT 
                 s.id AS shift_id,
                 s.shift_number,
-                s.shift_date,
+                TO_CHAR(COALESCE(s.start_time, s.shift_date::timestamp), 'YYYY-MM-DD') AS formatted_date,
                 TO_CHAR(s.start_time, 'HH:MI AM') AS start_time_str,
                 TO_CHAR(s.end_time, 'HH:MI AM') AS end_time_str,
                 s.status,
-                s.starting_cash_float,
+                COALESCE(s.starting_cash_float, 0)::float AS starting_cash_float,
                 COALESCE(e1.full_name, 'غير محدد') AS outgoing_cashier_name,
                 COALESCE(e2.full_name, 'غير محدد') AS incoming_cashier_name,
-                COALESCE(sr.expected_cash, 0) AS expected_cash,
-                COALESCE(sr.actual_physical_cash, 0) AS actual_physical_cash,
-                COALESCE(sr.cash_variance, 0) AS cash_variance,
-                COALESCE(sr.shortage_amount, 0) AS shortage_amount,
-                COALESCE(ord.cash_sales, 0) AS cash_sales,
-                COALESCE(ord.vf_sales, 0) AS vf_sales,
-                COALESCE(ord.total_revenue, 0) AS total_revenue,
-                COALESCE(ord.total_cogs, 0) AS total_cogs,
-                COALESCE(ord.total_profit, 0) AS total_profit
+                COALESCE(sr.expected_cash, 0)::float AS expected_cash,
+                COALESCE(sr.actual_physical_cash, 0)::float AS actual_physical_cash,
+                COALESCE(sr.cash_variance, 0)::float AS cash_variance,
+                COALESCE(sr.shortage_amount, 0)::float AS shortage_amount,
+                COALESCE(ord.cash_sales, 0)::float AS cash_sales,
+                COALESCE(ord.vf_sales, 0)::float AS vf_sales,
+                COALESCE(ord.total_revenue, 0)::float AS total_revenue,
+                COALESCE(ord.total_cogs, 0)::float AS total_cogs,
+                COALESCE(ord.total_profit, 0)::float AS total_profit
             FROM shifts s
             LEFT JOIN employees e1 ON s.outgoing_cashier_id = e1.id
             LEFT JOIN employees e2 ON s.incoming_cashier_id = e2.id
