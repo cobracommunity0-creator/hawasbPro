@@ -617,10 +617,14 @@ app.post('/api/checkout', async (req, res) => {
                 VALUES ($1, $2, $3, $4, $5)
             `, [orderId, shift_id, staff_employee_id || null, beneficiary, totalOrderCost]);
         } else if (payment_type === 'CREDIT_TAB') {
+            const custName = (tab_customer_name || '').trim();
+            const custPhone = (tab_customer_phone || '').trim();
+
             let tabId;
+            // البحث عن حساب العميل المفتوح بالاسم بدلاً من رقم الهاتف
             const existingTab = await client.query(
-                "SELECT id FROM customer_tabs WHERE phone = $1 AND status != 'SETTLED'",
-                [tab_customer_phone]
+                "SELECT id FROM customer_tabs WHERE TRIM(LOWER(customer_name)) = TRIM(LOWER($1)) AND status != 'SETTLED' LIMIT 1",
+                [custName]
             );
 
             if (existingTab.rows.length > 0) {
@@ -633,7 +637,7 @@ app.post('/api/checkout', async (req, res) => {
                 const newTab = await client.query(`
                     INSERT INTO customer_tabs (customer_name, phone, total_debt, remaining_balance, status, origin_shift_id)
                     VALUES ($1, $2, $3, $3, 'UNPAID', $4) RETURNING id
-                `, [tab_customer_name, tab_customer_phone, totalOrderAmount, shift_id]);
+                `, [custName, custPhone, totalOrderAmount, shift_id]);
                 tabId = newTab.rows[0].id;
             }
 
