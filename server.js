@@ -19,13 +19,11 @@ const pool = new Pool({
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// تهيئة الجداول وحقن جميع الأصناف والبيانات الافتراضية
-// تهيئة قاعدة البيانات الجديدة بالكامل من الصفر
+// Database Architecture & Schema Migrations
 async function initDB() {
     try {
-        // 1. إنشاء كافة الجداول الأساسية
+        // Core entities
         await pool.query(`
-            -- الموظفون
             CREATE TABLE IF NOT EXISTS employees (
                 id SERIAL PRIMARY KEY,
                 username VARCHAR(50) UNIQUE NOT NULL,
@@ -38,7 +36,6 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- مواقع المخزن
             CREATE TABLE IF NOT EXISTS inventory_locations (
                 id SERIAL PRIMARY KEY,
                 code VARCHAR(30) UNIQUE NOT NULL,
@@ -46,13 +43,11 @@ async function initDB() {
                 description TEXT
             );
 
-            -- أقسام المنتجات
             CREATE TABLE IF NOT EXISTS product_categories (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) UNIQUE NOT NULL
             );
 
-            -- المنتجات
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
                 sku VARCHAR(50) UNIQUE,
@@ -71,7 +66,6 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- أرصدة المخازن
             CREATE TABLE IF NOT EXISTS location_inventory (
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
                 location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
@@ -80,12 +74,11 @@ async function initDB() {
                 PRIMARY KEY (product_id, location_id)
             );
 
-            -- تحويلات المخزن
             CREATE TABLE IF NOT EXISTS stock_transfers (
                 id SERIAL PRIMARY KEY,
                 source_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
                 destination_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                transferred_by_user_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                transferred_by_user_id INT REFERENCES employees(id) ON DELETE SET NULL,
                 notes TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
@@ -97,7 +90,6 @@ async function initDB() {
                 quantity NUMERIC(12, 4) NOT NULL
             );
 
-            -- تركيبات الخامات (BOM)
             CREATE TABLE IF NOT EXISTS product_boms (
                 id SERIAL PRIMARY KEY,
                 parent_product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -106,7 +98,6 @@ async function initDB() {
                 rule VARCHAR(30) NOT NULL DEFAULT 'ALWAYS'
             );
 
-            -- الشيفتات وتقفيل الوردية
             CREATE TABLE IF NOT EXISTS shifts (
                 id SERIAL PRIMARY KEY,
                 shift_number SMALLINT NOT NULL DEFAULT 1,
@@ -135,30 +126,6 @@ async function initDB() {
                 reconciled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            CREATE TABLE IF NOT EXISTS glass_equipment_audits (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                quota_total INT NOT NULL DEFAULT 15,
-                clean_count INT NOT NULL DEFAULT 0,
-                in_use_count INT NOT NULL DEFAULT 0,
-                broken_count INT NOT NULL DEFAULT 0,
-                verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS shift_inventory_counts (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                count_type VARCHAR(10) NOT NULL,
-                physical_count NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                system_expected_count NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                variance_qty NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (shift_id, product_id, location_id, count_type)
-            );
-
-            -- الطلبات والمبيعات
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
                 shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
@@ -168,7 +135,7 @@ async function initDB() {
                 total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
                 total_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
                 status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
-                station_reference VARCHAR(50) DEFAULT 'الكاشير المباشر',
+                station_reference VARCHAR(150) DEFAULT 'الكاشير المباشر',
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
@@ -188,11 +155,11 @@ async function initDB() {
                 order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
                 shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
                 employee_id INT REFERENCES employees(id) ON DELETE SET NULL,
+                beneficiary_name VARCHAR(150) NOT NULL DEFAULT 'موظف',
                 total_cost_charged NUMERIC(10, 2) NOT NULL,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- الحسابات الآجلة (الشكك)
             CREATE TABLE IF NOT EXISTS customer_tabs (
                 id SERIAL PRIMARY KEY,
                 customer_name VARCHAR(100) NOT NULL,
@@ -220,111 +187,32 @@ async function initDB() {
                 payment_method VARCHAR(20) NOT NULL DEFAULT 'CASH',
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
-
-            CREATE TABLE IF NOT EXISTS petty_cash_expenses (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                employee_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                amount NUMERIC(10, 2) NOT NULL,
-                reason TEXT NOT NULL,
-                receipt_reference VARCHAR(100),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS wastage_logs (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                quantity NUMERIC(10, 4) NOT NULL,
-                unit_cost_price NUMERIC(10, 4) NOT NULL,
-                total_cost_loss NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
-                reason VARCHAR(50) NOT NULL,
-                logged_by_user_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                notes TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
         `);
 
-        // 2. إدخال الموظفين والمواقع والأقسام الافتراضية
+        // Migration safety checks
         await pool.query(`
-            INSERT INTO employees (username, pin_code, full_name, phone, role) VALUES
-            ('admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
-            ('omar',   '1111', 'عمر - وردية 1',   '01100000001', 'cashier'),
-            ('tareq',  '2222', 'طارق - وردية 2',  '01200000002', 'cashier'),
-            ('antry',  '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
-            ON CONFLICT (username) DO NOTHING;
+            ALTER TABLE staff_consumptions ADD COLUMN IF NOT EXISTS beneficiary_name VARCHAR(150) DEFAULT 'موظف';
+            ALTER TABLE staff_consumptions ALTER COLUMN employee_id DROP NOT NULL;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+            UPDATE products SET is_active = TRUE WHERE is_active IS NULL;
+        `);
 
+        // Seed default locations
+        await pool.query(`
             INSERT INTO inventory_locations (code, name, description) VALUES
-            ('BACKROOM', 'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
-            ('FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع المباشر')
+            ('BACKROOM', 'المخزن الداخلي', 'مخزن الاحتياطي والتوريدات الرئيسي'),
+            ('FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع الفوري بالكاشير')
             ON CONFLICT (code) DO NOTHING;
 
-            INSERT INTO product_categories (name) VALUES
-            ('مشروبات ساخنة'), 
-            ('مشروبات ساقعة'), 
-            ('شيبسيات وسناكس'), 
-            ('البسكويت والحلويات'), 
-            ('خامات ومواد تغليف')
-            ON CONFLICT (name) DO NOTHING;
+            INSERT INTO employees (username, pin_code, full_name, phone, role) VALUES
+            ('admin', '1234', 'مدير النظام', '01000000000', 'admin'),
+            ('omar', '1111', 'عمر - وردية 1', '01100000001', 'cashier'),
+            ('tareq', '2222', 'طارق - وردية 2', '01200000002', 'cashier'),
+            ('antry', '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
+            ON CONFLICT (username) DO NOTHING;
         `);
 
-        // 3. إدخال المنتجات الـ 37 وتوزيع المخزون
-        const pCount = await pool.query('SELECT COUNT(*) FROM products');
-        if (parseInt(pCount.rows[0].count) === 0) {
-            console.log('🔄 جاري إدخال الأصناف والمخزون الأولي للقاعدة الجديدة...');
-            await pool.query(`
-                INSERT INTO products (name, category, unit_cost_price, cost_price, unit_selling_price, selling_price, unit_type, product_type, is_active) VALUES
-                ('شاي', 'مشروبات ساخنة', 1.1, 1.1, 10, 10, 'قطعة', 'PREPARED_DRINK', TRUE),
-                ('قهوه', 'مشروبات ساخنة', 4.7, 4.7, 15, 15, 'قطعة', 'PREPARED_DRINK', TRUE),
-                ('نسكافيه 3x1', 'مشروبات ساخنة', 6.1, 6.1, 15, 15, 'قطعة', 'PREPARED_DRINK', TRUE),
-                ('نسكافيه ريتشي', 'مشروبات ساخنة', 10.3, 10.3, 20, 20, 'قطعة', 'PREPARED_DRINK', TRUE),
-                ('كوفي ميكس / كوفي بريك', 'مشروبات ساخنة', 5, 5, 15, 15, 'قطعة', 'PREPARED_DRINK', TRUE),
-                ('موهيتو', 'مشروبات ساخنة', 17.5, 17.5, 35, 35, 'قطعة', 'PREPARED_DRINK', TRUE),
-                ('فيوري', 'مشروبات ساقعة', 17.9, 17.9, 23, 23, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('بلو شارك', 'مشروبات ساقعة', 11.6, 11.6, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('تويست', 'مشروبات ساقعة', 13.3, 13.3, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('ماونتن ديو اكشن', 'مشروبات ساقعة', 11.6, 11.6, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('في كولا', 'مشروبات ساقعة', 13.5, 13.5, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('فولت', 'مشروبات ساقعة', 9.2, 9.2, 13, 13, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('مياه معدنية', 'مشروبات ساقعة', 5.5, 5.5, 8, 8, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('صن توب', 'مشروبات ساقعة', 11.1, 11.1, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('ميكس', 'مشروبات ساقعة', 11.5, 11.5, 18, 18, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('جاكوار', 'شيبسيات وسناكس', 9, 9, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('شيتوس', 'شيبسيات وسناكس', 9, 9, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('توتس', 'شيبسيات وسناكس', 10, 10, 14, 14, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('دوريتوس', 'شيبسيات وسناكس', 9, 9, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('كرانشي', 'شيبسيات وسناكس', 4.8, 4.8, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('شيبسي', 'شيبسيات وسناكس', 9.2, 9.2, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('اندومي جامبو', 'شيبسيات وسناكس', 8.6, 8.6, 20, 20, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('اندومي صغير', 'شيبسيات وسناكس', 4.5, 4.5, 15, 15, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('ماجيك', 'البسكويت والحلويات', 4.2, 4.2, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('4G', 'البسكويت والحلويات', 4.2, 4.2, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('هوهوز', 'البسكويت والحلويات', 4.2, 4.2, 6, 6, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('توينكز', 'البسكويت والحلويات', 8.3, 8.3, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('بيمبو/فريسكا موف و احمر /بسكريم', 'البسكويت والحلويات', 4.2, 4.2, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('تيبو', 'البسكويت والحلويات', 8.3, 8.3, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('تورتة', 'البسكويت والحلويات', 4.2, 4.2, 6, 6, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('مولتو', 'البسكويت والحلويات', 8.3, 8.3, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
-                ('كوب ورقي ساخن', 'خامات ومواد تغليف', 1.2, 1.2, 1.2, 1.2, 'قطعة', 'PACKAGING_MATERIAL', TRUE)
-                ON CONFLICT DO NOTHING;
-
-                -- تعبئة 50 قطعة على الواجهة لكل صنف
-                INSERT INTO location_inventory (product_id, location_id, quantity)
-                SELECT p.id, (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1), 50
-                FROM products p
-                ON CONFLICT DO NOTHING;
-
-                -- تعبئة 200 قطعة في المخزن الاحتياطي لكل صنف
-                INSERT INTO location_inventory (product_id, location_id, quantity)
-                SELECT p.id, (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1), 200
-                FROM products p
-                ON CONFLICT DO NOTHING;
-            `);
-            console.log('✅ تم إدخال الأصناف والمخزون الأولي بنجاح.');
-        }
-
-        console.log('✅ تم تجهيز قاعدة البيانات الجديدة بنجاح.');
+        console.log('✅ تم إعداد وفحص هيكل قاعدة البيانات بنجاح.');
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
     }
@@ -332,7 +220,7 @@ async function initDB() {
 initDB();
 
 // ============================================================================
-// 1. مسارات المصادقة والمستخدمين (Auth & Employees)
+// AUTH & EMPLOYEES
 // ============================================================================
 app.post('/api/login', async (req, res) => {
     const { username, pin } = req.body;
@@ -344,10 +232,7 @@ app.post('/api/login', async (req, res) => {
         const user = userRes.rows[0];
         if (!user) return res.status(401).json({ error: 'اسم المستخدم أو رمز PIN غير صحيح' });
 
-        const shiftRes = await pool.query(
-            "SELECT * FROM shifts WHERE status = 'OPEN' ORDER BY id DESC LIMIT 1"
-        );
-
+        const shiftRes = await pool.query("SELECT * FROM shifts WHERE status = 'OPEN' ORDER BY id DESC LIMIT 1");
         res.json({ user, activeShift: shiftRes.rows[0] || null });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -363,55 +248,12 @@ app.get('/api/employees', async (req, res) => {
     }
 });
 
-// Admin Users CRUD
-app.get('/api/admin/users', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT id, username, full_name, role, current_shortage_debt FROM employees WHERE is_active = TRUE ORDER BY id ASC');
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/admin/users', async (req, res) => {
-    const { id, username, pin, role, full_name } = req.body;
-    try {
-        if (id) {
-            if (pin && pin.trim() !== '') {
-                await pool.query('UPDATE employees SET username=$1, pin_code=$2, role=$3, full_name=COALESCE($4, full_name) WHERE id=$5', [username, pin, role, full_name, id]);
-            } else {
-                await pool.query('UPDATE employees SET username=$1, role=$2, full_name=COALESCE($3, full_name) WHERE id=$4', [username, role, full_name, id]);
-            }
-            res.json({ message: 'تم التحديث بنجاح' });
-        } else {
-            const newEmp = await pool.query(
-                'INSERT INTO employees (username, pin_code, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id',
-                [username, pin || '1234', full_name || username, role]
-            );
-            res.json({ id: newEmp.rows[0].id });
-        }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/admin/users/:id', async (req, res) => {
-    try {
-        await pool.query('UPDATE employees SET is_active = FALSE WHERE id = $1', [req.params.id]);
-        res.json({ message: 'تم حذف المستخدم بنجاح' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
 // ============================================================================
-// 2. مسارات لوحة الإدارة (Admin Dashboard & Products Management)
+// PRODUCTS & ACCURATE INVENTORY VALUATION
 // ============================================================================
-// مسار لوحة الإدارة المحدث والمحمي من الأخطاء
-app.get('/api/admin/dashboard', async (req, res) => {
+app.get('/api/products', async (req, res) => {
     try {
-        // 1. جلب المنتجات بنفس استعلام الكاشير المعتمد لضمان التطابق التام
-        const productsRes = await pool.query(`
+        const result = await pool.query(`
             SELECT 
                 p.id, 
                 COALESCE(p.sku, '') AS sku, 
@@ -423,69 +265,119 @@ app.get('/api/admin/dashboard', async (req, res) => {
                 COALESCE(p.unit_type, 'قطعة') AS unit_type,
                 COALESCE(p.product_type, CASE WHEN p.is_drink = 1 THEN 'PREPARED_DRINK' ELSE 'DIRECT_UNIT' END, 'DIRECT_UNIT') AS product_type,
                 COALESCE(c.name, p.category, 'عام') AS category,
-                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS front_display_stock,
-                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS stock_quantity,
+                COALESCE(li_front.quantity, 0) AS front_display_stock,
+                COALESCE(li_front.quantity, 0) AS stock_quantity,
+                COALESCE(li_back.quantity, 0) AS backroom_stock,
                 COALESCE(p.is_drink, CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END, 0) AS is_drink
             FROM products p
             LEFT JOIN product_categories c ON p.category_id = c.id
-            LEFT JOIN location_inventory li ON p.id = li.product_id 
-                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
-            WHERE p.is_active IS NULL OR p.is_active = TRUE
+            LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
+                 AND li_front.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
+                 AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
+            WHERE p.is_active = TRUE
             ORDER BY p.id ASC
         `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
-        // 2. إحصائيات المخزون
+// Admin Dashboard Aggregation: Accurate Physical Restock Cost Excludes Virtual Prepared Drinks
+app.get('/api/admin/dashboard', async (req, res) => {
+    try {
+        const productsQuery = `
+            SELECT 
+                p.id, p.sku, p.name, 
+                COALESCE(p.unit_cost_price, p.cost_price, 0) AS unit_cost_price,
+                COALESCE(p.cost_price, p.unit_cost_price, 0) AS cost_price,
+                COALESCE(p.unit_selling_price, p.selling_price, 0) AS unit_selling_price,
+                COALESCE(p.selling_price, p.unit_selling_price, 0) AS selling_price,
+                COALESCE(p.unit_type, 'قطعة') AS unit_type,
+                COALESCE(p.product_type, 'DIRECT_UNIT') AS product_type,
+                COALESCE(c.name, p.category, 'عام') AS category,
+                COALESCE(li_front.quantity, 0) AS front_display_stock,
+                COALESCE(li_front.quantity, 0) AS stock_quantity,
+                COALESCE(li_back.quantity, 0) AS backroom_stock,
+                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END as is_drink
+            FROM products p
+            LEFT JOIN product_categories c ON p.category_id = c.id
+            LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
+                 AND li_front.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
+                 AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
+            WHERE p.is_active = TRUE
+            ORDER BY p.id ASC
+        `;
+        const productsRes = await pool.query(productsQuery);
+
+        // Strict Physical Restock Valuation: Excludes PREPARED_DRINK to prevent valuation distortion
         const valuationRes = await pool.query(`
             SELECT 
-                COALESCE(SUM(li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0)), 0) as total_cost_value,
-                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as front_cost
+                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as front_cost,
+                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as backroom_cost,
+                COALESCE(SUM(CASE WHEN p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as total_physical_inventory_cost
             FROM location_inventory li
             JOIN products p ON li.product_id = p.id
             JOIN inventory_locations l ON li.location_id = l.id
+            WHERE p.is_active = TRUE
         `);
 
-        // 3. جلب الشيفتات بأمان
-        let shiftsData = [];
-        try {
-            const shiftsRes = await pool.query(`
-                SELECT 
-                    s.id, s.start_time, s.end_time, s.status, s.shift_date,
-                    COALESCE(s.starting_cash_float, 0) as starting_cash_float,
-                    COALESCE(sr.actual_physical_cash, 0) as closing_amount,
-                    s.notes, 
-                    COALESCE(e.username, 'كاشير') as username,
-                    COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_sales,
-                    COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_cost,
-                    COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN (o.total_amount - o.total_cost) ELSE 0 END), 0) as total_profit,
-                    COALESCE(sr.shortage_amount, 0) as shortage_amount
-                FROM shifts s
-                LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
-                LEFT JOIN orders o ON s.id = o.shift_id
-                LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
-                GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
-                ORDER BY s.id DESC
-            `);
-            shiftsData = shiftsRes.rows;
-        } catch (shiftErr) {
-            console.warn('تنبيه: تعذر قراءة الشيفتات بصيغة متقدمة، سيتم إرجاع مصفوفة فارغة مؤقتاً:', shiftErr.message);
-        }
+        // Shifts & Sales Audit
+        const shiftsRes = await pool.query(`
+            SELECT 
+                s.id, s.start_time, s.end_time, s.status, s.shift_date,
+                COALESCE(s.starting_cash_float, 0) as starting_cash_float,
+                COALESCE(sr.actual_physical_cash, 0) as closing_amount,
+                s.notes, 
+                COALESCE(e.username, 'كاشير') as username,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_cash_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'VODAFONE_CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_vodafone_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'CREDIT_TAB' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_tab_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'STAFF_EXPENSE' AND o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_staff_cost,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_gross_sales,
+                COALESCE(sr.shortage_amount, 0) as shortage_amount
+            FROM shifts s
+            LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
+            LEFT JOIN orders o ON s.id = o.shift_id
+            LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
+            GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
+            ORDER BY s.id DESC
+        `);
+
+        // Recent Staff Consumptions
+        const staffOrdersRes = await pool.query(`
+            SELECT 
+                sc.id, sc.created_at, sc.beneficiary_name, sc.total_cost_charged,
+                s.id as shift_id, o.station_reference,
+                COALESCE(e.full_name, e.username, 'غير مقيد') as employee_profile
+            FROM staff_consumptions sc
+            JOIN orders o ON sc.order_id = o.id
+            JOIN shifts s ON sc.shift_id = s.id
+            LEFT JOIN employees e ON sc.employee_id = e.id
+            ORDER BY sc.id DESC LIMIT 50
+        `);
 
         res.json({
-            shifts: shiftsData,
+            shifts: shiftsRes.rows,
+            products: productsRes.rows,
+            staff_orders: staffOrdersRes.rows,
             stats: {
-                collected_stock_cost: Number(valuationRes.rows[0]?.front_cost) || 0,
-                remaining_stock_cost: Number(valuationRes.rows[0]?.total_cost_value) || 0
-            },
-            products: productsRes.rows
+                front_display_cost: Number(valuationRes.rows[0]?.front_cost || 0),
+                backroom_cost: Number(valuationRes.rows[0]?.backroom_cost || 0),
+                total_inventory_cost: Number(valuationRes.rows[0]?.total_physical_inventory_cost || 0)
+            }
         });
     } catch (err) {
         console.error('Error in /api/admin/dashboard:', err.message);
-        res.status(500).json({ error: err.message, products: [], shifts: [], stats: { collected_stock_cost: 0, remaining_stock_cost: 0 } });
+        res.status(500).json({ error: err.message });
     }
 });
-// Admin Products CRUD
+
+// Admin Product Save / Edit
 app.post('/api/products', async (req, res) => {
-    const { id, name, category, cost_price, selling_price, stock_quantity, unit_type, is_drink } = req.body;
+    const { id, name, category, cost_price, selling_price, stock_quantity, backroom_stock, unit_type, is_drink } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -493,7 +385,7 @@ app.post('/api/products', async (req, res) => {
         if (category) {
             const catRes = await client.query(
                 'INSERT INTO product_categories (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id',
-                [category]
+                [category.trim()]
             );
             catId = catRes.rows[0].id;
         }
@@ -504,17 +396,21 @@ app.post('/api/products', async (req, res) => {
         if (id) {
             await client.query(`
                 UPDATE products 
-                SET name=$1, category_id=COALESCE($2, category_id), unit_cost_price=$3, unit_selling_price=$4, unit_type=$5, product_type=$6
-                WHERE id=$7
-            `, [name, catId, cost_price || 0, selling_price || 0, unit_type || 'قطعة', pType, id]);
+                SET name=$1, category_id=COALESCE($2, category_id), category=COALESCE($3, category),
+                    unit_cost_price=$4, cost_price=$4, 
+                    unit_selling_price=$5, selling_price=$5, 
+                    unit_type=$6, product_type=$7, is_drink=$8
+                WHERE id=$9
+            `, [name.trim(), catId, category, cost_price || 0, selling_price || 0, unit_type || 'قطعة', pType, is_drink ? 1 : 0, id]);
         } else {
             const pRes = await client.query(`
-                INSERT INTO products (name, category_id, unit_cost_price, unit_selling_price, unit_type, product_type)
-                VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
-            `, [name, catId, cost_price || 0, selling_price || 0, unit_type || 'قطعة', pType]);
+                INSERT INTO products (name, category_id, category, unit_cost_price, cost_price, unit_selling_price, selling_price, unit_type, product_type, is_drink)
+                VALUES ($1, $2, $3, $4, $4, $5, $5, $6, $7, $8) RETURNING id
+            `, [name.trim(), catId, category, cost_price || 0, selling_price || 0, unit_type || 'قطعة', pType, is_drink ? 1 : 0]);
             prodId = pRes.rows[0].id;
         }
 
+        // Set Front Display inventory
         const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY'");
         if (frontLoc.rows.length > 0) {
             await client.query(`
@@ -522,6 +418,16 @@ app.post('/api/products', async (req, res) => {
                 VALUES ($1, $2, $3)
                 ON CONFLICT (product_id, location_id) DO UPDATE SET quantity = EXCLUDED.quantity
             `, [prodId, frontLoc.rows[0].id, stock_quantity || 0]);
+        }
+
+        // Set Backroom inventory if provided
+        const backLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'BACKROOM'");
+        if (backLoc.rows.length > 0 && backroom_stock !== undefined) {
+            await client.query(`
+                INSERT INTO location_inventory (product_id, location_id, quantity)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (product_id, location_id) DO UPDATE SET quantity = EXCLUDED.quantity
+            `, [prodId, backLoc.rows[0].id, backroom_stock || 0]);
         }
 
         await client.query('COMMIT');
@@ -543,83 +449,40 @@ app.delete('/api/products/:id', async (req, res) => {
     }
 });
 
-// ============================================================================
-// 3. مسارات الكتالوج وشاشة البيع (POS Catalog)
-// ============================================================================
-app.get('/api/products', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                p.id, 
-                COALESCE(p.sku, '') AS sku, 
-                p.name, 
-                COALESCE(p.unit_cost_price, p.cost_price, 0) AS unit_cost_price,
-                COALESCE(p.cost_price, p.unit_cost_price, 0) AS cost_price,
-                COALESCE(p.unit_selling_price, p.selling_price, 0) AS unit_selling_price,
-                COALESCE(p.selling_price, p.unit_selling_price, 0) AS selling_price,
-                COALESCE(p.unit_type, 'قطعة') AS unit_type,
-                COALESCE(p.product_type, CASE WHEN p.is_drink = 1 THEN 'PREPARED_DRINK' ELSE 'DIRECT_UNIT' END, 'DIRECT_UNIT') AS product_type,
-                COALESCE(c.name, p.category, 'عام') AS category,
-                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS front_display_stock,
-                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS stock_quantity,
-                COALESCE(p.is_drink, CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END, 0) AS is_drink
-            FROM products p
-            LEFT JOIN product_categories c ON p.category_id = c.id
-            LEFT JOIN location_inventory li ON p.id = li.product_id 
-                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
-            WHERE p.is_active IS NULL OR p.is_active = TRUE
-            ORDER BY p.id ASC
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('Error fetching products:', err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/product-variants/:id', (req, res) => {
-    res.json([]);
-});
-
-app.get('/api/product-ingredients/:id', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT b.*, p.name, p.unit_type, p.unit_cost_price as cost_price 
-            FROM product_boms b
-            JOIN products p ON b.ingredient_product_id = p.id
-            WHERE b.parent_product_id = $1
-        `, [req.params.id]);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ============================================================================
-// 4. مسارات الشيفتات وإتمام البيع (POS & Checkout)
-// ============================================================================
-app.post('/api/start-shift', async (req, res) => {
-    const { shift_number, cashier_id, starting_float } = req.body;
+// Replenish / Transfer Stock: Move items from Backroom to Front Display
+app.post('/api/stock-transfer', async (req, res) => {
+    const { product_id, quantity, user_id, notes } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const locs = await client.query("SELECT id, code FROM inventory_locations WHERE code IN ('BACKROOM', 'FRONT_DISPLAY')");
+        const backroom = locs.rows.find(l => l.code === 'BACKROOM').id;
+        const frontDisplay = locs.rows.find(l => l.code === 'FRONT_DISPLAY').id;
 
-        const openCheck = await client.query("SELECT id FROM shifts WHERE status = 'OPEN' LIMIT 1");
-        if (openCheck.rows.length > 0) {
-            await client.query('ROLLBACK');
-            return res.json({ shift_id: openCheck.rows[0].id });
+        const qty = Number(quantity);
+        if (qty <= 0) throw new Error('الكمية المحولة غير صحيحة');
+
+        const avail = await client.query('SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE', [product_id, backroom]);
+        const currentBackroom = Number(avail.rows[0]?.quantity || 0);
+
+        if (currentBackroom < qty) {
+            throw new Error(`الكمية بالمخزن الاحتياطي غير كافية (المتاح بالمخزن: ${currentBackroom})`);
         }
 
-        const shiftDate = new Date().toISOString().split('T')[0];
-        const newShift = await client.query(
-            `INSERT INTO shifts (shift_number, shift_date, outgoing_cashier_id, starting_cash_float, status) 
-             VALUES ($1, $2, $3, $4, 'OPEN') RETURNING id`,
-            [shift_number || 1, shiftDate, cashier_id, starting_float || 0]
+        await client.query('UPDATE location_inventory SET quantity = quantity - $1 WHERE product_id = $2 AND location_id = $3', [qty, product_id, backroom]);
+        await client.query(`
+            INSERT INTO location_inventory (product_id, location_id, quantity) VALUES ($1, $2, $3)
+            ON CONFLICT (product_id, location_id) DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity
+        `, [product_id, frontDisplay, qty]);
+
+        const transfer = await client.query(
+            'INSERT INTO stock_transfers (source_location_id, destination_location_id, transferred_by_user_id, notes) VALUES ($1, $2, $3, $4) RETURNING id',
+            [backroom, frontDisplay, user_id || null, notes || 'تغذية الواجهة من المخزن']
         );
-        const shiftId = newShift.rows[0].id;
+        await client.query('INSERT INTO stock_transfer_items (transfer_id, product_id, quantity) VALUES ($1, $2, $3)', [transfer.rows[0].id, product_id, qty]);
 
         await client.query('COMMIT');
-        res.json({ shift_id: shiftId });
+        res.json({ success: true });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
@@ -628,53 +491,9 @@ app.post('/api/start-shift', async (req, res) => {
     }
 });
 
-app.get('/api/shift-summary/:shift_id', async (req, res) => {
-    const shiftId = req.params.shift_id;
-    try {
-        const shiftData = await pool.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shiftId]);
-        const startingFloat = Number(shiftData.rows[0]?.starting_cash_float || 0);
-
-        const salesRes = await pool.query(`
-            SELECT 
-                COALESCE(SUM(CASE WHEN payment_type = 'CASH' THEN total_amount ELSE 0 END), 0) as cash_sales,
-                COALESCE(SUM(CASE WHEN payment_type = 'CREDIT_TAB' THEN total_amount ELSE 0 END), 0) as tab_sales,
-                COALESCE(SUM(CASE WHEN payment_type = 'STAFF_EXPENSE' THEN total_cost ELSE 0 END), 0) as staff_costs,
-                COALESCE(SUM(total_cost), 0) as total_cogs
-            FROM orders WHERE shift_id = $1 AND status = 'COMPLETED'
-        `, [shiftId]);
-
-        const tabSettlements = await pool.query(
-            'SELECT COALESCE(SUM(amount_paid), 0) as total_tab_cash FROM customer_tab_payments WHERE collected_in_shift_id = $1',
-            [shiftId]
-        );
-
-        const pettyExpenses = await pool.query(
-            'SELECT COALESCE(SUM(amount), 0) as total_petty FROM petty_cash_expenses WHERE shift_id = $1',
-            [shiftId]
-        );
-
-        const cashSales = Number(salesRes.rows[0].cash_sales);
-        const tabCollected = Number(tabSettlements.rows[0].total_tab_cash);
-        const pettyTotal = Number(pettyExpenses.rows[0].total_petty);
-        const expectedCash = startingFloat + cashSales + tabCollected - pettyTotal;
-
-        res.json({
-            starting_float: startingFloat,
-            total_sales: cashSales,
-            cash_sales: cashSales,
-            total_tips: 0,
-            tab_credit_sales: Number(salesRes.rows[0].tab_sales),
-            staff_expense_sales: Number(salesRes.rows[0].staff_costs),
-            tab_settlements_income: tabCollected,
-            petty_expenses: pettyTotal,
-            expected_cash: expectedCash
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Checkout Route
+// ============================================================================
+// POS CHECKOUT & STAFF BENEFICIARIES
+// ============================================================================
 app.post('/api/checkout', async (req, res) => {
     const {
         shift_id,
@@ -683,6 +502,7 @@ app.post('/api/checkout', async (req, res) => {
         order_mode,
         payment_type,
         staff_employee_id,
+        staff_beneficiary_name,
         tab_customer_name,
         tab_customer_phone,
         station_reference,
@@ -705,12 +525,13 @@ app.post('/api/checkout', async (req, res) => {
             const pRes = await client.query('SELECT * FROM products WHERE id = $1', [item.id]);
             const prod = pRes.rows[0];
 
-            let unitCost = Number(prod.unit_cost_price);
-            let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price);
+            let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0);
+            let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price || prod.selling_price || 0);
 
             totalOrderAmount += unitPrice * item.qty;
             totalOrderCost += unitCost * item.qty;
 
+            // Direct packaged goods stock validation
             if (prod.product_type === 'DIRECT_UNIT') {
                 const stockRes = await client.query(
                     'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
@@ -718,7 +539,25 @@ app.post('/api/checkout', async (req, res) => {
                 );
                 const currentQty = Number(stockRes.rows[0]?.quantity || 0);
                 if (currentQty < item.qty) {
-                    throw new Error(`الكمية المتاحة من "${prod.name}" على الواجهة غير كافية (المتاح: ${currentQty})`);
+                    throw new Error(`الكمية المتاحة من "${prod.name}" بالواجهة غير كافية (المتاح: ${currentQty})`);
+                }
+            }
+
+            // Paper cup stock validation if takeaway
+            if (prod.product_type === 'PREPARED_DRINK' && order_mode === 'TAKEAWAY') {
+                const cupBom = await client.query(
+                    "SELECT ingredient_product_id, quantity_required FROM product_boms WHERE parent_product_id = $1 AND rule = 'TAKEAWAY_ONLY'",
+                    [prod.id]
+                );
+                for (const b of cupBom.rows) {
+                    const cupStock = await client.query(
+                        'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
+                        [b.ingredient_product_id, frontLocationId]
+                    );
+                    const cupsAvailable = Number(cupStock.rows[0]?.quantity || 0);
+                    if (cupsAvailable < (b.quantity_required * item.qty)) {
+                        throw new Error('الأكواب الورقية غير كافية بالواجهة لتنفيذ طلب التيك أواي');
+                    }
                 }
             }
         }
@@ -736,27 +575,44 @@ app.post('/api/checkout', async (req, res) => {
             const pRes = await client.query('SELECT * FROM products WHERE id = $1', [item.id]);
             const prod = pRes.rows[0];
 
-            let unitCost = Number(prod.unit_cost_price);
-            let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price);
+            let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0);
+            let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price || prod.selling_price || 0);
 
             await client.query(`
                 INSERT INTO order_items (order_id, product_id, quantity, unit_price, unit_cost, subtotal_price, subtotal_cost)
                 VALUES ($1, $2, $3, $4, $5, $3 * $4, $3 * $5)
             `, [orderId, prod.id, item.qty, unitPrice, unitCost]);
 
+            // Deduct stock from Front Display
             if (prod.product_type === 'DIRECT_UNIT') {
                 await client.query(`
                     UPDATE location_inventory SET quantity = quantity - $1
                     WHERE product_id = $2 AND location_id = $3
                 `, [item.qty, prod.id, frontLocationId]);
+            } else if (prod.product_type === 'PREPARED_DRINK') {
+                const boms = await client.query('SELECT * FROM product_boms WHERE parent_product_id = $1', [prod.id]);
+                for (const bom of boms.rows) {
+                    const shouldDeduct = (bom.rule === 'ALWAYS') || (bom.rule === 'TAKEAWAY_ONLY' && order_mode === 'TAKEAWAY');
+                    if (shouldDeduct) {
+                        await client.query(`
+                            UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
+                            WHERE product_id = $2 AND location_id = $3
+                        `, [bom.quantity_required * item.qty, bom.ingredient_product_id, frontLocationId]);
+                    }
+                }
             }
         }
 
+        // Staff Consumption with Custom Beneficiary Name (Employees or external, e.g., building owner)
         if (payment_type === 'STAFF_EXPENSE') {
+            const beneficiary = (staff_beneficiary_name && staff_beneficiary_name.trim()) 
+                ? staff_beneficiary_name.trim() 
+                : 'موظف';
+
             await client.query(`
-                INSERT INTO staff_consumptions (order_id, shift_id, employee_id, total_cost_charged)
-                VALUES ($1, $2, $3, $4)
-            `, [orderId, shift_id, staff_employee_id, totalOrderCost]);
+                INSERT INTO staff_consumptions (order_id, shift_id, employee_id, beneficiary_name, total_cost_charged)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [orderId, shift_id, staff_employee_id || null, beneficiary, totalOrderCost]);
         } else if (payment_type === 'CREDIT_TAB') {
             let tabId;
             const existingTab = await client.query(
@@ -791,7 +647,98 @@ app.post('/api/checkout', async (req, res) => {
     }
 });
 
-// ملاحظات الشيفت
+// Shifts & Reconciliations
+app.post('/api/start-shift', async (req, res) => {
+    const { shift_number, cashier_id, starting_float } = req.body;
+    try {
+        const openCheck = await pool.query("SELECT id FROM shifts WHERE status = 'OPEN' LIMIT 1");
+        if (openCheck.rows.length > 0) return res.json({ shift_id: openCheck.rows[0].id });
+
+        const newShift = await pool.query(
+            `INSERT INTO shifts (shift_number, shift_date, outgoing_cashier_id, starting_cash_float, status) 
+             VALUES ($1, CURRENT_DATE, $2, $3, 'OPEN') RETURNING id`,
+            [shift_number || 1, cashier_id, starting_float || 0]
+        );
+        res.json({ shift_id: newShift.rows[0].id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/shift-summary/:shift_id', async (req, res) => {
+    const shiftId = req.params.shift_id;
+    try {
+        const shiftData = await pool.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shiftId]);
+        const startingFloat = Number(shiftData.rows[0]?.starting_cash_float || 0);
+
+        const salesRes = await pool.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN payment_type = 'CASH' THEN total_amount ELSE 0 END), 0) as cash_sales,
+                COALESCE(SUM(CASE WHEN payment_type = 'VODAFONE_CASH' THEN total_amount ELSE 0 END), 0) as vf_sales,
+                COALESCE(SUM(CASE WHEN payment_type = 'CREDIT_TAB' THEN total_amount ELSE 0 END), 0) as tab_sales,
+                COALESCE(SUM(CASE WHEN payment_type = 'STAFF_EXPENSE' THEN total_cost ELSE 0 END), 0) as staff_costs,
+                COALESCE(SUM(total_cost), 0) as total_cogs
+            FROM orders WHERE shift_id = $1 AND status = 'COMPLETED'
+        `, [shiftId]);
+
+        res.json({
+            starting_float: startingFloat,
+            cash_sales: Number(salesRes.rows[0].cash_sales),
+            vf_sales: Number(salesRes.rows[0].vf_sales),
+            tab_credit_sales: Number(salesRes.rows[0].tab_sales),
+            staff_expense_sales: Number(salesRes.rows[0].staff_costs),
+            total_tips: 0
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/shift-reconciliation', async (req, res) => {
+    const { shift_id, outgoing_cashier_id, outgoing_pin, incoming_cashier_id, incoming_pin, physical_cash, glass_audit } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const outAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [outgoing_cashier_id, outgoing_pin]);
+        if (outAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير الحالي غير صحيح');
+
+        const inAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [incoming_cashier_id, incoming_pin]);
+        if (inAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير المستلم غير صحيح');
+
+        const shiftRes = await client.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shift_id]);
+        const startingFloat = Number(shiftRes.rows[0]?.starting_cash_float || 0);
+
+        const sales = await client.query("SELECT COALESCE(SUM(total_amount), 0) as cash_total FROM orders WHERE shift_id = $1 AND payment_type = 'CASH' AND status = 'COMPLETED'", [shift_id]);
+        const expectedCash = startingFloat + Number(sales.rows[0].cash_total);
+
+        const actualCash = Number(physical_cash) || 0;
+        const variance = actualCash - expectedCash;
+        const isShortage = variance < 0;
+        const shortageAmount = isShortage ? Math.abs(variance) : 0;
+
+        if (isShortage && shortageAmount > 0) {
+            await client.query('UPDATE employees SET current_shortage_debt = current_shortage_debt + $1 WHERE id = $2', [shortageAmount, outgoing_cashier_id]);
+        }
+
+        await client.query(`
+            INSERT INTO shift_reconciliations (shift_id, expected_cash, actual_physical_cash, cash_sales_total, cash_variance, is_shortage, shortage_amount, outgoing_pin_verified, incoming_pin_verified)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, TRUE)
+        `, [shift_id, expectedCash, actualCash, Number(sales.rows[0].cash_total), variance, isShortage, shortageAmount]);
+
+        await client.query("UPDATE shifts SET status = 'CLOSED', end_time = NOW(), incoming_cashier_id = $1 WHERE id = $2", [incoming_cashier_id, shift_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, variance, is_shortage: isShortage, shortage_amount: shortageAmount });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Cashier Shift Scratchpad
 app.post('/api/shift-notes', async (req, res) => {
     const { shift_id, notes } = req.body;
     try {
@@ -811,10 +758,38 @@ app.get('/api/shift-notes/:shift_id', async (req, res) => {
     }
 });
 
-app.post('/api/admin/force-close-shift', async (req, res) => {
+app.get('/api/admin/users', async (req, res) => {
     try {
-        await pool.query("UPDATE shifts SET end_time = NOW(), status = 'CLOSED', notes = 'إغلاق إجباري بواسطة المسؤول' WHERE id = $1", [req.body.shift_id]);
-        res.json({ message: 'تم الإغلاق بنجاح' });
+        const result = await pool.query('SELECT id, username, full_name, role, current_shortage_debt FROM employees WHERE is_active = TRUE ORDER BY id ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/users', async (req, res) => {
+    const { id, username, pin, role, full_name } = req.body;
+    try {
+        if (id) {
+            if (pin && pin.trim() !== '') {
+                await pool.query('UPDATE employees SET username=$1, pin_code=$2, role=$3, full_name=COALESCE($4, full_name) WHERE id=$5', [username, pin, role, full_name, id]);
+            } else {
+                await pool.query('UPDATE employees SET username=$1, role=$2, full_name=COALESCE($3, full_name) WHERE id=$4', [username, role, full_name, id]);
+            }
+            res.json({ message: 'تم تحديث بيانات المستخدم' });
+        } else {
+            const newEmp = await pool.query('INSERT INTO employees (username, pin_code, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id', [username, pin || '1234', full_name || username, role]);
+            res.json({ id: newEmp.rows[0].id });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+    try {
+        await pool.query('UPDATE employees SET is_active = FALSE WHERE id = $1', [req.params.id]);
+        res.json({ message: 'تم تعطيل المستخدم' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
