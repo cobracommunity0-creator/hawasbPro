@@ -198,6 +198,11 @@ async function initDB() {
         `);
 
         await pool.query(`
+            -- إضافة أعمدة الأوعية لجدول عناصر الطلب
+            ALTER TABLE order_items ADD COLUMN IF NOT EXISTS packaging_name VARCHAR(100);
+            ALTER TABLE order_items ADD COLUMN IF NOT EXISTS packaging_cost NUMERIC(10, 4) DEFAULT 0;
+
+            -- تعديلات الحسابات والموظفين
             ALTER TABLE customer_tabs ALTER COLUMN phone DROP NOT NULL;
             ALTER TABLE staff_consumptions ADD COLUMN IF NOT EXISTS beneficiary_name VARCHAR(150) DEFAULT 'موظف';
             ALTER TABLE staff_consumptions ALTER COLUMN employee_id DROP NOT NULL;
@@ -206,15 +211,6 @@ async function initDB() {
             UPDATE products SET unit_cost_price = cost_price WHERE (unit_cost_price = 0 OR unit_cost_price IS NULL) AND cost_price > 0;
             UPDATE products SET unit_selling_price = selling_price WHERE (unit_selling_price = 0 OR unit_selling_price IS NULL) AND selling_price > 0;
             UPDATE products SET sku = 'SKU-' || LPAD(id::text, 4, '0') WHERE sku IS NULL OR sku = '';
-
-            UPDATE products p SET category_id = c.id FROM product_categories c
-            WHERE p.category_id IS NULL AND (
-                p.category = c.name 
-                OR (p.category = '1' AND c.name = 'خامات ومواد تغليف')
-                OR (p.category = 'مشروبات ساقعه' AND c.name = 'مشروبات ساقعة')
-                OR (p.category = 'مشروبات سخنه' AND c.name = 'مشروبات ساخنة')
-                OR (p.category = 'شيبسيات و اندومي' AND c.name = 'شيبسيات وسناكس')
-            );
         `);
 
         await pool.query(`
