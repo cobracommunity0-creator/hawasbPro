@@ -2220,7 +2220,16 @@
                     const data = await dashRes.json();
                     products = data.products || [];
 
-                    // Accurate KPI cards
+                    // 1. تحديث ملخص أرباح اليوم المباشر
+                    if (data.today_financials) {
+                        const tf = data.today_financials;
+                        document.getElementById('today-cash-sales-val').innerText = `${formatCurrency(tf.today_cash_sales)} ج.م`;
+                        document.getElementById('today-cogs-val').innerText = `${formatCurrency(tf.today_cogs)} ج.م`;
+                        document.getElementById('today-net-profit-val').innerText = `${formatCurrency(tf.today_net_profit)} ج.م`;
+                        document.getElementById('today-vf-sales-val').innerText = `${formatCurrency(tf.today_vf_sales)} ج.م`;
+                    }
+
+                    // 2. تحديث رأس مال البضاعة
                     document.getElementById('kpi-front-cost').innerText = `${formatCurrency(data.stats?.front_display_cost || 0)} ج.م`;
                     document.getElementById('kpi-backroom-cost').innerText = `${formatCurrency(data.stats?.backroom_cost || 0)} ج.م`;
                     document.getElementById('kpi-total-inventory').innerText = `${formatCurrency(data.stats?.total_inventory_cost || 0)} ج.م`;
