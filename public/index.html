@@ -835,28 +835,69 @@
             </div>
 
             <!-- تبويب الورديات -->
+           <!-- تبويب أرشيف ومطابقة الورديات -->
             <div id="pane-shifts" class="admin-pane hidden">
-                <div class="table-wrap-box">
-                    <table class="terminal-table">
-                        <thead>
-                            <tr>
-                                <th>الشيفت</th>
-                                <th>الكاشير المسلّم</th>
-                                <th>المستلم</th>
-                                <th>مبيعات الكاش</th>
-                                <th style="color:var(--accent-rose);">فلوس البضاعة (اعزلها للرف)</th>
-                                <th style="color:var(--accent-emerald);">صافي ربحك في جيبك</th>
-                                <th>محتوى الظرف الفعلي</th>
-                                <th>حالة العجز</th>
-                                <th>الحالة</th>
-                            </tr>
-                        </thead>
-                        <tbody id="shifts-archive-tbody"></tbody>
-                        <tbody id="admin-shifts-table-body"></tbody>
-                    </table>
+                <div class="admin-card-section">
+                    <!-- شريط الرأس والأدوات -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+                        <div>
+                            <h3 style="font-size:16px; font-weight:700; color:var(--accent-sky); margin:0 0 4px 0;">
+                                <i class="fa-solid fa-clock-rotate-left"></i> سجل ومطابقة الورديات المقفولة
+                            </h3>
+                            <span style="font-size:12px; color:var(--text-muted);">
+                                فصل نقدية الظرف عن فودافون كاش وتكلفة البضاعة مع إظهار صافي الربح الفعلي
+                            </span>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-tool" onclick="loadShiftsArchive()">
+                                <i class="fa-solid fa-arrows-rotate"></i> تحديث السجل
+                            </button>
+                        </div>
+                    </div>
+            
+                    <!-- ملخص إحصائي سريع لأرشيف الورديات -->
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:18px;">
+                        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px;">
+                            <span style="font-size:11px; color:var(--text-muted); display:block;">إجمالي نقدية الظروف المستلمة</span>
+                            <b id="archive-sum-envelopes" style="font-size:15px; color:#fff;">0.00 ج.م</b>
+                        </div>
+                        <div style="background:rgba(239,68,68,0.05); border:1px solid rgba(239,68,68,0.2); border-radius:var(--radius-sm); padding:10px 14px;">
+                            <span style="font-size:11px; color:#f87171; display:block;">إجمالي فودافون كاش</span>
+                            <b id="archive-sum-vf" style="font-size:15px; color:#f87171;">0.00 ج.م</b>
+                        </div>
+                        <div style="background:rgba(244,63,94,0.05); border:1px solid rgba(244,63,94,0.2); border-radius:var(--radius-sm); padding:10px 14px;">
+                            <span style="font-size:11px; color:var(--accent-rose); display:block;">إجمالي فلوس البضاعة للتعويض</span>
+                            <b id="archive-sum-cogs" style="font-size:15px; color:var(--accent-rose);">0.00 ج.م</b>
+                        </div>
+                        <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:var(--radius-sm); padding:10px 14px;">
+                            <span style="font-size:11px; color:var(--accent-emerald); display:block;">إجمالي صافي أرباحك الصافية</span>
+                            <b id="archive-sum-profits" style="font-size:15px; color:var(--accent-emerald);">0.00 ج.م</b>
+                        </div>
+                    </div>
+            
+                    <!-- جدول الأرشيف التفصيلي -->
+                    <div class="table-wrap-box">
+                        <table class="terminal-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:100px;">الوردية</th>
+                                    <th>الكاشير المسلّم</th>
+                                    <th>الكاشير المستلم</th>
+                                    <th style="color:#fff;"><i class="fa-solid fa-envelope-open-text"></i> محتوى الظرف (كاش)</th>
+                                    <th style="color:#f87171;"><i class="fa-solid fa-mobile-screen"></i> فودافون كاش</th>
+                                    <th style="color:var(--accent-rose);"><i class="fa-solid fa-box-archive"></i> فلوس البضاعة (اعزلها)</th>
+                                    <th style="color:var(--accent-emerald);"><i class="fa-solid fa-sack-dollar"></i> صافي ربحك</th>
+                                    <th>حالة العجز</th>
+                                    <th>الحالة</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shifts-archive-tbody">
+                                <!-- يتم تعبئة الصفوف تلقائياً عبر دالة loadShiftsArchive -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-
             <!-- تبويب استهلاك الموظفين -->
             <div id="pane-staff-logs" class="admin-pane hidden">
                 <div class="admin-card-section">
