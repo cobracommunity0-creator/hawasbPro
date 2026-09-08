@@ -670,9 +670,13 @@
             <button class="admin-tab-btn" onclick="switchAdminTab('pane-staff-logs', this)">
                 <i class="fa-solid fa-id-badge"></i> سجل استهلاك الموظفين وصاحب العمارة
             </button>
+            <button class="admin-tab-btn" onclick="switchAdminTab('pane-customer-tabs', this)">
+                <i class="fa-solid fa-clock-rotate-left"></i> الحسابات الآجلة (الشكك)
+            </button>
             <button class="admin-tab-btn" onclick="switchAdminTab('pane-users', this)">
                 <i class="fa-solid fa-users-gear"></i> إدارة المستخدمين
             </button>
+            
         </div>
 
         <div class="admin-workspace-scroll">
@@ -707,7 +711,7 @@
                         </div>
                     </div>
                 </div>
-
+                
                 <div class="kpi-deck">
                     <div class="kpi-tile">
                         <div class="kpi-tile-label">رأس مال معروض الواجهة (البضاعة الملموسة)</div>
@@ -723,7 +727,33 @@
                     </div>
                 </div>
             </div>
-
+                <!-- تبويب كشف حساب الشكك والآجل -->
+            <div id="pane-customer-tabs" class="admin-pane hidden">
+                <div class="admin-card-section">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                        <h3 style="font-size:15px; font-weight:700; color:var(--accent-sky);">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> كشف حسابات الشكك والآجل (فصل فلوس البضاعة عن الأرباح)
+                        </h3>
+                        <button class="btn-tool" onclick="loadAdminCustomerTabs()"><i class="fa-solid fa-arrows-rotate"></i> تحديث الحسابات</button>
+                    </div>
+            
+                    <div class="table-wrap-box">
+                        <table class="terminal-table">
+                            <thead>
+                                <tr>
+                                    <th>العميل</th>
+                                    <th>المبلغ المطلوب من الزبون</th>
+                                    <th style="color:var(--accent-rose);">فلوس البضاعة (اعزلها للبضاعة)</th>
+                                    <th style="color:var(--accent-emerald);">صافي ربحك الشخصي</th>
+                                    <th>تفاصيل الطلبات</th>
+                                    <th>إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-tabs-table-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
             <!-- تبويب المنتجات مع الفورم المثبت أعلى الشاشة أثناء السكرول -->
             <div id="pane-products" class="admin-pane hidden">
                 <div class="admin-card-section sticky-product-form" id="product-form-card">
