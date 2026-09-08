@@ -211,7 +211,7 @@ async function initDB() {
             ('antry', '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
             ON CONFLICT (username) DO NOTHING;
         `);
-
+        await pool.query('ALTER TABLE customer_tabs ALTER COLUMN phone DROP NOT NULL;');
         console.log('✅ تم إعداد وفحص هيكل قاعدة البيانات بنجاح.');
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
