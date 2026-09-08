@@ -22,202 +22,238 @@ const pool = new Pool({
 // Database Architecture & Schema Migrations
 async function initDB() {
     try {
-        // Core entities
+        // 1. التأكد من الجداول
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS employees (
+            CREATE TABLE IF NOT EXISTS product_variants (
                 id SERIAL PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                pin_code VARCHAR(50) NOT NULL,
-                full_name VARCHAR(100) NOT NULL,
-                phone VARCHAR(20),
-                role VARCHAR(20) NOT NULL DEFAULT 'staff',
-                current_shortage_debt NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS inventory_locations (
-                id SERIAL PRIMARY KEY,
-                code VARCHAR(30) UNIQUE NOT NULL,
-                name VARCHAR(100) NOT NULL,
-                description TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS product_categories (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(100) UNIQUE NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS products (
-                id SERIAL PRIMARY KEY,
-                sku VARCHAR(50) UNIQUE,
-                name VARCHAR(150) NOT NULL,
-                category VARCHAR(255) DEFAULT 'عام',
-                category_id INT REFERENCES product_categories(id) ON DELETE SET NULL,
-                unit_cost_price NUMERIC(10, 4) DEFAULT 0,
-                cost_price NUMERIC DEFAULT 0,
-                unit_selling_price NUMERIC(10, 2) DEFAULT 0,
-                selling_price NUMERIC DEFAULT 0,
-                stock_quantity NUMERIC DEFAULT 0,
-                unit_type VARCHAR(50) DEFAULT 'قطعة',
-                is_drink INT DEFAULT 0,
-                product_type VARCHAR(30) DEFAULT 'DIRECT_UNIT',
-                is_active BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS location_inventory (
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                quantity NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (product_id, location_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS stock_transfers (
-                id SERIAL PRIMARY KEY,
-                source_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                destination_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                transferred_by_user_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                notes TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS stock_transfer_items (
-                id SERIAL PRIMARY KEY,
-                transfer_id INT NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                quantity NUMERIC(12, 4) NOT NULL
+                variant_name VARCHAR(100) NOT NULL,
+                selling_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                cost_price NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
+                stock_quantity NUMERIC(12, 4) NOT NULL DEFAULT 0.0000
             );
 
             CREATE TABLE IF NOT EXISTS product_boms (
                 id SERIAL PRIMARY KEY,
                 parent_product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
                 ingredient_product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                quantity_required NUMERIC(10, 4) NOT NULL,
+                quantity_required NUMERIC(10, 4) NOT NULL DEFAULT 1.0000,
                 rule VARCHAR(30) NOT NULL DEFAULT 'ALWAYS'
             );
 
-            CREATE TABLE IF NOT EXISTS shifts (
-                id SERIAL PRIMARY KEY,
-                shift_number SMALLINT NOT NULL DEFAULT 1,
-                shift_date DATE NOT NULL DEFAULT CURRENT_DATE,
-                outgoing_cashier_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                incoming_cashier_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                end_time TIMESTAMP WITH TIME ZONE,
-                starting_cash_float NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
-                notes TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS shift_reconciliations (
-                shift_id INT PRIMARY KEY REFERENCES shifts(id) ON DELETE CASCADE,
-                expected_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                actual_physical_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                petty_expenses_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                tab_settlements_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                cash_sales_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                cash_variance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                is_shortage BOOLEAN NOT NULL DEFAULT FALSE,
-                shortage_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                outgoing_pin_verified BOOLEAN NOT NULL DEFAULT FALSE,
-                incoming_pin_verified BOOLEAN NOT NULL DEFAULT FALSE,
-                reconciled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS orders (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                cashier_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                order_mode VARCHAR(20) NOT NULL DEFAULT 'TAKEAWAY',
-                payment_type VARCHAR(20) NOT NULL DEFAULT 'CASH',
-                total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                total_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
-                status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
-                station_reference VARCHAR(150) DEFAULT 'الكاشير المباشر',
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS order_items (
-                id SERIAL PRIMARY KEY,
-                order_id INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                quantity NUMERIC(10, 2) NOT NULL,
-                unit_price NUMERIC(10, 2) NOT NULL,
-                unit_cost NUMERIC(10, 4) NOT NULL,
-                subtotal_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                subtotal_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000
-            );
-
-            CREATE TABLE IF NOT EXISTS staff_consumptions (
-                id SERIAL PRIMARY KEY,
-                order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                employee_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                beneficiary_name VARCHAR(150) NOT NULL DEFAULT 'موظف',
-                total_cost_charged NUMERIC(10, 2) NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS customer_tabs (
-                id SERIAL PRIMARY KEY,
-                customer_name VARCHAR(100) NOT NULL,
-                phone VARCHAR(20) NOT NULL,
-                total_debt NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                amount_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                remaining_balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                status VARCHAR(20) NOT NULL DEFAULT 'UNPAID',
-                origin_shift_id INT REFERENCES shifts(id) ON DELETE SET NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS customer_tab_orders (
-                tab_id INT NOT NULL REFERENCES customer_tabs(id) ON DELETE CASCADE,
-                order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-                PRIMARY KEY (tab_id, order_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS customer_tab_payments (
-                id SERIAL PRIMARY KEY,
-                tab_id INT NOT NULL REFERENCES customer_tabs(id) ON DELETE RESTRICT,
-                collected_in_shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE RESTRICT,
-                cashier_id INT REFERENCES employees(id) ON DELETE SET NULL,
-                amount_paid NUMERIC(10, 2) NOT NULL,
-                payment_method VARCHAR(20) NOT NULL DEFAULT 'CASH',
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
+            ALTER TABLE product_variants ADD COLUMN IF NOT EXISTS stock_quantity NUMERIC(12, 4) DEFAULT 0;
         `);
 
-        // Migration safety checks
+        // 2. إصلاح الأسعار وتوليد الـ SKU وربط الأقسام
         await pool.query(`
-            ALTER TABLE staff_consumptions ADD COLUMN IF NOT EXISTS beneficiary_name VARCHAR(150) DEFAULT 'موظف';
-            ALTER TABLE staff_consumptions ALTER COLUMN employee_id DROP NOT NULL;
-            ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
-            UPDATE products SET is_active = TRUE WHERE is_active IS NULL;
+            -- تعويض التكلفة الحقيقية في unit_cost_price بدلاً من 0
+            UPDATE products 
+            SET unit_cost_price = cost_price 
+            WHERE (unit_cost_price = 0 OR unit_cost_price IS NULL) AND cost_price > 0;
+
+            UPDATE products 
+            SET unit_selling_price = selling_price 
+            WHERE (unit_selling_price = 0 OR unit_selling_price IS NULL) AND selling_price > 0;
+
+            -- توليد أكواد SKU تلقائية للأصناف التي لا تملك كوداً
+            UPDATE products 
+            SET sku = 'SKU-' || LPAD(id::text, 4, '0') 
+            WHERE sku IS NULL OR sku = '';
+
+            -- ربط category_id بجدول الأقسام تلقائياً
+            UPDATE products p
+            SET category_id = c.id
+            FROM product_categories c
+            WHERE p.category_id IS NULL AND (
+                p.category = c.name 
+                OR (p.category = '1' AND c.name = 'خامات ومواد تغليف')
+                OR (p.category = 'مشروبات ساقعه' AND c.name = 'مشروبات ساقعة')
+                OR (p.category = 'مشروبات سخنه' AND c.name = 'مشروبات ساخنة')
+                OR (p.category = 'شيبسيات و اندومي' AND c.name = 'شيبسيات وسناكس')
+            );
         `);
 
-        // Seed default locations
-        await pool.query(`
-            INSERT INTO inventory_locations (code, name, description) VALUES
-            ('BACKROOM', 'المخزن الداخلي', 'مخزن الاحتياطي والتوريدات الرئيسي'),
-            ('FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع الفوري بالكاشير')
-            ON CONFLICT (code) DO NOTHING;
-
-            INSERT INTO employees (username, pin_code, full_name, phone, role) VALUES
-            ('admin', '1234', 'مدير النظام', '01000000000', 'admin'),
-            ('omar', '1111', 'عمر - وردية 1', '01100000001', 'cashier'),
-            ('tareq', '2222', 'طارق - وردية 2', '01200000002', 'cashier'),
-            ('antry', '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
-            ON CONFLICT (username) DO NOTHING;
-        `);
-        await pool.query('ALTER TABLE customer_tabs ALTER COLUMN phone DROP NOT NULL;');
-        console.log('✅ تم إعداد وفحص هيكل قاعدة البيانات بنجاح.');
+        console.log('✅ تم تصحيح الأسعار وربط الأقسام وتوليد الـ SKU بنجاح.');
     } catch (err) {
-        console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
+        console.error('❌ خطأ في فحص قاعدة البيانات:', err.message);
     }
 }
 initDB();
+
+app.get('/api/product-ingredients/:id', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT b.id, b.ingredient_product_id, b.quantity_required, p.name as ingredient_name, 
+                   COALESCE(NULLIF(p.unit_cost_price, 0), p.cost_price, 0) as unit_cost
+            FROM product_boms b
+            JOIN products p ON b.ingredient_product_id = p.id
+            WHERE b.parent_product_id = $1
+            ORDER BY b.id ASC
+        `, [req.params.id]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/product-ingredients/:id', async (req, res) => {
+    const parentId = req.params.id;
+    const { ingredients } = req.body; // مصفوفة [{ ingredient_id, quantity }]
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM product_boms WHERE parent_product_id = $1', [parentId]);
+
+        if (Array.isArray(ingredients)) {
+            for (const item of ingredients) {
+                if (item.ingredient_id) {
+                    await client.query(`
+                        INSERT INTO product_boms (parent_product_id, ingredient_product_id, quantity_required)
+                        VALUES ($1, $2, $3)
+                    `, [parentId, item.ingredient_id, parseFloat(item.quantity) || 1]);
+                }
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'تم حفظ تركيبة الخامات بنجاح' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================================
+// مسارات الأحجام والخيارات والأرصدة (Variants & Options)
+// ============================================================================
+app.get('/api/product-variants/:id', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT id, product_id, variant_name, selling_price, cost_price, stock_quantity
+            FROM product_variants 
+            WHERE product_id = $1 
+            ORDER BY id ASC
+        `, [req.params.id]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/product-variants/:id', async (req, res) => {
+    const prodId = req.params.id;
+    const { variants } = req.body; // مصفوفة [{ variant_name, selling_price, cost_price, stock_quantity }]
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM product_variants WHERE product_id = $1', [prodId]);
+
+        if (Array.isArray(variants)) {
+            for (const v of variants) {
+                if (v.variant_name && v.variant_name.trim() !== '') {
+                    await client.query(`
+                        INSERT INTO product_variants (product_id, variant_name, selling_price, cost_price, stock_quantity)
+                        VALUES ($1, $2, $3, $4, $5)
+                    `, [
+                        prodId, 
+                        v.variant_name.trim(), 
+                        parseFloat(v.selling_price) || 0, 
+                        parseFloat(v.cost_price) || 0, 
+                        parseFloat(v.stock_quantity) || 0
+                    ]);
+                }
+            }
+        }
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'تم حفظ الأحجام والأرصدة بنجاح' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.get('/api/admin/dashboard', async (req, res) => {
+    try {
+        // تقييم المخزون باستخدام NULLIF لتخطي الصفر واستعمال السعر الحقيقي
+        const valuationRes = await pool.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' AND p.product_type != 'PREPARED_DRINK' 
+                    THEN li.quantity * COALESCE(NULLIF(p.unit_cost_price, 0), p.cost_price, 0) ELSE 0 END), 0) as front_cost,
+                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' AND p.product_type != 'PREPARED_DRINK' 
+                    THEN li.quantity * COALESCE(NULLIF(p.unit_cost_price, 0), p.cost_price, 0) ELSE 0 END), 0) as backroom_cost,
+                COALESCE(SUM(CASE WHEN p.product_type != 'PREPARED_DRINK' 
+                    THEN li.quantity * COALESCE(NULLIF(p.unit_cost_price, 0), p.cost_price, 0) ELSE 0 END), 0) as total_physical_inventory_cost
+            FROM location_inventory li
+            JOIN products p ON li.product_id = p.id
+            JOIN inventory_locations l ON li.location_id = l.id
+            WHERE p.is_active = TRUE
+        `);
+
+        // حساب مبيعات وأرباح اليوم
+        const todayFinancials = await pool.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_cash_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'VODAFONE_CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_vf_sales,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' AND o.payment_type IN ('CASH', 'VODAFONE_CASH') THEN o.total_amount ELSE 0 END), 0) as today_collected_sales,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' AND o.payment_type IN ('CASH', 'VODAFONE_CASH') THEN o.total_cost ELSE 0 END), 0) as today_cogs
+            FROM orders o
+            WHERE o.created_at >= CURRENT_DATE
+        `);
+
+        const fin = todayFinancials.rows[0];
+        const todayCollectedSales = Number(fin.today_collected_sales);
+        const todayCogs = Number(fin.today_cogs);
+        const todayNetProfit = todayCollectedSales - todayCogs;
+
+        // استعلام المنتجات مع إرجاع الـ SKU و category_id
+        const productsRes = await pool.query(`
+            SELECT 
+                p.id, 
+                COALESCE(p.sku, 'SKU-' || LPAD(p.id::text, 4, '0')) as sku,
+                p.name, 
+                p.category_id,
+                COALESCE(NULLIF(p.unit_cost_price, 0), p.cost_price, 0) AS unit_cost_price,
+                COALESCE(NULLIF(p.cost_price, 0), p.unit_cost_price, 0) AS cost_price,
+                COALESCE(NULLIF(p.unit_selling_price, 0), p.selling_price, 0) AS unit_selling_price,
+                COALESCE(NULLIF(p.selling_price, 0), p.unit_selling_price, 0) AS selling_price,
+                COALESCE(p.unit_type, 'قطعة') AS unit_type,
+                COALESCE(p.product_type, 'DIRECT_UNIT') AS product_type,
+                COALESCE(c.name, p.category, 'عام') AS category,
+                COALESCE(li_front.quantity, 0) AS front_display_stock,
+                COALESCE(li_back.quantity, 0) AS backroom_stock,
+                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END as is_drink
+            FROM products p
+            LEFT JOIN product_categories c ON p.category_id = c.id
+            LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
+                 AND li_front.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
+                 AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
+            WHERE p.is_active = TRUE
+            ORDER BY p.id ASC
+        `);
+
+        res.json({
+            products: productsRes.rows,
+            today_financials: {
+                today_cash_sales: Number(fin.today_cash_sales),
+                today_vf_sales: Number(fin.today_vf_sales),
+                today_cogs: todayCogs,
+                today_net_profit: todayNetProfit
+            },
+            stats: {
+                front_display_cost: Number(valuationRes.rows[0]?.front_cost || 0),
+                backroom_cost: Number(valuationRes.rows[0]?.backroom_cost || 0),
+                total_inventory_cost: Number(valuationRes.rows[0]?.total_physical_inventory_cost || 0)
+            }
+        });
+    } catch (err) {
+        console.error('Error in /api/admin/dashboard:', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // ============================================================================
 // AUTH & EMPLOYEES
