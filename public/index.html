@@ -929,6 +929,14 @@
                         <i class="fa-solid fa-trash-can"></i> مسح السلة
                     </button>
                 </div>
+                <div style="display:flex; padding:8px 14px; gap:8px; background:var(--bg-card); border-bottom:1px solid var(--border);">
+                <button id="btn-mode-takeaway" class="btn-tool active" style="flex:1; justify-content:center;" onclick="setOrderMode('TAKEAWAY')">
+                    <i class="fa-solid fa-bag-shopping"></i> تيك أواي
+                </button>
+                <button id="btn-mode-dinein" class="btn-tool" style="flex:1; justify-content:center;" onclick="setOrderMode('DINE_IN')">
+                    <i class="fa-solid fa-mug-saucer"></i> من غير كوب او طبق
+                </button>
+                </div>
 
                 <div class="docket-items-deck" id="cart-items-container"></div>
 
@@ -962,16 +970,22 @@
                         <span id="cart-total-val">0 ج.م</span>
                     </div>
                     
-                    <div class="checkout-buttons-stack">
-                        <button class="btn-tender-complete" onclick="executeCheckout(false)">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>إتمام البيع</span>
-                            <span class="badge-kbd" style="background:rgba(0,0,0,0.3); color:#fff;">Enter</span>
+                <div class="checkout-buttons-stack">
+                    <button class="btn-tender-complete" onclick="executeCheckout('CASH')">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>دفع كاش فوري</span>
+                        <span class="badge-kbd" style="background:rgba(0,0,0,0.3); color:#fff;">Enter</span>
+                    </button>
+                    
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openCustomerTabPrompt()">
+                            <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-sky);"></i> شكك / آجل
                         </button>
-                        <button class="btn-staff-ticket" onclick="executeCheckout(true)">
-                            <i class="fa-solid fa-id-badge"></i> طلب موظف (بالتكلفة)
+                        <button class="btn-staff-ticket" style="flex:1; justify-content:center;" onclick="openStaffConsumptionPrompt()">
+                            <i class="fa-solid fa-id-badge"></i> استهلاك موظف
                         </button>
                     </div>
+                </div>
 
                     <div class="live-shift-strip">
                         <div class="shift-cell">
@@ -1278,6 +1292,49 @@
             </div>
         </div>
     </div>
+            <div id="modal-handover-wizard" class="modal-screen hidden">
+            <div class="modal-pane-dialog" style="max-width:540px;">
+                <div class="modal-header-strip">
+                    <h3 style="font-size:16px; font-weight:700; color:var(--accent-emerald);">إقفال وتسليم الشيفت (Dual-PIN Handover)</h3>
+                    <button class="btn-modal-close" onclick="closeModal('modal-handover-wizard')">×</button>
+                </div>
+        
+                <div style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+                    <div>
+                        <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">الكاشير المستلم (الوردية التالية):</label>
+                        <select id="handover-incoming-cashier" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; margin-top:4px;"></select>
+                    </div>
+        
+                    <div style="display:flex; gap:10px;">
+                        <div style="flex:1;">
+                            <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">PIN الكاشير الحالي:</label>
+                            <input type="password" id="handover-out-pin" placeholder="****" style="width:100%; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:11.5px; font-weight:600; color:var(--text-secondary);">PIN الكاشير المستلم:</label>
+                            <input type="password" id="handover-in-pin" placeholder="****" style="width:100%; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
+                        </div>
+                    </div>
+        
+                    <div>
+                        <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">المبلغ الفعلي بالدرج (ج.م):</label>
+                        <input type="number" id="handover-actual-cash" placeholder="0.00" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; font-weight:700;">
+                    </div>
+        
+                    <!-- Glass Audit Quota (15 Total) -->
+                    <div style="background:var(--bg-card); padding:10px; border-radius:6px; border:1px solid var(--border);">
+                        <span style="font-size:12px; font-weight:700; color:var(--accent-amber);">جرد الأكواب الزجاجية (العهدة: 15 مج)</span>
+                        <div style="display:flex; gap:8px; margin-top:6px;">
+                            <input type="number" id="glass-clean" placeholder="نظيف" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
+                            <input type="number" id="glass-in-use" placeholder="قيد الاستخدام" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
+                            <input type="number" id="glass-broken" placeholder="مكسور" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
+                        </div>
+                    </div>
+        
+                    <button class="btn-emerald" onclick="submitShiftHandover()">تأكيد الإقفال وترحيل الشيفت</button>
+                </div>
+            </div>
+        </div>
     <!-- Engine Script -->
     <script>
         let currentUser = null;
@@ -2479,7 +2536,159 @@
                 localStorage.removeItem('hawasb_shift_id');
                 performLogout();
             }
-        }   
+        }
+         let currentOrderMode = 'TAKEAWAY';
+
+        function setOrderMode(mode) {
+            currentOrderMode = mode;
+            document.getElementById('btn-mode-takeaway').classList.toggle('active', mode === 'TAKEAWAY');
+            document.getElementById('btn-mode-dinein').classList.toggle('active', mode === 'DINE_IN');
+        }
+        
+        // Staff Consumption Flow
+        async function openStaffConsumptionPrompt() {
+            const empRes = await fetch('/api/employees');
+            const employees = await empRes.json();
+        
+            let optionsHtml = employees.map(e => `<option value="${e.id}">${e.full_name} (${e.role})</option>`).join('');
+        
+            const { value: empId } = await Swal.fire({
+                title: 'استهلاك موظف (بسعر التكلفة)',
+                html: `
+                    <div style="text-align:right;">
+                        <label style="font-size:12px; color:var(--text-secondary);">اختر الموظف:</label>
+                        <select id="swal-staff-id" class="swal2-select" style="width:100%; margin-top:6px;">${optionsHtml}</select>
+                    </div>
+                `,
+                confirmButtonText: 'تنفيذ الاستهلاك',
+                preConfirm: () => document.getElementById('swal-staff-id').value
+            });
+        
+            if (empId) {
+                executeOrderCall({ payment_type: 'STAFF_EXPENSE', staff_employee_id: empId });
+            }
+        }
+        
+        // Customer Credit Tab Flow
+        async function openCustomerTabPrompt() {
+            const { value: formValues } = await Swal.fire({
+                title: 'فتح / إضافة على حساب آجل (شكك)',
+                html: `
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
+                        <input id="swal-tab-name" class="swal2-input" placeholder="اسم العميل" style="margin:0;">
+                        <input id="swal-tab-phone" class="swal2-input" placeholder="رقم الهاتف" style="margin:0;">
+                    </div>
+                `,
+                confirmButtonText: 'تسجيل على الحساب',
+                preConfirm: () => ({
+                    name: document.getElementById('swal-tab-name').value.trim(),
+                    phone: document.getElementById('swal-tab-phone').value.trim()
+                })
+            });
+        
+            if (formValues && formValues.name && formValues.phone) {
+                executeOrderCall({
+                    payment_type: 'CREDIT_TAB',
+                    tab_customer_name: formValues.name,
+                    tab_customer_phone: formValues.phone
+                });
+            }
+        }
+        
+        // Execute Orders with Selected Mode & Deductions
+        async function executeCheckout(mode = 'CASH') {
+            executeOrderCall({ payment_type: mode });
+        }
+        
+        async function executeOrderCall(extraPayload = {}) {
+            const cart = stationCarts[activeStation] || [];
+            if (!cart.length) return Toast.fire({ icon: 'warning', title: 'السلة فارغة' });
+        
+            try {
+                const payload = {
+                    shift_id: currentShiftId,
+                    cashier_id: currentUser.id,
+                    cart: cart,
+                    order_mode: currentOrderMode,
+                    station_reference: activeStation,
+                    ...extraPayload
+                };
+        
+                const res = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+        
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'فشلت العملية');
+        
+                Toast.fire({ icon: 'success', title: 'تم تسجيل الطلب بنجاح' });
+                clearCurrentCart();
+                loadCatalog();
+                fetchLiveShiftMetrics();
+            } catch (e) {
+                Swal.fire({ title: 'خطأ', text: e.message, icon: 'error', background: '#172033', color: '#fff' });
+            }
+        }
+        
+        // Open Shift Handover Wizard
+        async function closeActiveShiftPrompt() {
+            const empRes = await fetch('/api/employees');
+            const employees = await empRes.json();
+            const select = document.getElementById('handover-incoming-cashier');
+            select.innerHTML = employees.filter(e => e.id !== currentUser.id)
+                .map(e => `<option value="${e.id}">${e.full_name} (${e.username})</option>`).join('');
+        
+            document.getElementById('modal-handover-wizard').classList.remove('hidden');
+        }
+        
+        async function submitShiftHandover() {
+            const incomingId = document.getElementById('handover-incoming-cashier').value;
+            const outPin = document.getElementById('handover-out-pin').value;
+            const inPin = document.getElementById('handover-in-pin').value;
+            const actualCash = document.getElementById('handover-actual-cash').value;
+        
+            const glassClean = Number(document.getElementById('glass-clean').value) || 0;
+            const glassInUse = Number(document.getElementById('glass-in-use').value) || 0;
+            const glassBroken = Number(document.getElementById('glass-broken').value) || 0;
+        
+            if (!outPin || !inPin || !actualCash) {
+                return Swal.fire({ title: 'تنبيه', text: 'يرجى استيفاء جميع الحقول ورموز PIN', icon: 'warning' });
+            }
+        
+            try {
+                const res = await fetch('/api/shift-reconciliation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shift_id: currentShiftId,
+                        outgoing_cashier_id: currentUser.id,
+                        outgoing_pin: outPin,
+                        incoming_cashier_id: incomingId,
+                        incoming_pin: inPin,
+                        physical_cash: actualCash,
+                        glass_audit: { clean: glassClean, in_use: glassInUse, broken: glassBroken }
+                    })
+                });
+        
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'تعذر تسليم الشيفت');
+        
+                if (data.is_shortage) {
+                    await Swal.fire({
+                        title: 'تنبيه عجز مالي!',
+                        html: `يوجد عجز بمبلغ <b style="color:red;">${data.shortage_amount} ج.م</b> تم قيده على حساب الكاشير.`,
+                        icon: 'error'
+                    });
+                }
+        
+                performLogout();
+            } catch (e) {
+                Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
+            }
+        }
     </script>
+    
 </body>
 </html>
