@@ -2308,16 +2308,15 @@ function viewTabItemDetails(tab) {
             document.getElementById(paneId).classList.remove('hidden');
             btn.classList.add('active');
 
-            if (paneId === 'pane-overview' || paneId === 'pane-products' || paneId === 'pane-shifts' || paneId === 'pane-staff-logs') loadAdminOverview();
+            if (paneId === 'pane-overview') loadAdminOverview();
+            if (paneId === 'pane-products') loadAdminOverview();
+            if (paneId === 'pane-shifts') loadShiftsArchive(); // تم التصحيح: استدعاء الأرشيف مباشرة
+            if (paneId === 'pane-staff-logs') loadAdminOverview();
+            if (paneId === 'pane-customer-tabs') loadAdminCustomerTabs();
             if (paneId === 'pane-users') loadAdminUsers();
         }
 
         async function loadAdminOverview() {
-            // تعبئة كارت فلوس البضاعة المجمعة
-            const cogsEl = document.getElementById('stat-today-cogs');
-            if (cogsEl && data.today_financials) {
-                cogsEl.innerText = `${formatCurrency(data.today_financials.today_cogs)} ج.م`;
-            }
             try {
                 const prodRes = await fetch('/api/products');
                 if (prodRes.ok) {
@@ -2344,6 +2343,9 @@ function viewTabItemDetails(tab) {
                         setSafeText('today-cogs-val', `${formatCurrency(tf.today_cogs)} ج.م`);
                         setSafeText('today-net-profit-val', `${formatCurrency(tf.today_net_profit)} ج.م`);
                         setSafeText('today-vf-sales-val', `${formatCurrency(tf.today_vf_sales)} ج.م`);
+                        
+                        // تعبئة كارت فلوس البضاعة المجمعة بعد جلب data بشكل سليم
+                        setSafeText('stat-today-cogs', `${formatCurrency(tf.today_cogs)} ج.م`);
                     }
 
                     setSafeText('kpi-front-cost', `${formatCurrency(data.stats?.front_display_cost || 0)} ج.م`);
