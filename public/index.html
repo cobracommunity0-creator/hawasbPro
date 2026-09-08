@@ -2056,42 +2056,79 @@
         }
 
         async function loadAdminOverview() {
-            const res = await fetch('/api/admin/dashboard');
-            const data = await res.json();
-            products = data.products;
-
-            document.getElementById('kpi-collected-cost').innerText = `${formatCurrency(data.stats.collected_stock_cost)} ج.م`;
-            document.getElementById('kpi-remaining-cost').innerText = `${formatCurrency(data.stats.remaining_stock_cost)} ج.م`;
-
-            renderAdminProductsTable();
-            renderShiftsHierarchicalDeck(data.shifts);
+            try {
+                // جلب المنتجات الموثوقة أولاً
+                const prodRes = await fetch('/api/products');
+                if (prodRes.ok) {
+                    products = await prodRes.json();
+                    renderAdminProductsTable();
+                }
+        
+                // جلب إحصائيات لوحة التحكم والشيفتات
+                const dashRes = await fetch('/api/admin/dashboard');
+                if (dashRes.ok) {
+                    const data = await dashRes.json();
+                    if (data.products && data.products.length > 0) {
+                        products = data.products;
+                        renderAdminProductsTable();
+                    }
+        
+                    const kpiCollected = document.getElementById('kpi-collected-cost');
+                    if (kpiCollected) kpiCollected.innerText = `${formatCurrency(data.stats?.collected_stock_cost || 0)} ج.م`;
+        
+                    const kpiRemaining = document.getElementById('kpi-remaining-cost');
+                    if (kpiRemaining) kpiRemaining.innerText = `${formatCurrency(data.stats?.remaining_stock_cost || 0)} ج.م`;
+        
+                    if (data.shifts && typeof renderShiftsHierarchicalDeck === 'function') {
+                        renderShiftsHierarchicalDeck(data.shifts);
+                    }
+                }
+            } catch (err) {
+                console.error('Error in loadAdminOverview:', err);
+            }
         }
 
         function renderAdminProductsTable() {
             const tbody = document.getElementById('admin-products-table');
+            if (!tbody) return;
             tbody.innerHTML = '';
-
+        
+            if (!products || products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد منتجات مسجلة حتى الآن</td></tr>';
+                return;
+            }
+        
             products.forEach(p => {
-                const costCalc = Number(p.calculated_cost) || Number(p.cost_price) || 0;
+                const costPrice = Number(p.unit_cost_price || p.cost_price || 0);
+                const sellingPrice = Number(p.unit_selling_price || p.selling_price || 0);
+                const stockQty = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
+                const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
+        
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b>${p.name}</b></td>
-                    <td>${p.category}</td>
-                    <td>${formatCurrency(p.cost_price)} ج.م</td>
-                    <td><b style="color:var(--accent-sky);">${formatCurrency(costCalc)} ج.م</b></td>
-                    <td><b style="color:var(--accent-emerald);">${formatCurrency(p.selling_price)} ج.م</b></td>
-                    <td>${p.is_drink ? '-' : p.stock_quantity}</td>
+                    <td>${p.category || 'عام'}</td>
+                    <td>${formatCurrency(costPrice)} ج.م</td>
+                    <td><b style="color:var(--accent-sky);">${formatCurrency(costPrice)} ج.م</b></td>
+                    <td><b style="color:var(--accent-emerald);">${formatCurrency(sellingPrice)} ج.م</b></td>
+                    <td>${isDrink ? '-' : stockQty}</td>
                     <td>${p.unit_type || 'قطعة'}</td>
-                    <td>${p.is_drink ? '<span class="badge-status warning">مشروب/خدمة</span>' : '<span class="badge-status success">بضاعة/خامة</span>'}</td>
+                    <td>${isDrink ? '<span class="badge-status warning">مشروب/خدمة</span>' : '<span class="badge-status success">بضاعة/خامة</span>'}</td>
                     <td>
-                        <button class="btn-tool" onclick='editProductFromTable(${JSON.stringify(p)})'><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-tool" onclick="openRecipeConfigModal(${p.id}, '${p.name}')"><i class="fa-solid fa-flask"></i></button>
-                        <button class="btn-tool" onclick="openVariantsManagerModal(${p.id}, '${p.name}')"><i class="fa-solid fa-layer-group"></i></button>
-                        <button class="btn-tool danger" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
+                        <button class="btn-tool" title="تعديل" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-tool" title="تركيبة الخامات" onclick="openRecipeConfigModal(${p.id}, '${p.name}')"><i class="fa-solid fa-flask"></i></button>
+                        <button class="btn-tool" title="خيارات الأحجام" onclick="openVariantsManagerModal(${p.id}, '${p.name}')"><i class="fa-solid fa-layer-group"></i></button>
+                        <button class="btn-tool danger" title="حذف" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function editProductById(id) {
+            const p = products.find(x => x.id === id);
+            if (!p) return;
+            editProductFromTable(p);
         }
 
         function renderShiftsHierarchicalDeck(shifts) {
