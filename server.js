@@ -8,538 +8,595 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Serve static assets from public, with root fallback
 const publicDir = path.join(__dirname, 'public');
 if (fs.existsSync(publicDir)) {
     app.use(express.static(publicDir));
 }
 app.use(express.static(__dirname));
 
-const connectionString = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/hawasb_db';
-
 const pool = new Pool({
-    connectionString: connectionString,
+    connectionString: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/hawasb_db',
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
+// Auto-run schema.sql on start if tables are missing
 async function initDB() {
     try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(255) UNIQUE NOT NULL,
-                pin VARCHAR(255) NOT NULL,
-                role VARCHAR(50) NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS products (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                category VARCHAR(255) DEFAULT 'عام',
-                cost_price NUMERIC DEFAULT 0,
-                selling_price NUMERIC DEFAULT 0,
-                stock_quantity NUMERIC DEFAULT 0,
-                unit_type VARCHAR(50) DEFAULT 'قطعة',
-                is_drink INT DEFAULT 0
-            );
-
-            CREATE TABLE IF NOT EXISTS product_ingredients (
-                id SERIAL PRIMARY KEY,
-                parent_product_id INT REFERENCES products(id) ON DELETE CASCADE,
-                ingredient_id INT REFERENCES products(id) ON DELETE CASCADE,
-                quantity_required NUMERIC DEFAULT 1
-            );
-
-            CREATE TABLE IF NOT EXISTS product_variants (
-                id SERIAL PRIMARY KEY,
-                product_id INT REFERENCES products(id) ON DELETE CASCADE,
-                variant_name VARCHAR(255) NOT NULL,
-                selling_price NUMERIC DEFAULT 0,
-                cost_price NUMERIC DEFAULT 0
-            );
-
-            CREATE TABLE IF NOT EXISTS shifts (
-                id SERIAL PRIMARY KEY,
-                user_id INT REFERENCES users(id) ON DELETE SET NULL,
-                start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                end_time TIMESTAMP,
-                status VARCHAR(50) DEFAULT 'open',
-                shift_date VARCHAR(50),
-                closing_amount NUMERIC DEFAULT 0,
-                notes TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS sales (
-                id SERIAL PRIMARY KEY,
-                shift_id INT REFERENCES shifts(id) ON DELETE CASCADE,
-                product_id INT REFERENCES products(id) ON DELETE SET NULL,
-                item_name VARCHAR(255),
-                quantity NUMERIC DEFAULT 1,
-                unit_price NUMERIC DEFAULT 0,
-                unit_cost NUMERIC DEFAULT 0,
-                is_staff_order INT DEFAULT 0,
-                tip_amount NUMERIC DEFAULT 0,
-                status VARCHAR(50) DEFAULT 'completed',
-                pc_number VARCHAR(50) DEFAULT 'الكاشير المباشر',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            ALTER TABLE sales ADD COLUMN IF NOT EXISTS item_name VARCHAR(255);
-            ALTER TABLE shifts ADD COLUMN IF NOT EXISTS closing_amount NUMERIC DEFAULT 0;
-
-            INSERT INTO users (id, username, pin, role) 
-            VALUES (1, 'admin', '1234', 'admin'), (2, 'cashier', '1111', 'cashier')
-            ON CONFLICT DO NOTHING;
-        
-            SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));
-        `);
-        console.log('✅ تم إعداد وتحديث قاعدة بيانات حواسب كافيه بنجاح.');
+        const check = await pool.query("SELECT to_regclass('public.inventory_locations')");
+        if (!check.rows[0].to_regclass) {
+            const schemaFile = path.join(__dirname, 'schema.sql');
+            if (fs.existsSync(schemaFile)) {
+                const sql = fs.readFileSync(schemaFile, 'utf-8');
+                await pool.query(sql);
+                console.log('✅ تم تطبيق هيكل قاعدة البيانات الجديد بنجاح.');
+            }
+        } else {
+            console.log('✅ قاعدة البيانات متصلة وجاهزة للعمل.');
+        }
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
     }
 }
 initDB();
 
-// 1. Authentication
+// ============================================================================
+// 1. AUTHENTICATION & EMPLOYEES
+// ============================================================================
 app.post('/api/login', async (req, res) => {
     const { username, pin } = req.body;
     try {
-        const userRes = await pool.query('SELECT id, username, role FROM users WHERE username = $1 AND pin = $2', [username, pin]);
+        const userRes = await pool.query(
+            'SELECT id, username, full_name, role, current_shortage_debt FROM employees WHERE (username = $1 OR phone = $1) AND pin_code = $2 AND is_active = TRUE',
+            [username, pin]
+        );
         const user = userRes.rows[0];
-
         if (!user) return res.status(401).json({ error: 'اسم المستخدم أو رمز PIN غير صحيح' });
 
-        if (user.role === 'cashier') {
-            const shiftRes = await pool.query("SELECT * FROM shifts WHERE user_id = $1 AND status = 'open' ORDER BY id DESC LIMIT 1", [user.id]);
-            res.json({ user, activeShift: shiftRes.rows[0] || null });
-        } else {
-            res.json({ user, activeShift: null });
-        }
+        const shiftRes = await pool.query(
+            "SELECT * FROM shifts WHERE status = 'OPEN' ORDER BY id DESC LIMIT 1"
+        );
+
+        res.json({ user, activeShift: shiftRes.rows[0] || null });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. User Management (CRUD)
-app.get('/api/admin/users', async (req, res) => {
+app.get('/api/employees', async (req, res) => {
     try {
-        const result = await pool.query('SELECT id, username, role FROM users ORDER BY id ASC');
+        const result = await pool.query('SELECT id, username, full_name, role FROM employees WHERE is_active = TRUE ORDER BY id ASC');
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/admin/users', async (req, res) => {
-    const { id, username, pin, role } = req.body;
-    try {
-        if (id) {
-            if (pin && pin.trim() !== '') {
-                await pool.query('UPDATE users SET username = $1, role = $2, pin = $3 WHERE id = $4', [username, role, pin, id]);
-            } else {
-                await pool.query('UPDATE users SET username = $1, role = $2 WHERE id = $3', [username, role, id]);
-            }
-            res.json({ message: 'تم تحديث بيانات المستخدم' });
-        } else {
-            const newUsr = await pool.query('INSERT INTO users (username, pin, role) VALUES ($1, $2, $3) RETURNING id', [username, pin, role]);
-            res.json({ id: newUsr.rows[0].id });
-        }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/admin/users/:id', async (req, res) => {
-    try {
-        await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
-        res.json({ message: 'تم حذف المستخدم بنجاح' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 3. Shift Management
+// ============================================================================
+// 2. SHIFTS & DUAL-PIN HANDOVER
+// ============================================================================
 app.post('/api/start-shift', async (req, res) => {
-    const { user_id } = req.body;
-    const shiftDate = new Date().toISOString().split('T')[0];
+    const { shift_number, cashier_id, starting_float } = req.body;
+    const client = await pool.connect();
     try {
-        const activeCheck = await pool.query("SELECT id FROM shifts WHERE user_id = $1 AND status = 'open' LIMIT 1", [user_id]);
-        if (activeCheck.rows.length > 0) {
-            return res.json({ shift_id: activeCheck.rows[0].id });
+        await client.query('BEGIN');
+
+        // Check if an open shift already exists
+        const openCheck = await client.query("SELECT id FROM shifts WHERE status = 'OPEN' LIMIT 1");
+        if (openCheck.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.json({ shift_id: openCheck.rows[0].id });
         }
-        const result = await pool.query(
-            "INSERT INTO shifts (user_id, start_time, status, shift_date) VALUES ($1, NOW(), 'open', $2) RETURNING id",
-            [user_id, shiftDate]
+
+        const shiftDate = new Date().toISOString().split('T')[0];
+        const newShift = await client.query(
+            `INSERT INTO shifts (shift_number, shift_date, outgoing_cashier_id, starting_cash_float, status) 
+             VALUES ($1, $2, $3, $4, 'OPEN') RETURNING id`,
+            [shift_number || 1, shiftDate, cashier_id, starting_float || 0]
         );
-        res.json({ shift_id: result.rows[0].id });
+        const shiftId = newShift.rows[0].id;
+
+        // Auto-lock opening baseline: Duplicate the previous shift's closing counts as this shift's opening counts
+        const lastClosedShift = await client.query(
+            "SELECT id FROM shifts WHERE status = 'CLOSED' ORDER BY id DESC LIMIT 1"
+        );
+
+        if (lastClosedShift.rows.length > 0) {
+            await client.query(
+                `INSERT INTO shift_inventory_counts (shift_id, product_id, location_id, count_type, physical_count, system_expected_count)
+                 SELECT $1, product_id, location_id, 'OPENING', physical_count, physical_count
+                 FROM shift_inventory_counts 
+                 WHERE shift_id = $2 AND count_type = 'CLOSING'
+                 ON CONFLICT DO NOTHING`,
+                [shiftId, lastClosedShift.rows[0].id]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.json({ shift_id: shiftId });
     } catch (err) {
+        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
+// Shift Summary Metrics
 app.get('/api/shift-summary/:shift_id', async (req, res) => {
+    const shiftId = req.params.shift_id;
     try {
-        const result = await pool.query(`
-            SELECT 
-                COALESCE(SUM(quantity * unit_price), 0) as total_sales,
-                COALESCE(SUM(quantity * unit_cost), 0) as total_cost,
-                COALESCE(SUM(quantity * (unit_price - unit_cost)), 0) as total_profit,
-                COALESCE(SUM(tip_amount), 0) as total_tips
-            FROM sales WHERE shift_id = $1 AND status = 'completed'
-        `, [req.params.shift_id]);
-        res.json(result.rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+        const shiftData = await pool.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shiftId]);
+        const startingFloat = Number(shiftData.rows[0]?.starting_cash_float || 0);
 
-app.post('/api/end-shift', async (req, res) => {
-    const { shift_id, closing_amount, notes } = req.body;
-    try {
-        await pool.query(
-            "UPDATE shifts SET end_time = NOW(), status = 'closed', closing_amount = $1, notes = $2 WHERE id = $3",
-            [closing_amount || 0, notes || '', shift_id]
+        const salesRes = await pool.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN payment_type = 'CASH' THEN total_amount ELSE 0 END), 0) as cash_sales,
+                COALESCE(SUM(CASE WHEN payment_type = 'CREDIT_TAB' THEN total_amount ELSE 0 END), 0) as tab_sales,
+                COALESCE(SUM(CASE WHEN payment_type = 'STAFF_EXPENSE' THEN total_cost ELSE 0 END), 0) as staff_costs,
+                COALESCE(SUM(total_cost), 0) as total_cogs
+            FROM orders WHERE shift_id = $1 AND status = 'COMPLETED'
+        `, [shiftId]);
+
+        const tabSettlements = await pool.query(
+            'SELECT COALESCE(SUM(amount_paid), 0) as total_tab_cash FROM customer_tab_payments WHERE collected_in_shift_id = $1',
+            [shiftId]
         );
-        res.json({ message: 'تم إغلاق الشيفت بنجاح' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// Live Shift Notes Auto-save
-app.post('/api/shift-notes', async (req, res) => {
-    const { shift_id, notes } = req.body;
-    try {
-        await pool.query('UPDATE shifts SET notes = $1 WHERE id = $2', [notes, shift_id]);
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/shift-notes/:shift_id', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT notes FROM shifts WHERE id = $1', [req.params.shift_id]);
-        res.json({ notes: result.rows[0]?.notes || '' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 4. Products & Recipes Management
-app.get('/api/products', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                p.*,
-                COALESCE((
-                    SELECT SUM(pi.quantity_required * ing.cost_price)
-                    FROM product_ingredients pi
-                    JOIN products ing ON pi.ingredient_id = ing.id
-                    WHERE pi.parent_product_id = p.id
-                ), 0) + COALESCE(p.cost_price, 0) as calculated_cost
-            FROM products p 
-            ORDER BY p.id ASC
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/products', async (req, res) => {
-    const { id, name, category, cost_price, selling_price, stock_quantity, unit_type, is_drink } = req.body;
-    const unit = unit_type || 'قطعة';
-    try {
-        if (id) {
-            await pool.query(
-                'UPDATE products SET name=$1, category=$2, cost_price=$3, selling_price=$4, stock_quantity=$5, unit_type=$6, is_drink=$7 WHERE id=$8',
-                [name, category, cost_price || 0, selling_price || 0, stock_quantity || 0, unit, is_drink ? 1 : 0, id]
-            );
-            res.json({ message: 'تم التحديث بنجاح' });
-        } else {
-            const result = await pool.query(
-                'INSERT INTO products (name, category, cost_price, selling_price, stock_quantity, unit_type, is_drink) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-                [name, category, cost_price || 0, selling_price || 0, stock_quantity || 0, unit, is_drink ? 1 : 0]
-            );
-            res.json({ id: result.rows[0].id });
-        }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/products/:id', async (req, res) => {
-    try {
-        await pool.query('DELETE FROM products WHERE id = $1', [req.params.id]);
-        res.json({ message: 'تم حذف المنتج بنجاح' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Product Ingredients
-app.post('/api/product-ingredients', async (req, res) => {
-    const { parent_product_id, ingredients } = req.body;
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        await client.query('DELETE FROM product_ingredients WHERE parent_product_id = $1', [parent_product_id]);
-        for (const item of (ingredients || [])) {
-            await client.query(
-                'INSERT INTO product_ingredients (parent_product_id, ingredient_id, quantity_required) VALUES ($1, $2, $3)',
-                [parent_product_id, item.ingredient_id, item.quantity_required]
-            );
-        }
-        await client.query('COMMIT');
-        res.json({ message: 'تم حفظ المكونات بنجاح' });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-app.get('/api/product-ingredients/:id', async (req, res) => {
-    try {
-        const result = await pool.query(
-            'SELECT pi.*, p.name, p.unit_type, p.cost_price FROM product_ingredients pi JOIN products p ON pi.ingredient_id = p.id WHERE pi.parent_product_id = $1',
-            [req.params.id]
+        const pettyExpenses = await pool.query(
+            'SELECT COALESCE(SUM(amount), 0) as total_petty FROM petty_cash_expenses WHERE shift_id = $1',
+            [shiftId]
         );
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-// Product Variants
-app.post('/api/product-variants', async (req, res) => {
-    const { product_id, variants } = req.body;
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        await client.query('DELETE FROM product_variants WHERE product_id = $1', [product_id]);
-        for (const v of (variants || [])) {
-            await client.query(
-                'INSERT INTO product_variants (product_id, variant_name, selling_price, cost_price) VALUES ($1, $2, $3, $4)',
-                [product_id, v.variant_name, v.selling_price || 0, v.cost_price || 0]
-            );
-        }
-        await client.query('COMMIT');
-        res.json({ message: 'تم حفظ الخيارات بنجاح' });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-app.get('/api/product-variants/:id', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM product_variants WHERE product_id = $1 ORDER BY id ASC', [req.params.id]);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 5. Checkout with Transactions & Precise Stock Deductions
-// 5. Checkout with Transactions & Precise Stock Deductions
-app.post('/api/checkout', async (req, res) => {
-    const { shift_id, cart, is_staff_order, paid_amount, pc_number } = req.body;
-    if (!cart || cart.length === 0) return res.status(400).json({ error: 'السلة فارغة' });
-
-    let orderTotal = cart.reduce((sum, item) => {
-        const itemPrice = is_staff_order ? Number(item.cost) : Number(item.price);
-        return sum + (itemPrice * item.qty);
-    }, 0);
-
-    const paid = Number(paid_amount) || 0;
-    let calculatedTip = (paid > orderTotal && orderTotal > 0) ? (paid - orderTotal) : 0;
-    const targetPc = pc_number || 'الكاشير المباشر';
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        // 1. التحقق من توفر الكمية بالمخزن للأصناف الخاضعة للجرد فقط (is_drink = 0)
-        for (const item of cart) {
-            const prodRes = await client.query('SELECT name, stock_quantity, is_drink FROM products WHERE id = $1 FOR UPDATE', [item.id]);
-            if (prodRes.rows.length > 0) {
-                const prod = prodRes.rows[0];
-                if (prod.is_drink === 0 && Number(prod.stock_quantity) < Number(item.qty)) {
-                    await client.query('ROLLBACK');
-                    return res.status(400).json({ 
-                        error: `عفواً، الكمية المتاحة من "${prod.name}" غير كافية بالمخزن (المتاح: ${prod.stock_quantity})` 
-                    });
-                }
-            }
-        }
-
-        // 2. تسجيل المبيعات وخصم المخزون
-        for (let i = 0; i < cart.length; i++) {
-            const item = cart[i];
-            const finalPrice = is_staff_order ? Number(item.cost) : Number(item.price);
-            const itemTip = (i === 0) ? calculatedTip : 0;
-
-            await client.query(
-                'INSERT INTO sales (shift_id, product_id, item_name, quantity, unit_price, unit_cost, is_staff_order, tip_amount, pc_number, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
-                [shift_id, item.id, item.name, item.qty, finalPrice, item.cost, is_staff_order ? 1 : 0, itemTip, targetPc, 'completed']
-            );
-
-            // خصم الخامات إن وجدت، أو خصم الصنف مباشرة إذا كان خاضعاً للجرد (is_drink = 0)
-            const ingRes = await client.query('SELECT * FROM product_ingredients WHERE parent_product_id = $1', [item.id]);
-            if (ingRes.rows.length > 0) {
-                for (const ing of ingRes.rows) {
-                    await client.query(
-                        'UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - $1) WHERE id = $2',
-                        [ing.quantity_required * item.qty, ing.ingredient_id]
-                    );
-                }
-            } else {
-                await client.query(
-                    'UPDATE products SET stock_quantity = GREATEST(0, stock_quantity - $1) WHERE id = $2 AND is_drink = 0',
-                    [item.qty, item.id]
-                );
-            }
-        }
-
-        await client.query('COMMIT');
-        res.json({ success: true, tip: calculatedTip, total: orderTotal });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-// 6. Refund Transaction
-app.post('/api/sales/refund/:id', async (req, res) => {
-    const saleId = req.params.id;
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const saleRes = await client.query('SELECT * FROM sales WHERE id = $1 FOR UPDATE', [saleId]);
-        if (saleRes.rows.length === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'الطلب غير موجود' });
-        }
-
-        const sale = saleRes.rows[0];
-        if (sale.status === 'refunded') {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: 'تم إرجاع هذا الطلب بالفعل' });
-        }
-
-        await client.query("UPDATE sales SET status = 'refunded' WHERE id = $1", [saleId]);
-
-        if (sale.product_id) {
-            const ingRes = await client.query('SELECT * FROM product_ingredients WHERE parent_product_id = $1', [sale.product_id]);
-            if (ingRes.rows.length > 0) {
-                for (const ing of ingRes.rows) {
-                    await client.query(
-                        'UPDATE products SET stock_quantity = stock_quantity + $1 WHERE id = $2',
-                        [ing.quantity_required * sale.quantity, ing.ingredient_id]
-                    );
-                }
-            } else {
-                await client.query(
-                    'UPDATE products SET stock_quantity = stock_quantity + $1 WHERE id = $2 AND is_drink = 0',
-                    [sale.quantity, sale.product_id]
-                );
-            }
-        }
-
-        await client.query('COMMIT');
-        res.json({ success: true, message: 'تم إرجاع الصنف بنجاح وتحديث المخزون' });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// 7. Live Shift & Sales Details
-app.get('/api/admin/shift-live-details/:shift_id', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                s.id as sale_id, 
-                COALESCE(s.item_name, p.name, 'صنف محذوف') as name, 
-                COALESCE(p.category, 'عام') as category, 
-                s.quantity, 
-                s.unit_price, 
-                s.unit_cost, 
-                (s.quantity * s.unit_price) as subtotal, 
-                s.is_staff_order, 
-                s.status, 
-                s.pc_number, 
-                s.created_at 
-            FROM sales s 
-            LEFT JOIN products p ON s.product_id = p.id 
-            WHERE s.shift_id = $1 
-            ORDER BY s.created_at DESC
-        `, [req.params.shift_id]);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 8. Admin Dashboard Aggregation
-app.get('/api/admin/dashboard', async (req, res) => {
-    try {
-       const shiftsRes = await pool.query(`
-            SELECT 
-                s.id, s.start_time, s.end_time, s.status, s.shift_date, s.closing_amount, s.notes, u.username,
-                COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.quantity * sa.unit_price ELSE 0 END), 0) as total_sales,
-                COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.quantity * sa.unit_cost ELSE 0 END), 0) as total_cost,
-                COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.quantity * (sa.unit_price - sa.unit_cost) ELSE 0 END), 0) as total_profit,
-                COALESCE(SUM(CASE WHEN sa.status = 'completed' THEN sa.tip_amount ELSE 0 END), 0) as total_tips
-            FROM shifts s
-            LEFT JOIN users u ON s.user_id = u.id
-            LEFT JOIN sales sa ON s.id = sa.shift_id
-            GROUP BY s.id, u.username 
-            ORDER BY s.id DESC
-        `);
-
-        const collectedRes = await pool.query("SELECT COALESCE(SUM(quantity * unit_cost), 0) as collected_stock_cost FROM sales WHERE status = 'completed'");
-        const remainingRes = await pool.query('SELECT COALESCE(SUM(stock_quantity * cost_price), 0) as remaining_stock_cost FROM products WHERE is_drink = 0');
-        const productsRes = await pool.query(`
-            SELECT 
-                p.*,
-                COALESCE((
-                    SELECT SUM(pi.quantity_required * ing.cost_price)
-                    FROM product_ingredients pi
-                    JOIN products ing ON pi.ingredient_id = ing.id
-                    WHERE pi.parent_product_id = p.id
-                ), 0) + COALESCE(p.cost_price, 0) as calculated_cost
-            FROM products p 
-            ORDER BY p.id ASC
-        `);
+        const cashSales = Number(salesRes.rows[0].cash_sales);
+        const tabCollected = Number(tabSettlements.rows[0].total_tab_cash);
+        const pettyTotal = Number(pettyExpenses.rows[0].total_petty);
+        const expectedCash = startingFloat + cashSales + tabCollected - pettyTotal;
 
         res.json({
-            shifts: shiftsRes.rows,
-            stats: {
-                collected_stock_cost: collectedRes.rows[0].collected_stock_cost,
-                remaining_stock_cost: remainingRes.rows[0].remaining_stock_cost
-            },
-            products: productsRes.rows
+            starting_float: startingFloat,
+            cash_sales: cashSales,
+            tab_credit_sales: Number(salesRes.rows[0].tab_sales),
+            staff_expense_sales: Number(salesRes.rows[0].staff_costs),
+            tab_settlements_income: tabCollected,
+            petty_expenses: pettyTotal,
+            expected_cash: expectedCash
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-app.post('/api/admin/force-close-shift', async (req, res) => {
+// Dual-PIN Shift Handover & Reconciliation
+app.post('/api/shift-reconciliation', async (req, res) => {
+    const {
+        shift_id,
+        outgoing_cashier_id,
+        outgoing_pin,
+        incoming_cashier_id,
+        incoming_pin,
+        physical_cash,
+        glass_audit, // { clean, in_use, broken }
+        inventory_counts // Array of { product_id, location_id, physical_count }
+    } = req.body;
+
+    const client = await pool.connect();
     try {
-        await pool.query("UPDATE shifts SET end_time = NOW(), status = 'closed', notes = 'إغلاق إجباري بواسطة المسؤول' WHERE id = $1", [req.body.shift_id]);
-        res.json({ message: 'تم الإغلاق بنجاح' });
+        await client.query('BEGIN');
+
+        // 1. Dual-PIN Verification
+        const outAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [outgoing_cashier_id, outgoing_pin]);
+        if (outAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير الحالي غير صحيح');
+
+        const inAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [incoming_cashier_id, incoming_pin]);
+        if (inAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير المستلم غير صحيح');
+
+        // 2. Fetch Expected Metrics
+        const shiftRes = await client.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shift_id]);
+        const startingFloat = Number(shiftRes.rows[0].starting_cash_float);
+
+        const sales = await client.query("SELECT COALESCE(SUM(total_amount), 0) as cash_total FROM orders WHERE shift_id = $1 AND payment_type = 'CASH' AND status = 'COMPLETED'", [shift_id]);
+        const tabs = await client.query('SELECT COALESCE(SUM(amount_paid), 0) as tab_total FROM customer_tab_payments WHERE collected_in_shift_id = $1', [shift_id]);
+        const petty = await client.query('SELECT COALESCE(SUM(amount), 0) as petty_total FROM petty_cash_expenses WHERE shift_id = $1', [shift_id]);
+
+        const cashSales = Number(sales.rows[0].cash_total);
+        const tabIncome = Number(tabs.rows[0].tab_total);
+        const pettyCash = Number(petty.rows[0].petty_total);
+        const expectedCash = startingFloat + cashSales + tabIncome - pettyCash;
+
+        const actualCash = Number(physical_cash) || 0;
+        const variance = actualCash - expectedCash;
+        const isShortage = variance < 0;
+        const shortageAmount = isShortage ? Math.abs(variance) : 0;
+
+        // 3. Update Cashier Debt if shortage occurs
+        if (isShortage && shortageAmount > 0) {
+            await client.query(
+                'UPDATE employees SET current_shortage_debt = current_shortage_debt + $1 WHERE id = $2',
+                [shortageAmount, outgoing_cashier_id]
+            );
+        }
+
+        // 4. Save Reconciliation Record
+        await client.query(`
+            INSERT INTO shift_reconciliations (
+                shift_id, expected_cash, actual_physical_cash, petty_expenses_total,
+                tab_settlements_total, cash_sales_total, cash_variance, is_shortage,
+                shortage_amount, outgoing_pin_verified, incoming_pin_verified
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, TRUE)
+        `, [shift_id, expectedCash, actualCash, pettyCash, tabIncome, cashSales, variance, isShortage, shortageAmount]);
+
+        // 5. Equipment Audit (15 Glass Cups)
+        if (glass_audit) {
+            await client.query(`
+                INSERT INTO glass_equipment_audits (shift_id, clean_count, in_use_count, broken_count)
+                VALUES ($1, $2, $3, $4)
+            `, [shift_id, glass_audit.clean || 0, glass_audit.in_use || 0, glass_audit.broken || 0]);
+        }
+
+        // 6. Lock in Closing Inventory Counts
+        if (Array.isArray(inventory_counts)) {
+            for (const item of inventory_counts) {
+                const sysCount = await client.query(
+                    'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2',
+                    [item.product_id, item.location_id]
+                );
+                const currentSystem = Number(sysCount.rows[0]?.quantity || 0);
+
+                await client.query(`
+                    INSERT INTO shift_inventory_counts (shift_id, product_id, location_id, count_type, physical_count, system_expected_count)
+                    VALUES ($1, $2, $3, 'CLOSING', $4, $5)
+                `, [shift_id, item.product_id, item.location_id, item.physical_count, currentSystem]);
+            }
+        }
+
+        // 7. Close Active Shift & Link Incoming Cashier
+        await client.query(`
+            UPDATE shifts 
+            SET status = 'CLOSED', end_time = NOW(), incoming_cashier_id = $1
+            WHERE id = $2
+        `, [incoming_cashier_id, shift_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, variance, is_shortage: isShortage, shortage_amount: shortageAmount });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================================
+// 3. TWO-TIER INVENTORY & TRANSFERS
+// ============================================================================
+app.get('/api/products', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                p.id, p.sku, p.name, p.unit_cost_price, p.unit_selling_price, 
+                p.unit_type, p.product_type, c.name as category,
+                COALESCE(li.quantity, 0) as front_display_stock
+            FROM products p
+            LEFT JOIN product_categories c ON p.category_id = c.id
+            LEFT JOIN location_inventory li ON p.id = li.product_id 
+                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY')
+            WHERE p.is_active = TRUE
+            ORDER BY p.id ASC
+        `);
+        res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+});
+
+// Transfer from Backroom Storage to Front Display
+app.post('/api/stock-transfer', async (req, res) => {
+    const { user_id, items, notes } = req.body; // items: [{ product_id, quantity }]
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const locs = await client.query("SELECT id, code FROM inventory_locations WHERE code IN ('BACKROOM', 'FRONT_DISPLAY')");
+        const backroom = locs.rows.find(l => l.code === 'BACKROOM').id;
+        const frontDisplay = locs.rows.find(l => l.code === 'FRONT_DISPLAY').id;
+
+        const transfer = await client.query(
+            'INSERT INTO stock_transfers (source_location_id, destination_location_id, transferred_by_user_id, notes) VALUES ($1, $2, $3, $4) RETURNING id',
+            [backroom, frontDisplay, user_id, notes || 'تحويل بضاعة للواجهة']
+        );
+        const transferId = transfer.rows[0].id;
+
+        for (const item of items) {
+            const avail = await client.query(
+                'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
+                [item.product_id, backroom]
+            );
+            const currentBackroom = Number(avail.rows[0]?.quantity || 0);
+
+            if (currentBackroom < Number(item.quantity)) {
+                throw new Error(`الرصيد في المخزن الداخلي غير كافٍ للصنف #${item.product_id}`);
+            }
+
+            // Deduct Backroom
+            await client.query(
+                'UPDATE location_inventory SET quantity = quantity - $1 WHERE product_id = $2 AND location_id = $3',
+                [item.quantity, item.product_id, backroom]
+            );
+
+            // Add to Front Display
+            await client.query(`
+                INSERT INTO location_inventory (product_id, location_id, quantity)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (product_id, location_id) 
+                DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity
+            `, [item.product_id, frontDisplay, item.quantity]);
+
+            await client.query(
+                'INSERT INTO stock_transfer_items (transfer_id, product_id, quantity) VALUES ($1, $2, $3)',
+                [transferId, item.product_id, item.quantity]
+            );
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, transfer_id: transferId });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Two-Tier Financial Stock Valuation
+app.get('/api/inventory/valuation', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                l.code, l.name as location_name,
+                COALESCE(SUM(li.quantity * p.unit_cost_price), 0) as total_cost_value,
+                COALESCE(SUM(li.quantity * p.unit_selling_price), 0) as total_retail_value
+            FROM inventory_locations l
+            LEFT JOIN location_inventory li ON l.id = li.location_id
+            LEFT JOIN products p ON li.product_id = p.id
+            GROUP BY l.id, l.code, l.name
+        `;
+        const result = await pool.query(query);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// 4. POS CHECKOUT (BOM DINE-IN/TAKEAWAY & PAYMENT MODES)
+// ============================================================================
+app.post('/api/checkout', async (req, res) => {
+    const {
+        shift_id,
+        cashier_id,
+        cart,
+        order_mode, // 'DINE_IN' or 'TAKEAWAY'
+        payment_type, // 'CASH', 'CREDIT_TAB', 'STAFF_EXPENSE'
+        staff_employee_id,
+        tab_customer_name,
+        tab_customer_phone,
+        station_reference
+    } = req.body;
+
+    if (!cart || cart.length === 0) return res.status(400).json({ error: 'السلة فارغة' });
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY'");
+        const frontLocationId = frontLoc.rows[0].id;
+
+        let totalOrderAmount = 0;
+        let totalOrderCost = 0;
+
+        // 1. Calculate and validate Front Display stock
+        for (const item of cart) {
+            const pRes = await client.query('SELECT * FROM products WHERE id = $1', [item.id]);
+            const prod = pRes.rows[0];
+
+            let unitCost = Number(prod.unit_cost_price);
+            let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price);
+
+            totalOrderAmount += unitPrice * item.qty;
+            totalOrderCost += unitCost * item.qty;
+
+            // Check stock if DIRECT_UNIT
+            if (prod.product_type === 'DIRECT_UNIT') {
+                const stockRes = await client.query(
+                    'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
+                    [prod.id, frontLocationId]
+                );
+                const currentQty = Number(stockRes.rows[0]?.quantity || 0);
+                if (currentQty < item.qty) {
+                    throw new Error(`الكمية المتاحة من "${prod.name}" على الواجهة غير كافية (المتاح: ${currentQty})`);
+                }
+            }
+
+            // Check paper cups if TAKEAWAY
+            if (prod.product_type === 'PREPARED_DRINK' && order_mode === 'TAKEAWAY') {
+                const cupBom = await client.query(
+                    "SELECT ingredient_product_id, quantity_required FROM product_boms WHERE parent_product_id = $1 AND rule = 'TAKEAWAY_ONLY'",
+                    [prod.id]
+                );
+                for (const b of cupBom.rows) {
+                    const cupStock = await client.query(
+                        'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
+                        [b.ingredient_product_id, frontLocationId]
+                    );
+                    const cupsAvailable = Number(cupStock.rows[0]?.quantity || 0);
+                    if (cupsAvailable < (b.quantity_required * item.qty)) {
+                        throw new Error('الأكواب الورقية غير كافية لتنفيذ الطلب دليفري/تيك أواي');
+                    }
+                }
+            }
+        }
+
+        // 2. Create Order Record
+        const orderInsert = await client.query(`
+            INSERT INTO orders (shift_id, cashier_id, order_mode, payment_type, total_amount, total_cost, station_reference, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'COMPLETED') RETURNING id
+        `, [shift_id, cashier_id, order_mode || 'TAKEAWAY', payment_type || 'CASH', totalOrderAmount, totalOrderCost, station_reference || 'الكاشير المباشر']);
+        const orderId = orderInsert.rows[0].id;
+
+        // 3. Deduct Inventory & Process BOM Recipes
+        for (const item of cart) {
+            const pRes = await client.query('SELECT * FROM products WHERE id = $1', [item.id]);
+            const prod = pRes.rows[0];
+
+            let unitCost = Number(prod.unit_cost_price);
+            let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price);
+
+            await client.query(`
+                INSERT INTO order_items (order_id, product_id, quantity, unit_price, unit_cost)
+                VALUES ($1, $2, $3, $4, $5)
+            `, [orderId, prod.id, item.qty, unitPrice, unitCost]);
+
+            if (prod.product_type === 'DIRECT_UNIT') {
+                await client.query(`
+                    UPDATE location_inventory SET quantity = quantity - $1
+                    WHERE product_id = $2 AND location_id = $3
+                `, [item.qty, prod.id, frontLocationId]);
+            } else if (prod.product_type === 'PREPARED_DRINK') {
+                const boms = await client.query('SELECT * FROM product_boms WHERE parent_product_id = $1', [prod.id]);
+                for (const bom of boms.rows) {
+                    const shouldDeduct = (bom.rule === 'ALWAYS') || (bom.rule === 'TAKEAWAY_ONLY' && order_mode === 'TAKEAWAY');
+                    if (shouldDeduct) {
+                        await client.query(`
+                            UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
+                            WHERE product_id = $2 AND location_id = $3
+                        `, [bom.quantity_required * item.qty, bom.ingredient_product_id, frontLocationId]);
+                    }
+                }
+            }
+        }
+
+        // 4. Branch Payment-Specific Handlers
+        if (payment_type === 'STAFF_EXPENSE') {
+            await client.query(`
+                INSERT INTO staff_consumptions (order_id, shift_id, employee_id, total_cost_charged)
+                VALUES ($1, $2, $3, $4)
+            `, [orderId, shift_id, staff_employee_id, totalOrderCost]);
+        } else if (payment_type === 'CREDIT_TAB') {
+            let tabId;
+            const existingTab = await client.query(
+                "SELECT id FROM customer_tabs WHERE phone = $1 AND status != 'SETTLED'",
+                [tab_customer_phone]
+            );
+
+            if (existingTab.rows.length > 0) {
+                tabId = existingTab.rows[0].id;
+                await client.query(
+                    'UPDATE customer_tabs SET total_debt = total_debt + $1 WHERE id = $2',
+                    [totalOrderAmount, tabId]
+                );
+            } else {
+                const newTab = await client.query(`
+                    INSERT INTO customer_tabs (customer_name, phone, total_debt, status, origin_shift_id)
+                    VALUES ($1, $2, $3, 'UNPAID', $4) RETURNING id
+                `, [tab_customer_name, tab_customer_phone, totalOrderAmount, shift_id]);
+                tabId = newTab.rows[0].id;
+            }
+
+            await client.query('INSERT INTO customer_tab_orders (tab_id, order_id) VALUES ($1, $2)', [tabId, orderId]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, order_id: orderId, total: totalOrderAmount });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================================
+// 5. CUSTOMER TABS & SETTLEMENTS
+// ============================================================================
+app.get('/api/customer-tabs', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT * FROM customer_tabs WHERE status != 'SETTLED' ORDER BY id DESC");
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/customer-tabs/settle', async (req, res) => {
+    const { tab_id, shift_id, cashier_id, amount_paid } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        await client.query(`
+            INSERT INTO customer_tab_payments (tab_id, collected_in_shift_id, cashier_id, amount_paid)
+            VALUES ($1, $2, $3, $4)
+        `, [tab_id, shift_id, cashier_id, amount_paid]);
+
+        const tabRes = await client.query('SELECT total_debt, amount_paid FROM customer_tabs WHERE id = $1 FOR UPDATE', [tab_id]);
+        const tab = tabRes.rows[0];
+        const newPaid = Number(tab.amount_paid) + Number(amount_paid);
+        const newStatus = (newPaid >= Number(tab.total_debt)) ? 'SETTLED' : 'PARTIALLY_PAID';
+
+        await client.query('UPDATE customer_tabs SET amount_paid = $1, status = $2 WHERE id = $3', [newPaid, newStatus, tab_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================================
+// 6. PETTY CASH & WASTAGE
+// ============================================================================
+app.post('/api/petty-cash', async (req, res) => {
+    const { shift_id, employee_id, amount, reason, receipt_reference } = req.body;
+    try {
+        await pool.query(
+            'INSERT INTO petty_cash_expenses (shift_id, employee_id, amount, reason, receipt_reference) VALUES ($1, $2, $3, $4, $5)',
+            [shift_id, employee_id, amount, reason, receipt_reference || null]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/wastage', async (req, res) => {
+    const { shift_id, product_id, location_id, quantity, reason, user_id, notes } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const prod = await client.query('SELECT unit_cost_price FROM products WHERE id = $1', [product_id]);
+        const unitCost = Number(prod.rows[0]?.unit_cost_price || 0);
+
+        await client.query(`
+            INSERT INTO wastage_logs (shift_id, product_id, location_id, quantity, unit_cost_price, reason, logged_by_user_id, notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [shift_id, product_id, location_id, quantity, unitCost, reason, user_id, notes]);
+
+        await client.query(`
+            UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
+            WHERE product_id = $2 AND location_id = $3
+        `, [quantity, product_id, location_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
