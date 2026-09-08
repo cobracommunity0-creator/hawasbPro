@@ -22,17 +22,214 @@ const pool = new Pool({
 // Auto-run schema.sql on start if tables are missing
 async function initDB() {
     try {
-        const check = await pool.query("SELECT to_regclass('public.inventory_locations')");
-        if (!check.rows[0].to_regclass) {
-            const schemaFile = path.join(__dirname, 'schema.sql');
-            if (fs.existsSync(schemaFile)) {
-                const sql = fs.readFileSync(schemaFile, 'utf-8');
-                await pool.query(sql);
-                console.log('✅ تم تطبيق هيكل قاعدة البيانات الجديد بنجاح.');
-            }
-        } else {
-            console.log('✅ قاعدة البيانات متصلة وجاهزة للعمل.');
-        }
+        await pool.query(`
+            -- 1. جدول الموظفين والمستخدمين
+            CREATE TABLE IF NOT EXISTS employees (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                pin_code VARCHAR(12) NOT NULL,
+                full_name VARCHAR(100) NOT NULL,
+                phone VARCHAR(20),
+                role VARCHAR(20) NOT NULL DEFAULT 'staff',
+                current_shortage_debt NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- 2. مواقع المخزون (داخلي وخارجي)
+            CREATE TABLE IF NOT EXISTS inventory_locations (
+                id SERIAL PRIMARY KEY,
+                code VARCHAR(30) UNIQUE NOT NULL,
+                name VARCHAR(100) NOT NULL,
+                description TEXT
+            );
+
+            -- 3. أقسام المنتجات
+            CREATE TABLE IF NOT EXISTS product_categories (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100) UNIQUE NOT NULL
+            );
+
+            -- 4. المنتجات
+            CREATE TABLE IF NOT EXISTS products (
+                id SERIAL PRIMARY KEY,
+                sku VARCHAR(50) UNIQUE,
+                name VARCHAR(150) NOT NULL,
+                category_id INT REFERENCES product_categories(id) ON DELETE SET NULL,
+                product_type VARCHAR(30) NOT NULL DEFAULT 'DIRECT_UNIT',
+                unit_cost_price NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
+                unit_selling_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                unit_type VARCHAR(20) NOT NULL DEFAULT 'قطعة',
+                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- 5. أرصدة المخزون بالمواقع
+            CREATE TABLE IF NOT EXISTS location_inventory (
+                product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
+                quantity NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+                updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (product_id, location_id)
+            );
+
+            -- 6. تركيبات الخامات (BOM)
+            CREATE TABLE IF NOT EXISTS product_boms (
+                id SERIAL PRIMARY KEY,
+                parent_product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+                ingredient_product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                quantity_required NUMERIC(10, 4) NOT NULL,
+                rule VARCHAR(30) NOT NULL DEFAULT 'ALWAYS'
+            );
+
+            -- 7. الشيفتات وإقفالها
+            CREATE TABLE IF NOT EXISTS shifts (
+                id SERIAL PRIMARY KEY,
+                shift_number SMALLINT NOT NULL DEFAULT 1,
+                shift_date DATE NOT NULL,
+                outgoing_cashier_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                incoming_cashier_id INT REFERENCES employees(id) ON DELETE RESTRICT,
+                start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                end_time TIMESTAMP WITH TIME ZONE,
+                starting_cash_float NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
+                notes TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS shift_reconciliations (
+                shift_id INT PRIMARY KEY REFERENCES shifts(id) ON DELETE CASCADE,
+                expected_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                actual_physical_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                petty_expenses_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                tab_settlements_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                cash_sales_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                cash_variance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                is_shortage BOOLEAN NOT NULL DEFAULT FALSE,
+                shortage_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                outgoing_pin_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                incoming_pin_verified BOOLEAN NOT NULL DEFAULT FALSE,
+                reconciled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS glass_equipment_audits (
+                id SERIAL PRIMARY KEY,
+                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+                quota_total INT NOT NULL DEFAULT 15,
+                clean_count INT NOT NULL DEFAULT 0,
+                in_use_count INT NOT NULL DEFAULT 0,
+                broken_count INT NOT NULL DEFAULT 0,
+                verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- 8. الطلبات والمبيعات
+            CREATE TABLE IF NOT EXISTS orders (
+                id SERIAL PRIMARY KEY,
+                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+                cashier_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                order_mode VARCHAR(20) NOT NULL DEFAULT 'TAKEAWAY',
+                payment_type VARCHAR(20) NOT NULL DEFAULT 'CASH',
+                total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                total_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
+                status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+                station_reference VARCHAR(50) DEFAULT 'الكاشير المباشر',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS order_items (
+                id SERIAL PRIMARY KEY,
+                order_id INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                quantity NUMERIC(10, 2) NOT NULL,
+                unit_price NUMERIC(10, 2) NOT NULL,
+                unit_cost NUMERIC(10, 4) NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS staff_consumptions (
+                id SERIAL PRIMARY KEY,
+                order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+                employee_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                total_cost_charged NUMERIC(10, 2) NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- 9. الحسابات الآجلة (الشكك)
+            CREATE TABLE IF NOT EXISTS customer_tabs (
+                id SERIAL PRIMARY KEY,
+                customer_name VARCHAR(100) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                total_debt NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                amount_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                status VARCHAR(20) NOT NULL DEFAULT 'UNPAID',
+                origin_shift_id INT REFERENCES shifts(id) ON DELETE SET NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS customer_tab_orders (
+                tab_id INT NOT NULL REFERENCES customer_tabs(id) ON DELETE CASCADE,
+                order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+                PRIMARY KEY (tab_id, order_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS customer_tab_payments (
+                id SERIAL PRIMARY KEY,
+                tab_id INT NOT NULL REFERENCES customer_tabs(id) ON DELETE RESTRICT,
+                collected_in_shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE RESTRICT,
+                cashier_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                amount_paid NUMERIC(10, 2) NOT NULL,
+                payment_method VARCHAR(20) NOT NULL DEFAULT 'CASH',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS petty_cash_expenses (
+                id SERIAL PRIMARY KEY,
+                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+                employee_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                amount NUMERIC(10, 2) NOT NULL,
+                reason TEXT NOT NULL,
+                receipt_reference VARCHAR(100),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS wastage_logs (
+                id SERIAL PRIMARY KEY,
+                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
+                quantity NUMERIC(10, 4) NOT NULL,
+                unit_cost_price NUMERIC(10, 4) NOT NULL,
+                reason VARCHAR(50) NOT NULL,
+                logged_by_user_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                notes TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            -- 10. إدخال الموظفين الافتراضيين
+            INSERT INTO employees (id, username, pin_code, full_name, phone, role) VALUES
+            (1, 'admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
+            (2, 'omar',   '1111', 'عمر - وردية 3',   '01100000001', 'cashier'),
+            (3, 'tareq',  '2222', 'طارق - وردية 1',  '01200000002', 'cashier'),
+            (4, 'antry',  '3333', 'عنتري - وردية 2', '01500000003', 'cashier')
+            (5, 'test',  'test', 'test', '01500000003', 'cashier')
+            ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, pin_code = EXCLUDED.pin_code;
+
+            -- 11. إدخال المواقع الافتراضية
+            INSERT INTO inventory_locations (id, code, name, description) VALUES
+            (1, 'BACKROOM',      'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
+            (2, 'FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع المباشر')
+            ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code;
+
+            -- 12. إدخال الأقسام الافتراضية
+            INSERT INTO product_categories (id, name) VALUES
+            (1, 'مشروبات ساخنة'), (2, 'مشروبات غازية وساقعة'), (3, 'شيبسيات وسناكس'), (4, 'خامات ومواد تغليف')
+            ON CONFLICT (id) DO NOTHING;
+
+            -- ضبط الترقيم التلقائي
+            SELECT setval(pg_get_serial_sequence('employees', 'id'), COALESCE((SELECT MAX(id) FROM employees), 1));
+            SELECT setval(pg_get_serial_sequence('inventory_locations', 'id'), COALESCE((SELECT MAX(id) FROM inventory_locations), 1));
+            SELECT setval(pg_get_serial_sequence('product_categories', 'id'), COALESCE((SELECT MAX(id) FROM product_categories), 1));
+        `);
+        console.log('✅ تم إعداد وتحديث قاعدة البيانات بنجاح.');
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
     }
