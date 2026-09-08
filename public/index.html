@@ -1456,60 +1456,60 @@
         </div>
     </div>
     <!-- نافذة تركيبة الخامات (BOM) -->
-<div id="modal-recipe-editor" class="modal-screen hidden">
-    <div class="modal-pane-dialog" style="max-width:550px;">
-        <div class="modal-header-strip">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-flask" style="color:var(--accent-sky); font-size:18px;"></i>
-                <h3 id="recipe-modal-title" style="font-size:15px; font-weight:700;">تركيبة الخامات المستهلكة</h3>
+    <div id="modal-recipe-editor" class="modal-screen hidden">
+        <div class="modal-pane-dialog" style="max-width:550px;">
+            <div class="modal-header-strip">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-flask" style="color:var(--accent-sky); font-size:18px;"></i>
+                    <h3 id="recipe-modal-title" style="font-size:15px; font-weight:700;">تركيبة الخامات المستهلكة</h3>
+                </div>
+                <button class="btn-modal-close" onclick="closeModal('modal-recipe-editor')">×</button>
             </div>
-            <button class="btn-modal-close" onclick="closeModal('modal-recipe-editor')">×</button>
-        </div>
-
-        <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
-            حدد الخامات (كوب، شوكة، شاليموه.. إلخ) التي تُستهلك تلقائياً من المخزن عند بيع هذا الصنف:
-        </p>
-
-        <div id="recipe-rows-deck" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto; padding-right:4px;"></div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
-            <button class="btn-tool" onclick="addRecipeRowItem()"><i class="fa-solid fa-plus"></i> إضافة خامة</button>
-            <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveRecipeConfiguration()">حفظ التركيبة</button>
+    
+            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+                حدد الخامات (كوب، شوكة، شاليموه.. إلخ) التي تُستهلك تلقائياً من المخزن عند بيع هذا الصنف:
+            </p>
+    
+            <div id="recipe-rows-deck" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto; padding-right:4px;"></div>
+    
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+                <button class="btn-tool" onclick="addRecipeRowItem()"><i class="fa-solid fa-plus"></i> إضافة خامة</button>
+                <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveRecipeConfiguration()">حفظ التركيبة</button>
+            </div>
         </div>
     </div>
-</div>
-
-<!-- نافذة إدارة خيارات الأحجام والأسعار والأرصدة (Variants) -->
-<div id="modal-variants-editor" class="modal-screen hidden">
-    <div class="modal-pane-dialog" style="max-width:620px;">
-        <div class="modal-header-strip">
-            <div style="display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-layer-group" style="color:var(--accent-amber); font-size:18px;"></i>
-                <h3 id="variants-modal-title" style="font-size:15px; font-weight:700;">خيارات الأحجام والأسعار والأرصدة</h3>
+    
+    <!-- نافذة إدارة خيارات الأحجام والأسعار والأرصدة (Variants) -->
+    <div id="modal-variants-editor" class="modal-screen hidden">
+        <div class="modal-pane-dialog" style="max-width:620px;">
+            <div class="modal-header-strip">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-layer-group" style="color:var(--accent-amber); font-size:18px;"></i>
+                    <h3 id="variants-modal-title" style="font-size:15px; font-weight:700;">خيارات الأحجام والأسعار والأرصدة</h3>
+                </div>
+                <button class="btn-modal-close" onclick="closeModal('modal-variants-editor')">×</button>
             </div>
-            <button class="btn-modal-close" onclick="closeModal('modal-variants-editor')">×</button>
-        </div>
-
-        <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
-            أدخل الأحجام المتاحة (مثال: صغير / كبير)، وسعر البيع والتكلفة، وعدد كل حجم عندك:
-        </p>
-
-        <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap:6px; font-size:11px; font-weight:700; color:var(--text-muted); padding-bottom:4px; text-align:center;">
-            <div>اسم الحجم</div>
-            <div>سعر البيع</div>
-            <div>سعر التكلفة</div>
-            <div>العدد المتاح</div>
-            <div></div>
-        </div>
-
-        <div id="variants-rows-deck" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto;"></div>
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
-            <button class="btn-tool" onclick="addVariantRowItem()"><i class="fa-solid fa-plus"></i> إضافة حجم جديد</button>
-            <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveVariantsConfiguration()">حفظ الأحجام والأرصدة</button>
+    
+            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
+                أدخل الأحجام المتاحة (مثال: صغير / كبير)، وسعر البيع والتكلفة، وعدد كل حجم عندك:
+            </p>
+    
+            <div style="display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 30px; gap:6px; font-size:11px; font-weight:700; color:var(--text-muted); padding-bottom:4px; text-align:center;">
+                <div>اسم الحجم</div>
+                <div>سعر البيع</div>
+                <div>سعر التكلفة</div>
+                <div>العدد المتاح</div>
+                <div></div>
+            </div>
+    
+            <div id="variants-rows-deck" style="display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto;"></div>
+    
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; border-top:1px solid var(--border); padding-top:10px;">
+                <button class="btn-tool" onclick="addVariantRowItem()"><i class="fa-solid fa-plus"></i> إضافة حجم جديد</button>
+                <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveVariantsConfiguration()">حفظ الأحجام والأرصدة</button>
+            </div>
         </div>
     </div>
-</div>
 
     <!-- =========================================================== -->
     <!-- APPLICATION JAVASCRIPT LOGIC                                -->
