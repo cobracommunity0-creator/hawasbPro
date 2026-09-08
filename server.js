@@ -346,17 +346,29 @@ app.get('/api/product-variants/:id', async (req, res) => {
 });
 
 // 5. Checkout with Transactions & Precise Stock Deductions
+// 5. Checkout with Transactions & Precise Stock Deductions
 app.post('/api/checkout', async (req, res) => {
+    const { shift_id, cart, is_staff_order, paid_amount, pc_number } = req.body;
+    if (!cart || cart.length === 0) return res.status(400).json({ error: 'السلة فارغة' });
+
+    let orderTotal = cart.reduce((sum, item) => {
+        const itemPrice = is_staff_order ? Number(item.cost) : Number(item.price);
+        return sum + (itemPrice * item.qty);
+    }, 0);
+
+    const paid = Number(paid_amount) || 0;
+    let calculatedTip = (paid > orderTotal && orderTotal > 0) ? (paid - orderTotal) : 0;
+    const targetPc = pc_number || 'الكاشير المباشر';
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Validate available stock for all tracked items before proceeding
+        // 1. التحقق من توفر الكمية بالمخزن للأصناف الخاضعة للجرد فقط (is_drink = 0)
         for (const item of cart) {
             const prodRes = await client.query('SELECT name, stock_quantity, is_drink FROM products WHERE id = $1 FOR UPDATE', [item.id]);
             if (prodRes.rows.length > 0) {
                 const prod = prodRes.rows[0];
-                // Check direct product stock if not a service/drink (is_drink = 0)
                 if (prod.is_drink === 0 && Number(prod.stock_quantity) < Number(item.qty)) {
                     await client.query('ROLLBACK');
                     return res.status(400).json({ 
@@ -366,7 +378,7 @@ app.post('/api/checkout', async (req, res) => {
             }
         }
 
-        // 2. Perform sales insertions and inventory deductions
+        // 2. تسجيل المبيعات وخصم المخزون
         for (let i = 0; i < cart.length; i++) {
             const item = cart[i];
             const finalPrice = is_staff_order ? Number(item.cost) : Number(item.price);
@@ -377,7 +389,7 @@ app.post('/api/checkout', async (req, res) => {
                 [shift_id, item.id, item.name, item.qty, finalPrice, item.cost, is_staff_order ? 1 : 0, itemTip, targetPc, 'completed']
             );
 
-            // Deduct ingredients if configured; otherwise deduct product inventory (only if is_drink = 0)
+            // خصم الخامات إن وجدت، أو خصم الصنف مباشرة إذا كان خاضعاً للجرد (is_drink = 0)
             const ingRes = await client.query('SELECT * FROM product_ingredients WHERE parent_product_id = $1', [item.id]);
             if (ingRes.rows.length > 0) {
                 for (const ing of ingRes.rows) {
