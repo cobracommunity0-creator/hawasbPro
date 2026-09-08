@@ -840,19 +840,18 @@
                     <table class="terminal-table">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>الكاشير</th>
-                                <th>تاريخ الوردية</th>
-                                <th>البدء</th>
-                                <th>الإغلاق</th>
+                                <th>الشيفت</th>
+                                <th>الكاشير المسلّم</th>
+                                <th>المستلم</th>
                                 <th>مبيعات الكاش</th>
-                                <th>فودافون كاش</th>
-                                <th>مبيعات الشكك</th>
-                                <th>المبلغ المسلم بالظرف</th>
-                                <th>العجز</th>
+                                <th style="color:var(--accent-rose);">فلوس البضاعة (اعزلها للرف)</th>
+                                <th style="color:var(--accent-emerald);">صافي ربحك في جيبك</th>
+                                <th>محتوى الظرف الفعلي</th>
+                                <th>حالة العجز</th>
                                 <th>الحالة</th>
                             </tr>
                         </thead>
+                        <tbody id="shifts-archive-tbody"></tbody>
                         <tbody id="admin-shifts-table-body"></tbody>
                     </table>
                 </div>
@@ -2120,7 +2119,47 @@ function viewTabItemDetails(tab) {
                 console.error(err);
             }
         }
-
+        async function loadShiftsArchive() {
+            const tbody = document.getElementById('shifts-archive-tbody');
+            if (!tbody) return;
+            try {
+                const res = await fetch('/api/admin/shifts-archive');
+                const list = await res.json();
+                tbody.innerHTML = '';
+        
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="padding:15px; color:var(--text-muted);">لا توجد أي شيفتات سابقة مسجلة</td></tr>';
+                    return;
+                }
+        
+                list.forEach(s => {
+                    const tr = document.createElement('tr');
+                    
+                    // تحديد حالة العجز
+                    let varianceHtml = '<span style="color:var(--accent-emerald);">سليم ✓</span>';
+                    if (s.cash_variance < 0) {
+                        varianceHtml = `<span style="color:var(--accent-rose); font-weight:700;">عجز: ${formatCurrency(Math.abs(s.cash_variance))} ج</span>`;
+                    } else if (s.cash_variance > 0) {
+                        varianceHtml = `<span style="color:var(--accent-sky);">زيادة: ${formatCurrency(s.cash_variance)} ج</span>`;
+                    }
+        
+                    tr.innerHTML = `
+                        <td><b>وردية ${s.shift_number}</b><br><small style="color:var(--text-muted);">${s.shift_date || ''}</small></td>
+                        <td><b>${s.outgoing_cashier_name}</b></td>
+                        <td>${s.incoming_cashier_name}</td>
+                        <td><b>${formatCurrency(s.cash_sales)} ج.م</b></td>
+                        <td><b style="color:var(--accent-rose); font-size:13.5px;">${formatCurrency(s.shift_cogs)} ج.م</b></td>
+                        <td><b style="color:var(--accent-emerald); font-size:13.5px;">${formatCurrency(s.shift_net_profit)} ج.م</b></td>
+                        <td><b style="color:#fff;">${formatCurrency(s.actual_physical_cash)} ج.م</b></td>
+                        <td>${varianceHtml}</td>
+                        <td><span class="badge ${s.status === 'CLOSED' ? 'badge-settled' : 'badge-unpaid'}">${s.status === 'CLOSED' ? 'مقفول' : 'مفتوح'}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error(err);
+            }
+        }
         async function submitShiftHandover() {
             const incomingId = document.getElementById('handover-incoming-cashier').value;
             const actualCash = document.getElementById('handover-actual-cash').value;
