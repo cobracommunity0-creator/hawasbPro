@@ -2322,66 +2322,168 @@
             if (paneId === 'pane-users') loadAdminUsers();
         }
 
+        // تحميل بيانات لوحة الإدارة مع جلب المنتجات مباشرة أولاً
         async function loadAdminOverview() {
             try {
+                // 1. جلب المنتجات ورسم الجدول فوراً دون انتظار أي شيء آخر
+                const prodRes = await fetch('/api/products');
+                if (prodRes.ok) {
+                    products = await prodRes.json();
+                    renderAdminProductsTable();
+                }
+
+                // 2. جلب إحصائيات لوحة التحكم والشيفتات بأمان تام (مع فحص وجود كل عنصر)
                 const dashRes = await fetch('/api/admin/dashboard');
                 if (dashRes.ok) {
                     const data = await dashRes.json();
-                    products = data.products || [];
-
-                    // 1. تحديث ملخص أرباح اليوم المباشر
-                    if (data.today_financials) {
-                        const tf = data.today_financials;
-                        document.getElementById('today-cash-sales-val').innerText = `${formatCurrency(tf.today_cash_sales)} ج.م`;
-                        document.getElementById('today-cogs-val').innerText = `${formatCurrency(tf.today_cogs)} ج.م`;
-                        document.getElementById('today-net-profit-val').innerText = `${formatCurrency(tf.today_net_profit)} ج.م`;
-                        document.getElementById('today-vf-sales-val').innerText = `${formatCurrency(tf.today_vf_sales)} ج.م`;
+                    
+                    if (data.products && data.products.length > 0) {
+                        products = data.products;
+                        renderAdminProductsTable();
                     }
 
-                    // 2. تحديث رأس مال البضاعة
-                    document.getElementById('kpi-front-cost').innerText = `${formatCurrency(data.stats?.front_display_cost || 0)} ج.م`;
-                    document.getElementById('kpi-backroom-cost').innerText = `${formatCurrency(data.stats?.backroom_cost || 0)} ج.م`;
-                    document.getElementById('kpi-total-inventory').innerText = `${formatCurrency(data.stats?.total_inventory_cost || 0)} ج.م`;
+                    // دالة مساعدة لتحديث النصوص بأمان دون توقف الكود إذا كان العنصر غير موجود
+                    const setSafeText = (id, text) => {
+                        const el = document.getElementById(id);
+                        if (el) el.innerText = text;
+                    };
 
-                    renderAdminProductsTable();
-                    renderRestockAlertsTable();
-                    renderAdminShiftsTable(data.shifts || []);
-                    renderAdminStaffOrdersTable(data.staff_orders || []);
+                    if (data.today_financials) {
+                        const tf = data.today_financials;
+                        setSafeText('today-cash-sales-val', `${formatCurrency(tf.today_cash_sales)} ج.م`);
+                        setSafeText('today-cogs-val', `${formatCurrency(tf.today_cogs)} ج.م`);
+                        setSafeText('today-net-profit-val', `${formatCurrency(tf.today_net_profit)} ج.م`);
+                        setSafeText('today-vf-sales-val', `${formatCurrency(tf.today_vf_sales)} ج.م`);
+                    }
+
+                    setSafeText('kpi-front-cost', `${formatCurrency(data.stats?.front_display_cost || 0)} ج.م`);
+                    setSafeText('kpi-backroom-cost', `${formatCurrency(data.stats?.backroom_cost || 0)} ج.م`);
+                    setSafeText('kpi-total-inventory', `${formatCurrency(data.stats?.total_inventory_cost || 0)} ج.م`);
+
+                    if (typeof renderRestockAlertsTable === 'function') renderRestockAlertsTable();
+                    if (typeof renderAdminShiftsTable === 'function') renderAdminShiftsTable(data.shifts || []);
+                    if (typeof renderAdminStaffOrdersTable === 'function') renderAdminStaffOrdersTable(data.staff_orders || []);
                 }
             } catch (err) {
-                console.error(err);
+                console.error('Error in loadAdminOverview:', err);
             }
         }
 
-        // Render Restock Alerts (Items with <= 5 units in Front Display)
-        function renderRestockAlertsTable() {
-            const tbody = document.getElementById('admin-restock-alerts-tbody');
+        // رسم جدول الأصناف في الإدارة
+        function renderAdminProductsTable() {
+            const tbody = document.getElementById('admin-products-table');
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            const lowStockItems = products.filter(p => p.product_type !== 'PREPARED_DRINK' && Number(p.front_display_stock) <= 5);
-
-            if (lowStockItems.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="padding:16px; color:var(--accent-emerald);">جميع أصناف الواجهة متوفرة برصيد جيد ولا توجد نواقص حرجة حالياً ✓</td></tr>';
+            if (!products || products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted);">لا توجد منتجات مسجلة أو جاري التحميل...</td></tr>';
                 return;
             }
 
-            lowStockItems.forEach(p => {
+            products.forEach(p => {
+                const cost = Number(p.unit_cost_price || p.cost_price || 0);
+                const price = Number(p.unit_selling_price || p.selling_price || 0);
+                const frontStock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
+                const backStock = Number(p.backroom_stock || 0);
+                const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b>${p.name}</b></td>
                     <td>${p.category || 'عام'}</td>
-                    <td><b style="color:var(--accent-rose); font-size:14px;">${p.front_display_stock}</b> ${p.unit_type}</td>
-                    <td><b style="color:var(--accent-amber); font-size:14px;">${p.backroom_stock}</b> ${p.unit_type}</td>
-                    <td>${formatCurrency(p.unit_cost_price)} ج.م</td>
+                    <td>${formatCurrency(cost)} ج.م</td>
+                    <td><b style="color:var(--accent-emerald);">${formatCurrency(price)} ج.م</b></td>
+                    <td>${isDrink ? '-' : `<b style="${frontStock <= 5 ? 'color:var(--accent-rose);' : ''}">${frontStock}</b>`}</td>
+                    <td>${isDrink ? '-' : `<b style="color:var(--accent-amber);">${backStock}</b>`}</td>
+                    <td>${p.unit_type || 'قطعة'}</td>
+                    <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة واجهة</span>'}</td>
                     <td>
-                        <button class="btn-tool" style="background:var(--accent-emerald); color:#000; font-weight:700;" onclick="promptStockTransfer(${p.id}, '${p.name}', ${p.backroom_stock})">
-                            <i class="fa-solid fa-arrow-right-arrow-left"></i> تحويل من المخزن للواجهة
+                        <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id})">
+                            <i class="fa-solid fa-boxes-packing"></i> + توريد
                         </button>
+                        <button class="btn-tool" title="تعديل الصنف" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-tool danger" title="حذف" onclick="deleteProductItem(${p.id})"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        // دالة التوريد السريع بضغطة زر
+        async function quickRestockInward(prodId) {
+            const p = products.find(x => x.id === prodId);
+            const prodName = p ? p.name : 'الصنف';
+
+            const { value: formValues } = await Swal.fire({
+                title: `توريد شحنة جديدة لـ "${prodName}"`,
+                html: `
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">الكمية المستلمة من المورد / التاجر:</label>
+                            <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="مثال: 24" style="width:100%; margin:4px 0 0 0;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">أدخلتها فين؟</label>
+                            <select id="swal-inward-loc" class="swal2-select" style="width:100%; margin:4px 0 0 0;">
+                                <option value="BACKROOM">المخزن الداخلي الاحتياطي</option>
+                                <option value="FRONT_DISPLAY">الواجهة والمعروض (بيع فوري للكاشير)</option>
+                            </select>
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'إضافة للرصيد فوراً',
+                showCancelButton: true,
+                cancelButtonText: 'إلغاء',
+                preConfirm: () => {
+                    const qty = parseFloat(document.getElementById('swal-inward-qty').value);
+                    const loc = document.getElementById('swal-inward-loc').value;
+                    if (!qty || qty <= 0) {
+                        Swal.showValidationMessage('يرجى كتابة كمية صحيحة');
+                        return false;
+                    }
+                    return { qty, loc };
+                }
+            });
+
+            if (formValues) {
+                try {
+                    const res = await fetch('/api/admin/restock-inward', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            product_id: prodId,
+                            quantity: formValues.qty,
+                            destination: formValues.loc
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'فشلت عملية التوريد');
+
+                    Toast.fire({ icon: 'success', title: `تمت إضافة ${formValues.qty} قطعة بنجاح` });
+                    loadAdminOverview();
+                } catch (e) {
+                    Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
+                }
+            }
+        }
+
+        // دالة الحذف الآمنة المحدثة
+        async function deleteProductItem(prodId) {
+            const p = products.find(x => x.id === prodId);
+            const prodName = p ? p.name : 'الصنف';
+
+            const conf = await Swal.fire({
+                title: `حذف الصنف "${prodName}"؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#f43f5e',
+                confirmButtonText: 'حذف',
+                cancelButtonText: 'إلغاء'
+            });
+            if (conf.isConfirmed) {
+                await fetch(`/api/products/${prodId}`, { method: 'DELETE' });
+                loadAdminOverview();
+            }
         }
 
         // Quick Stock Transfer Prompt
