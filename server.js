@@ -782,4 +782,34 @@ app.get('*', (req, res) => {
     res.sendFile(indexPath);
 });
 
+// توريد شحنة بضاعة جديدة بأمان تام أثناء فتح الشيفتات (+ Restock)
+app.post('/api/admin/restock-inward', async (req, res) => {
+    const { product_id, quantity, destination } = req.body; // destination: 'FRONT_DISPLAY' or 'BACKROOM'
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const qty = Number(quantity);
+        if (qty <= 0) throw new Error('الكمية الموردة غير صحيحة');
+
+        const locRes = await client.query('SELECT id FROM inventory_locations WHERE code = $1 LIMIT 1', [destination || 'BACKROOM']);
+        const locationId = locRes.rows[0].id;
+
+        // زيادة تراكمية آمنة (Atomic Increment)
+        await client.query(`
+            INSERT INTO location_inventory (product_id, location_id, quantity)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (product_id, location_id) 
+            DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity
+        `, [product_id, locationId, qty]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'تمت إضافة الشحنة بنجاح' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 app.listen(PORT, () => console.log(`🚀 النظام يعمل بنجاح على المنفذ ${PORT} - حواسب كافيه`));
