@@ -284,6 +284,15 @@ app.get('/api/products', async (req, res) => {
     }
 });
 
+app.get('/api/product-variants/:id', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM product_variants WHERE product_id = $1 ORDER BY id ASC', [req.params.id]);
+        res.json(result.rows);
+    } catch (err) {
+        res.json([]);
+    }
+});
+
 // Admin Dashboard Aggregation: Accurate Physical Restock Cost Excludes Virtual Prepared Drinks
 // لوحة الإدارة مع احتساب أرباح اليوم وتكلفة البضاعة بدقة تامة
 // جلب الأصناف الحرجة المطلوب جردها سريعاً عند كل تسليم (التلاجة والإندومي)
