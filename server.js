@@ -19,7 +19,7 @@ const pool = new Pool({
     ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// إعداد الجداول والبيانات الأساسية تلقائياً بصيغة متوافقة بالكامل
+// تهيئة الجداول وحقن جميع الأصناف والبيانات الافتراضية
 async function initDB() {
     try {
         // 1. الموظفون والمستخدمون
@@ -258,7 +258,7 @@ async function initDB() {
             );
         `);
 
-        // 11. البيانات الافتراضية
+        // 11. إضافة المستخدمين والمواقع والأقسام الافتراضية
         await pool.query(`
             INSERT INTO employees (id, username, pin_code, full_name, phone, role) VALUES
             (1, 'admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
@@ -273,16 +273,74 @@ async function initDB() {
             ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code;
 
             INSERT INTO product_categories (id, name) VALUES
-            (1, 'مشروبات ساخنة'), (2, 'مشروبات ساقعة'), (3, 'شيبسيات وسناكس'), (4, 'خامات ومواد تغليف')
+            (1, 'مشروبات ساخنة'), (2, 'مشروبات ساقعة'), (3, 'شيبسيات وسناكس'), (4, 'البسكويت والحلويات'), (5, 'خامات ومواد تغليف')
             ON CONFLICT (id) DO NOTHING;
         `);
 
-        // مزامنة أرقام الـ Sequences بأمان
+        // 12. حقن الأصناف الـ 37 تلقائياً وربطها بالمخزون إذا كان الجدول فارغاً
+        const prodCount = await pool.query('SELECT COUNT(*) FROM products');
+        if (parseInt(prodCount.rows[0].count) === 0) {
+            console.log('🔄 جاري إدخال أصناف السايبر والمخزون الأولي...');
+            await pool.query(`
+                INSERT INTO products (id, name, category_id, unit_cost_price, unit_selling_price, unit_type, product_type) VALUES
+                (1, 'شاي', 1, 1.1, 10, 'قطعة', 'PREPARED_DRINK'),
+                (2, 'قهوه', 1, 4.7, 15, 'قطعة', 'PREPARED_DRINK'),
+                (3, 'نسكافيه 3x1', 1, 6.1, 15, 'قطعة', 'PREPARED_DRINK'),
+                (4, 'نسكافيه ريتشي', 1, 10.3, 20, 'قطعة', 'PREPARED_DRINK'),
+                (5, 'كوفي ميكس / كوفي بريك', 1, 5, 15, 'قطعة', 'PREPARED_DRINK'),
+                (6, 'موهيتو', 1, 17.5, 35, 'قطعة', 'PREPARED_DRINK'),
+                (7, 'فيوري', 2, 17.9, 23, 'قطعة', 'DIRECT_UNIT'),
+                (8, 'بلو شارك', 2, 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
+                (9, 'تويست', 2, 13.3, 17, 'قطعة', 'DIRECT_UNIT'),
+                (10, 'ماونتن ديو اكشن', 2, 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
+                (11, 'في كولا', 2, 13.5, 17, 'قطعة', 'DIRECT_UNIT'),
+                (12, 'فولت', 2, 9.2, 13, 'قطعة', 'DIRECT_UNIT'),
+                (13, 'مياه معدنية', 2, 5.5, 8, 'قطعة', 'DIRECT_UNIT'),
+                (14, 'صن توب', 2, 11.1, 17, 'قطعة', 'DIRECT_UNIT'),
+                (15, 'ميكس', 2, 11.5, 18, 'قطعة', 'DIRECT_UNIT'),
+                (16, 'جاكوار', 3, 9, 12, 'قطعة', 'DIRECT_UNIT'),
+                (17, 'شيتوس', 3, 9, 12, 'قطعة', 'DIRECT_UNIT'),
+                (18, 'توتس', 3, 10, 14, 'قطعة', 'DIRECT_UNIT'),
+                (19, 'دوريتوس', 3, 9, 12, 'قطعة', 'DIRECT_UNIT'),
+                (20, 'كرانشي', 3, 4.8, 7, 'قطعة', 'DIRECT_UNIT'),
+                (21, 'شيبسي', 3, 9.2, 12, 'قطعة', 'DIRECT_UNIT'),
+                (22, 'اندومي جامبو', 3, 8.6, 20, 'قطعة', 'DIRECT_UNIT'),
+                (23, 'اندومي صغير', 3, 4.5, 15, 'قطعة', 'DIRECT_UNIT'),
+                (24, 'ماجيك', 4, 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
+                (25, '4G', 4, 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
+                (26, 'هوهوز', 4, 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
+                (27, 'توينكز', 4, 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
+                (28, 'بيمبو/فريسكا موف و احمر /بسكريم', 4, 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
+                (29, 'تيبو', 4, 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
+                (30, 'تورتة', 4, 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
+                (31, 'مولتو', 4, 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
+                (32, 'شفاطة بلاستيك', 5, 0.2, 0.2, 'قطعة', 'PACKAGING_MATERIAL'),
+                (33, 'شوكة / معلقة بلاستيك', 5, 0.4, 0.4, 'قطعة', 'PACKAGING_MATERIAL'),
+                (34, 'كوب بلاستيك شفاف', 5, 1.7, 1.7, 'قطعة', 'PACKAGING_MATERIAL'),
+                (35, 'كوب إندومي صغير', 5, 1, 1, 'قطعة', 'PACKAGING_MATERIAL'),
+                (36, 'كوب إندومي كبير', 5, 1.1, 1.1, 'قطعة', 'PACKAGING_MATERIAL'),
+                (37, 'كوب ورقي ساخن', 5, 1.2, 1.2, 'قطعة', 'PACKAGING_MATERIAL')
+                ON CONFLICT (id) DO NOTHING;
+
+                -- تعبئة رصيد الواجهة (Front Display) ورصيد المخزن (Backroom)
+                INSERT INTO location_inventory (product_id, location_id, quantity)
+                SELECT id, 2, 50 FROM products; -- 50 قطعة على الواجهة لكل صنف
+
+                INSERT INTO location_inventory (product_id, location_id, quantity)
+                SELECT id, 1, 200 FROM products; -- 200 قطعة في المخزن الاحتياطي
+            `);
+            console.log('✅ تم إدخال الأصناف والمخزون بنجاح.');
+        }
+
+        // ضبط الـ Sequences
         await pool.query(`
             DO $$
             BEGIN
                 IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'employees_id_seq') THEN
                     PERFORM setval('employees_id_seq', COALESCE((SELECT MAX(id) FROM employees), 1));
+                END IF;
+                IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'products_id_seq') THEN
+                    PERFORM setval('products_id_seq', COALESCE((SELECT MAX(id) FROM products), 1));
                 END IF;
                 IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'inventory_locations_id_seq') THEN
                     PERFORM setval('inventory_locations_id_seq', COALESCE((SELECT MAX(id) FROM inventory_locations), 1));
@@ -293,7 +351,7 @@ async function initDB() {
             END $$;
         `);
 
-        console.log('✅ تم إعداد وتحديث قاعدة البيانات بنجاح.');
+        console.log('✅ قاعدة البيانات متصلة وجاهزة بالكامل.');
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
     }
@@ -301,7 +359,7 @@ async function initDB() {
 initDB();
 
 // ============================================================================
-// مسارات المصادقة والموظفين
+// 1. مسارات المصادقة والمستخدمين (Auth & Employees)
 // ============================================================================
 app.post('/api/login', async (req, res) => {
     const { username, pin } = req.body;
@@ -332,8 +390,220 @@ app.get('/api/employees', async (req, res) => {
     }
 });
 
+// Admin Users CRUD
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT id, username, full_name, role, current_shortage_debt FROM employees WHERE is_active = TRUE ORDER BY id ASC');
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/users', async (req, res) => {
+    const { id, username, pin, role, full_name } = req.body;
+    try {
+        if (id) {
+            if (pin && pin.trim() !== '') {
+                await pool.query('UPDATE employees SET username=$1, pin_code=$2, role=$3, full_name=COALESCE($4, full_name) WHERE id=$5', [username, pin, role, full_name, id]);
+            } else {
+                await pool.query('UPDATE employees SET username=$1, role=$2, full_name=COALESCE($3, full_name) WHERE id=$4', [username, role, full_name, id]);
+            }
+            res.json({ message: 'تم التحديث بنجاح' });
+        } else {
+            const newEmp = await pool.query(
+                'INSERT INTO employees (username, pin_code, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id',
+                [username, pin || '1234', full_name || username, role]
+            );
+            res.json({ id: newEmp.rows[0].id });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+    try {
+        await pool.query('UPDATE employees SET is_active = FALSE WHERE id = $1', [req.params.id]);
+        res.json({ message: 'تم حذف المستخدم بنجاح' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ============================================================================
-// مسارات الشيفتات والتسليم
+// 2. مسارات لوحة الإدارة (Admin Dashboard & Products Management)
+// ============================================================================
+app.get('/api/admin/dashboard', async (req, res) => {
+    try {
+        const shiftsRes = await pool.query(`
+            SELECT 
+                s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float,
+                COALESCE(sr.actual_physical_cash, 0) as closing_amount,
+                s.notes, e.username,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_sales,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_cost,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN (o.total_amount - o.total_cost) ELSE 0 END), 0) as total_profit,
+                COALESCE(sr.shortage_amount, 0) as shortage_amount
+            FROM shifts s
+            LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
+            LEFT JOIN orders o ON s.id = o.shift_id
+            LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
+            GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
+            ORDER BY s.id DESC
+        `);
+
+        const valuationRes = await pool.query(`
+            SELECT 
+                COALESCE(SUM(li.quantity * p.unit_cost_price), 0) as total_cost_value,
+                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' THEN li.quantity * p.unit_cost_price ELSE 0 END), 0) as front_cost,
+                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' THEN li.quantity * p.unit_cost_price ELSE 0 END), 0) as backroom_cost
+            FROM location_inventory li
+            JOIN products p ON li.product_id = p.id
+            JOIN inventory_locations l ON li.location_id = l.id
+        `);
+
+        const productsRes = await pool.query(`
+            SELECT 
+                p.id, p.sku, p.name, 
+                p.unit_cost_price, p.unit_cost_price AS cost_price,
+                p.unit_selling_price, p.unit_selling_price AS selling_price,
+                p.unit_type, p.product_type,
+                COALESCE(c.name, 'عام') AS category,
+                COALESCE(li_front.quantity, 0) AS stock_quantity,
+                COALESCE(li_front.quantity, 0) AS front_display_stock,
+                COALESCE(li_back.quantity, 0) AS backroom_stock,
+                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END as is_drink
+            FROM products p
+            LEFT JOIN product_categories c ON p.category_id = c.id
+            LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
+                 AND li_front.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
+                 AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
+            WHERE p.is_active = TRUE
+            ORDER BY p.id ASC
+        `);
+
+        res.json({
+            shifts: shiftsRes.rows,
+            stats: {
+                collected_stock_cost: valuationRes.rows[0]?.front_cost || 0,
+                remaining_stock_cost: valuationRes.rows[0]?.total_cost_value || 0
+            },
+            products: productsRes.rows
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Admin Products CRUD
+app.post('/api/products', async (req, res) => {
+    const { id, name, category, cost_price, selling_price, stock_quantity, unit_type, is_drink } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        let catId = null;
+        if (category) {
+            const catRes = await client.query(
+                'INSERT INTO product_categories (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id',
+                [category]
+            );
+            catId = catRes.rows[0].id;
+        }
+
+        const pType = is_drink ? 'PREPARED_DRINK' : 'DIRECT_UNIT';
+        let prodId = id;
+
+        if (id) {
+            await client.query(`
+                UPDATE products 
+                SET name=$1, category_id=COALESCE($2, category_id), unit_cost_price=$3, unit_selling_price=$4, unit_type=$5, product_type=$6
+                WHERE id=$7
+            `, [name, catId, cost_price || 0, selling_price || 0, unit_type || 'قطعة', pType, id]);
+        } else {
+            const pRes = await client.query(`
+                INSERT INTO products (name, category_id, unit_cost_price, unit_selling_price, unit_type, product_type)
+                VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+            `, [name, catId, cost_price || 0, selling_price || 0, unit_type || 'قطعة', pType]);
+            prodId = pRes.rows[0].id;
+        }
+
+        const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY'");
+        if (frontLoc.rows.length > 0) {
+            await client.query(`
+                INSERT INTO location_inventory (product_id, location_id, quantity)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (product_id, location_id) DO UPDATE SET quantity = EXCLUDED.quantity
+            `, [prodId, frontLoc.rows[0].id, stock_quantity || 0]);
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, id: prodId });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+    try {
+        await pool.query('UPDATE products SET is_active = FALSE WHERE id = $1', [req.params.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// 3. مسارات الكتالوج وشاشة البيع (POS Catalog)
+// ============================================================================
+app.get('/api/products', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                p.id, p.sku, p.name, 
+                p.unit_cost_price, p.unit_cost_price AS cost_price,
+                p.unit_selling_price, p.unit_selling_price AS selling_price,
+                p.unit_type, p.product_type,
+                COALESCE(c.name, 'عام') AS category,
+                COALESCE(li.quantity, 0) AS front_display_stock,
+                COALESCE(li.quantity, 0) AS stock_quantity
+            FROM products p
+            LEFT JOIN product_categories c ON p.category_id = c.id
+            LEFT JOIN location_inventory li ON p.id = li.product_id 
+                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            WHERE p.is_active = TRUE
+            ORDER BY p.id ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/product-variants/:id', (req, res) => {
+    res.json([]);
+});
+
+app.get('/api/product-ingredients/:id', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT b.*, p.name, p.unit_type, p.unit_cost_price as cost_price 
+            FROM product_boms b
+            JOIN products p ON b.ingredient_product_id = p.id
+            WHERE b.parent_product_id = $1
+        `, [req.params.id]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// 4. مسارات الشيفتات وإتمام البيع (POS & Checkout)
 // ============================================================================
 app.post('/api/start-shift', async (req, res) => {
     const { shift_number, cashier_id, starting_float } = req.body;
@@ -354,21 +624,6 @@ app.post('/api/start-shift', async (req, res) => {
             [shift_number || 1, shiftDate, cashier_id, starting_float || 0]
         );
         const shiftId = newShift.rows[0].id;
-
-        const lastClosedShift = await client.query(
-            "SELECT id FROM shifts WHERE status = 'CLOSED' ORDER BY id DESC LIMIT 1"
-        );
-
-        if (lastClosedShift.rows.length > 0) {
-            await client.query(
-                `INSERT INTO shift_inventory_counts (shift_id, product_id, location_id, count_type, physical_count, system_expected_count)
-                 SELECT $1, product_id, location_id, 'OPENING', physical_count, physical_count
-                 FROM shift_inventory_counts 
-                 WHERE shift_id = $2 AND count_type = 'CLOSING'
-                 ON CONFLICT DO NOTHING`,
-                [shiftId, lastClosedShift.rows[0].id]
-            );
-        }
 
         await client.query('COMMIT');
         res.json({ shift_id: shiftId });
@@ -412,7 +667,9 @@ app.get('/api/shift-summary/:shift_id', async (req, res) => {
 
         res.json({
             starting_float: startingFloat,
+            total_sales: cashSales,
             cash_sales: cashSales,
+            total_tips: 0,
             tab_credit_sales: Number(salesRes.rows[0].tab_sales),
             staff_expense_sales: Number(salesRes.rows[0].staff_costs),
             tab_settlements_income: tabCollected,
@@ -424,187 +681,7 @@ app.get('/api/shift-summary/:shift_id', async (req, res) => {
     }
 });
 
-app.post('/api/shift-reconciliation', async (req, res) => {
-    const {
-        shift_id,
-        outgoing_cashier_id,
-        outgoing_pin,
-        incoming_cashier_id,
-        incoming_pin,
-        physical_cash,
-        glass_audit,
-        inventory_counts
-    } = req.body;
-
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        const outAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [outgoing_cashier_id, outgoing_pin]);
-        if (outAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير الحالي غير صحيح');
-
-        const inAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [incoming_cashier_id, incoming_pin]);
-        if (inAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير المستلم غير صحيح');
-
-        const shiftRes = await client.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shift_id]);
-        const startingFloat = Number(shiftRes.rows[0]?.starting_cash_float || 0);
-
-        const sales = await client.query("SELECT COALESCE(SUM(total_amount), 0) as cash_total FROM orders WHERE shift_id = $1 AND payment_type = 'CASH' AND status = 'COMPLETED'", [shift_id]);
-        const tabs = await client.query('SELECT COALESCE(SUM(amount_paid), 0) as tab_total FROM customer_tab_payments WHERE collected_in_shift_id = $1', [shift_id]);
-        const petty = await client.query('SELECT COALESCE(SUM(amount), 0) as petty_total FROM petty_cash_expenses WHERE shift_id = $1', [shift_id]);
-
-        const cashSales = Number(sales.rows[0].cash_total);
-        const tabIncome = Number(tabs.rows[0].tab_total);
-        const pettyCash = Number(petty.rows[0].petty_total);
-        const expectedCash = startingFloat + cashSales + tabIncome - pettyCash;
-
-        const actualCash = Number(physical_cash) || 0;
-        const variance = actualCash - expectedCash;
-        const isShortage = variance < 0;
-        const shortageAmount = isShortage ? Math.abs(variance) : 0;
-
-        if (isShortage && shortageAmount > 0) {
-            await client.query(
-                'UPDATE employees SET current_shortage_debt = current_shortage_debt + $1 WHERE id = $2',
-                [shortageAmount, outgoing_cashier_id]
-            );
-        }
-
-        await client.query(`
-            INSERT INTO shift_reconciliations (
-                shift_id, expected_cash, actual_physical_cash, petty_expenses_total,
-                tab_settlements_total, cash_sales_total, cash_variance, is_shortage,
-                shortage_amount, outgoing_pin_verified, incoming_pin_verified
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, TRUE)
-        `, [shift_id, expectedCash, actualCash, pettyCash, tabIncome, cashSales, variance, isShortage, shortageAmount]);
-
-        if (glass_audit) {
-            await client.query(`
-                INSERT INTO glass_equipment_audits (shift_id, clean_count, in_use_count, broken_count)
-                VALUES ($1, $2, $3, $4)
-            `, [shift_id, glass_audit.clean || 0, glass_audit.in_use || 0, glass_audit.broken || 0]);
-        }
-
-        if (Array.isArray(inventory_counts)) {
-            for (const item of inventory_counts) {
-                const sysCount = await client.query(
-                    'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2',
-                    [item.product_id, item.location_id]
-                );
-                const currentSystem = Number(sysCount.rows[0]?.quantity || 0);
-
-                await client.query(`
-                    INSERT INTO shift_inventory_counts (shift_id, product_id, location_id, count_type, physical_count, system_expected_count, variance_qty)
-                    VALUES ($1, $2, $3, 'CLOSING', $4, $5, $4 - $5)
-                `, [shift_id, item.product_id, item.location_id, item.physical_count, currentSystem]);
-            }
-        }
-
-        await client.query(`
-            UPDATE shifts 
-            SET status = 'CLOSED', end_time = NOW(), incoming_cashier_id = $1
-            WHERE id = $2
-        `, [incoming_cashier_id, shift_id]);
-
-        await client.query('COMMIT');
-        res.json({ success: true, variance, is_shortage: isShortage, shortage_amount: shortageAmount });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// ============================================================================
-// مسارات المنتجات والمخزون
-// ============================================================================
-app.get('/api/products', async (req, res) => {
-    try {
-        const result = await pool.query(`
-            SELECT 
-                p.id, p.sku, p.name, 
-                p.unit_cost_price, p.unit_cost_price AS cost_price,
-                p.unit_selling_price, p.unit_selling_price AS selling_price,
-                p.unit_type, p.product_type,
-                COALESCE(c.name, 'عام') AS category,
-                COALESCE(li.quantity, 0) AS front_display_stock,
-                COALESCE(li.quantity, 0) AS stock_quantity
-            FROM products p
-            LEFT JOIN product_categories c ON p.category_id = c.id
-            LEFT JOIN location_inventory li ON p.id = li.product_id 
-                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
-            WHERE p.is_active = TRUE
-            ORDER BY p.id ASC
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.get('/api/product-variants/:id', (req, res) => {
-    res.json([]);
-});
-
-app.post('/api/stock-transfer', async (req, res) => {
-    const { user_id, items, notes } = req.body;
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        const locs = await client.query("SELECT id, code FROM inventory_locations WHERE code IN ('BACKROOM', 'FRONT_DISPLAY')");
-        const backroom = locs.rows.find(l => l.code === 'BACKROOM').id;
-        const frontDisplay = locs.rows.find(l => l.code === 'FRONT_DISPLAY').id;
-
-        const transfer = await client.query(
-            'INSERT INTO stock_transfers (source_location_id, destination_location_id, transferred_by_user_id, notes) VALUES ($1, $2, $3, $4) RETURNING id',
-            [backroom, frontDisplay, user_id, notes || 'تحويل بضاعة للواجهة']
-        );
-        const transferId = transfer.rows[0].id;
-
-        for (const item of items) {
-            const avail = await client.query(
-                'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
-                [item.product_id, backroom]
-            );
-            const currentBackroom = Number(avail.rows[0]?.quantity || 0);
-
-            if (currentBackroom < Number(item.quantity)) {
-                throw new Error(`الرصيد في المخزن الداخلي غير كافٍ للصنف #${item.product_id}`);
-            }
-
-            await client.query(
-                'UPDATE location_inventory SET quantity = quantity - $1 WHERE product_id = $2 AND location_id = $3',
-                [item.quantity, item.product_id, backroom]
-            );
-
-            await client.query(`
-                INSERT INTO location_inventory (product_id, location_id, quantity)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (product_id, location_id) 
-                DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity
-            `, [item.product_id, frontDisplay, item.quantity]);
-
-            await client.query(
-                'INSERT INTO stock_transfer_items (transfer_id, product_id, quantity) VALUES ($1, $2, $3)',
-                [transferId, item.product_id, item.quantity]
-            );
-        }
-
-        await client.query('COMMIT');
-        res.json({ success: true, transfer_id: transferId });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// ============================================================================
-// إتمام البيع وخصم الخامات
-// ============================================================================
+// Checkout Route
 app.post('/api/checkout', async (req, res) => {
     const {
         shift_id,
@@ -615,7 +692,8 @@ app.post('/api/checkout', async (req, res) => {
         staff_employee_id,
         tab_customer_name,
         tab_customer_phone,
-        station_reference
+        station_reference,
+        paid_amount
     } = req.body;
 
     if (!cart || cart.length === 0) return res.status(400).json({ error: 'السلة فارغة' });
@@ -650,24 +728,10 @@ app.post('/api/checkout', async (req, res) => {
                     throw new Error(`الكمية المتاحة من "${prod.name}" على الواجهة غير كافية (المتاح: ${currentQty})`);
                 }
             }
-
-            if (prod.product_type === 'PREPARED_DRINK' && order_mode === 'TAKEAWAY') {
-                const cupBom = await client.query(
-                    "SELECT ingredient_product_id, quantity_required FROM product_boms WHERE parent_product_id = $1 AND rule = 'TAKEAWAY_ONLY'",
-                    [prod.id]
-                );
-                for (const b of cupBom.rows) {
-                    const cupStock = await client.query(
-                        'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
-                        [b.ingredient_product_id, frontLocationId]
-                    );
-                    const cupsAvailable = Number(cupStock.rows[0]?.quantity || 0);
-                    if (cupsAvailable < (b.quantity_required * item.qty)) {
-                        throw new Error('الأكواب الورقية غير كافية لتنفيذ الطلب دليفري/تيك أواي');
-                    }
-                }
-            }
         }
+
+        const paid = Number(paid_amount) || totalOrderAmount;
+        let calculatedTip = (paid > totalOrderAmount && totalOrderAmount > 0) ? (paid - totalOrderAmount) : 0;
 
         const orderInsert = await client.query(`
             INSERT INTO orders (shift_id, cashier_id, order_mode, payment_type, total_amount, total_cost, station_reference, status)
@@ -692,17 +756,6 @@ app.post('/api/checkout', async (req, res) => {
                     UPDATE location_inventory SET quantity = quantity - $1
                     WHERE product_id = $2 AND location_id = $3
                 `, [item.qty, prod.id, frontLocationId]);
-            } else if (prod.product_type === 'PREPARED_DRINK') {
-                const boms = await client.query('SELECT * FROM product_boms WHERE parent_product_id = $1', [prod.id]);
-                for (const bom of boms.rows) {
-                    const shouldDeduct = (bom.rule === 'ALWAYS') || (bom.rule === 'TAKEAWAY_ONLY' && order_mode === 'TAKEAWAY');
-                    if (shouldDeduct) {
-                        await client.query(`
-                            UPDATE location_inventory SET quantity = GREATEST(0, quantity - $1)
-                            WHERE product_id = $2 AND location_id = $3
-                        `, [bom.quantity_required * item.qty, bom.ingredient_product_id, frontLocationId]);
-                    }
-                }
             }
         }
 
@@ -736,7 +789,7 @@ app.post('/api/checkout', async (req, res) => {
         }
 
         await client.query('COMMIT');
-        res.json({ success: true, order_id: orderId, total: totalOrderAmount });
+        res.json({ success: true, order_id: orderId, total: totalOrderAmount, tip: calculatedTip });
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
@@ -760,6 +813,15 @@ app.get('/api/shift-notes/:shift_id', async (req, res) => {
     try {
         const result = await pool.query('SELECT notes FROM shifts WHERE id = $1', [req.params.shift_id]);
         res.json({ notes: result.rows[0]?.notes || '' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/admin/force-close-shift', async (req, res) => {
+    try {
+        await pool.query("UPDATE shifts SET end_time = NOW(), status = 'CLOSED', notes = 'إغلاق إجباري بواسطة المسؤول' WHERE id = $1", [req.body.shift_id]);
+        res.json({ message: 'تم الإغلاق بنجاح' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
