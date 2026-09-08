@@ -239,69 +239,82 @@ app.delete('/api/admin/users/:id', async (req, res) => {
 // ============================================================================
 // 2. مسارات لوحة الإدارة (Admin Dashboard & Products Management)
 // ============================================================================
+// مسار لوحة الإدارة المحدث والمحمي من الأخطاء
 app.get('/api/admin/dashboard', async (req, res) => {
     try {
-        const shiftsRes = await pool.query(`
+        // 1. جلب المنتجات بنفس استعلام الكاشير المعتمد لضمان التطابق التام
+        const productsRes = await pool.query(`
             SELECT 
-                s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float,
-                COALESCE(sr.actual_physical_cash, 0) as closing_amount,
-                s.notes, e.username,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_sales,
-                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_cost,
-                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN (o.total_amount - o.total_cost) ELSE 0 END), 0) as total_profit,
-                COALESCE(sr.shortage_amount, 0) as shortage_amount
-            FROM shifts s
-            LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
-            LEFT JOIN orders o ON s.id = o.shift_id
-            LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
-            GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
-            ORDER BY s.id DESC
+                p.id, 
+                COALESCE(p.sku, '') AS sku, 
+                p.name, 
+                COALESCE(p.unit_cost_price, p.cost_price, 0) AS unit_cost_price,
+                COALESCE(p.cost_price, p.unit_cost_price, 0) AS cost_price,
+                COALESCE(p.unit_selling_price, p.selling_price, 0) AS unit_selling_price,
+                COALESCE(p.selling_price, p.unit_selling_price, 0) AS selling_price,
+                COALESCE(p.unit_type, 'قطعة') AS unit_type,
+                COALESCE(p.product_type, CASE WHEN p.is_drink = 1 THEN 'PREPARED_DRINK' ELSE 'DIRECT_UNIT' END, 'DIRECT_UNIT') AS product_type,
+                COALESCE(c.name, p.category, 'عام') AS category,
+                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS front_display_stock,
+                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS stock_quantity,
+                COALESCE(p.is_drink, CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END, 0) AS is_drink
+            FROM products p
+            LEFT JOIN product_categories c ON p.category_id = c.id
+            LEFT JOIN location_inventory li ON p.id = li.product_id 
+                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            WHERE p.is_active IS NULL OR p.is_active = TRUE
+            ORDER BY p.id ASC
         `);
 
+        // 2. إحصائيات المخزون
         const valuationRes = await pool.query(`
             SELECT 
-                COALESCE(SUM(li.quantity * p.unit_cost_price), 0) as total_cost_value,
-                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' THEN li.quantity * p.unit_cost_price ELSE 0 END), 0) as front_cost,
-                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' THEN li.quantity * p.unit_cost_price ELSE 0 END), 0) as backroom_cost
+                COALESCE(SUM(li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0)), 0) as total_cost_value,
+                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as front_cost
             FROM location_inventory li
             JOIN products p ON li.product_id = p.id
             JOIN inventory_locations l ON li.location_id = l.id
         `);
 
-        const productsRes = await pool.query(`
-            SELECT 
-                p.id, p.sku, p.name, 
-                p.unit_cost_price, p.unit_cost_price AS cost_price,
-                p.unit_selling_price, p.unit_selling_price AS selling_price,
-                p.unit_type, p.product_type,
-                COALESCE(c.name, 'عام') AS category,
-                COALESCE(li_front.quantity, 0) AS stock_quantity,
-                COALESCE(li_front.quantity, 0) AS front_display_stock,
-                COALESCE(li_back.quantity, 0) AS backroom_stock,
-                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END as is_drink
-            FROM products p
-            LEFT JOIN product_categories c ON p.category_id = c.id
-            LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
-                 AND li_front.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
-            LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
-                 AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
-            WHERE p.is_active = TRUE
-            ORDER BY p.id ASC
-        `);
+        // 3. جلب الشيفتات بأمان
+        let shiftsData = [];
+        try {
+            const shiftsRes = await pool.query(`
+                SELECT 
+                    s.id, s.start_time, s.end_time, s.status, s.shift_date,
+                    COALESCE(s.starting_cash_float, 0) as starting_cash_float,
+                    COALESCE(sr.actual_physical_cash, 0) as closing_amount,
+                    s.notes, 
+                    COALESCE(e.username, 'كاشير') as username,
+                    COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_sales,
+                    COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_cost,
+                    COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN (o.total_amount - o.total_cost) ELSE 0 END), 0) as total_profit,
+                    COALESCE(sr.shortage_amount, 0) as shortage_amount
+                FROM shifts s
+                LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
+                LEFT JOIN orders o ON s.id = o.shift_id
+                LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
+                GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
+                ORDER BY s.id DESC
+            `);
+            shiftsData = shiftsRes.rows;
+        } catch (shiftErr) {
+            console.warn('تنبيه: تعذر قراءة الشيفتات بصيغة متقدمة، سيتم إرجاع مصفوفة فارغة مؤقتاً:', shiftErr.message);
+        }
 
         res.json({
-            shifts: shiftsRes.rows,
+            shifts: shiftsData,
             stats: {
-                collected_stock_cost: valuationRes.rows[0]?.front_cost || 0,
-                remaining_stock_cost: valuationRes.rows[0]?.total_cost_value || 0
+                collected_stock_cost: Number(valuationRes.rows[0]?.front_cost) || 0,
+                remaining_stock_cost: Number(valuationRes.rows[0]?.total_cost_value) || 0
             },
             products: productsRes.rows
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Error in /api/admin/dashboard:', err.message);
+        res.status(500).json({ error: err.message, products: [], shifts: [], stats: { collected_stock_cost: 0, remaining_stock_cost: 0 } });
     }
 });
-
 // Admin Products CRUD
 app.post('/api/products', async (req, res) => {
     const { id, name, category, cost_price, selling_price, stock_quantity, unit_type, is_drink } = req.body;
