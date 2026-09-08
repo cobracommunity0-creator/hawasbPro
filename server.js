@@ -36,7 +36,7 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 2. مواقع المخزون (داخلي وخارجي)
+            -- 2. مواقع المخزون
             CREATE TABLE IF NOT EXISTS inventory_locations (
                 id SERIAL PRIMARY KEY,
                 code VARCHAR(30) UNIQUE NOT NULL,
@@ -73,7 +73,24 @@ async function initDB() {
                 PRIMARY KEY (product_id, location_id)
             );
 
-            -- 6. تركيبات الخامات (BOM)
+            -- 6. تحويلات البضاعة بين المخازن
+            CREATE TABLE IF NOT EXISTS stock_transfers (
+                id SERIAL PRIMARY KEY,
+                source_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
+                destination_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
+                transferred_by_user_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
+                notes TEXT,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS stock_transfer_items (
+                id SERIAL PRIMARY KEY,
+                transfer_id INT NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
+                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                quantity NUMERIC(12, 4) NOT NULL
+            );
+
+            -- 7. تركيبات الخامات (BOM)
             CREATE TABLE IF NOT EXISTS product_boms (
                 id SERIAL PRIMARY KEY,
                 parent_product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -82,7 +99,7 @@ async function initDB() {
                 rule VARCHAR(30) NOT NULL DEFAULT 'ALWAYS'
             );
 
-            -- 7. الشيفتات وإقفالها
+            -- 8. الشيفتات وإقفالها
             CREATE TABLE IF NOT EXISTS shifts (
                 id SERIAL PRIMARY KEY,
                 shift_number SMALLINT NOT NULL DEFAULT 1,
@@ -111,6 +128,19 @@ async function initDB() {
                 reconciled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
+            CREATE TABLE IF NOT EXISTS shift_inventory_counts (
+                id SERIAL PRIMARY KEY,
+                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
+                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
+                count_type VARCHAR(10) NOT NULL,
+                physical_count NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+                system_expected_count NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+                variance_qty NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE (shift_id, product_id, location_id, count_type)
+            );
+
             CREATE TABLE IF NOT EXISTS glass_equipment_audits (
                 id SERIAL PRIMARY KEY,
                 shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
@@ -118,10 +148,11 @@ async function initDB() {
                 clean_count INT NOT NULL DEFAULT 0,
                 in_use_count INT NOT NULL DEFAULT 0,
                 broken_count INT NOT NULL DEFAULT 0,
+                variance INT NOT NULL DEFAULT 0,
                 verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 8. الطلبات والمبيعات
+            -- 9. الطلبات والمبيعات
             CREATE TABLE IF NOT EXISTS orders (
                 id SERIAL PRIMARY KEY,
                 shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
@@ -141,7 +172,9 @@ async function initDB() {
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
                 quantity NUMERIC(10, 2) NOT NULL,
                 unit_price NUMERIC(10, 2) NOT NULL,
-                unit_cost NUMERIC(10, 4) NOT NULL
+                unit_cost NUMERIC(10, 4) NOT NULL,
+                subtotal_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                subtotal_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000
             );
 
             CREATE TABLE IF NOT EXISTS staff_consumptions (
@@ -153,13 +186,14 @@ async function initDB() {
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 9. الحسابات الآجلة (الشكك)
+            -- 10. الحسابات الآجلة والشكك
             CREATE TABLE IF NOT EXISTS customer_tabs (
                 id SERIAL PRIMARY KEY,
                 customer_name VARCHAR(100) NOT NULL,
                 phone VARCHAR(20) NOT NULL,
                 total_debt NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
                 amount_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+                remaining_balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
                 status VARCHAR(20) NOT NULL DEFAULT 'UNPAID',
                 origin_shift_id INT REFERENCES shifts(id) ON DELETE SET NULL,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -198,36 +232,35 @@ async function initDB() {
                 location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
                 quantity NUMERIC(10, 4) NOT NULL,
                 unit_cost_price NUMERIC(10, 4) NOT NULL,
+                total_cost_loss NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
                 reason VARCHAR(50) NOT NULL,
                 logged_by_user_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
                 notes TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
 
-            -- 10. إدخال الموظفين الافتراضيين
+            -- 11. البيانات الافتراضية
             INSERT INTO employees (id, username, pin_code, full_name, phone, role) VALUES
             (1, 'admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
-            (2, 'omar',   '1111', 'عمر - وردية 3',   '01100000001', 'cashier'),
-            (3, 'tareq',  '2222', 'طارق - وردية 1',  '01200000002', 'cashier'),
-            (4, 'antry',  '3333', 'عنتري - وردية 2', '01500000003', 'cashier')
+            (2, 'omar',   '1111', 'عمر - وردية 1',   '01100000001', 'cashier'),
+            (3, 'tareq',  '2222', 'طارق - وردية 2',  '01200000002', 'cashier'),
+            (4, 'antry',  '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
             (5, 'test',  'test', 'test', '01500000003', 'cashier')
             ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, pin_code = EXCLUDED.pin_code;
 
-            -- 11. إدخال المواقع الافتراضية
             INSERT INTO inventory_locations (id, code, name, description) VALUES
             (1, 'BACKROOM',      'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
             (2, 'FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع المباشر')
             ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code;
 
-            -- 12. إدخال الأقسام الافتراضية
             INSERT INTO product_categories (id, name) VALUES
             (1, 'مشروبات ساخنة'), (2, 'مشروبات غازية وساقعة'), (3, 'شيبسيات وسناكس'), (4, 'خامات ومواد تغليف')
             ON CONFLICT (id) DO NOTHING;
 
             -- ضبط الترقيم التلقائي
-            SELECT setval(pg_get_serial_sequence('employees', 'id'), COALESCE((SELECT MAX(id) FROM employees), 1));
-            SELECT setval(pg_get_serial_sequence('inventory_locations', 'id'), COALESCE((SELECT MAX(id) FROM inventory_locations), 1));
-            SELECT setval(pg_get_serial_sequence('product_categories', 'id'), COALESCE((SELECT MAX(id) FROM product_categories), 1));
+            SELECT setval(pg_get_serial_sequence('employees', 'id'), COALESCE(MAX(id), 1)) FROM employees;
+            SELECT setval(pg_get_serial_sequence('inventory_locations', 'id'), COALESCE(MAX(id), 1)) FROM inventory_locations;
+            SELECT setval(pg_get_serial_sequence('product_categories', 'id'), COALESCE(MAX(id), 1)) FROM product_categories;
         `);
         console.log('✅ تم إعداد وتحديث قاعدة البيانات بنجاح.');
     } catch (err) {
