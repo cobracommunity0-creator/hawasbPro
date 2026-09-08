@@ -389,6 +389,7 @@ app.post('/api/products', async (req, res) => {
     }
 });
 
+// جلب حسابات الشكك مع تفاصيل الأصناف والتكلفة والربح
 app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
     try {
         const result = await pool.query(`
@@ -416,6 +417,17 @@ app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
             ORDER BY ct.id DESC
         `);
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// تسوية وتحصيل حساب الشكك
+app.post('/api/admin/settle-tab', async (req, res) => {
+    const { tab_id } = req.body;
+    try {
+        await pool.query("UPDATE customer_tabs SET status = 'SETTLED', remaining_balance = 0 WHERE id = $1", [tab_id]);
+        res.json({ success: true, message: 'تم تسوية حساب العميل بنجاح' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
