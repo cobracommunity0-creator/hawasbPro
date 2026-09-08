@@ -22,7 +22,7 @@ const pool = new Pool({
 // تهيئة الجداول وحقن جميع الأصناف والبيانات الافتراضية
 async function initDB() {
     try {
-        // 1. الموظفون والمستخدمون
+        // 1. التأكد من وجود كافة الجداول الأساسية
         await pool.query(`
             CREATE TABLE IF NOT EXISTS employees (
                 id SERIAL PRIMARY KEY,
@@ -35,44 +35,24 @@ async function initDB() {
                 is_active BOOLEAN NOT NULL DEFAULT TRUE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
-        `);
 
-        // 2. مواقع المخزون
-        await pool.query(`
             CREATE TABLE IF NOT EXISTS inventory_locations (
                 id SERIAL PRIMARY KEY,
                 code VARCHAR(30) UNIQUE NOT NULL,
                 name VARCHAR(100) NOT NULL,
                 description TEXT
             );
-        `);
 
-        // 3. أقسام المنتجات
-        await pool.query(`
             CREATE TABLE IF NOT EXISTS product_categories (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) UNIQUE NOT NULL
             );
-        `);
 
-        // 4. المنتجات
-        await pool.query(`
             CREATE TABLE IF NOT EXISTS products (
                 id SERIAL PRIMARY KEY,
-                sku VARCHAR(50) UNIQUE,
-                name VARCHAR(150) NOT NULL,
-                category_id INT REFERENCES product_categories(id) ON DELETE SET NULL,
-                product_type VARCHAR(30) NOT NULL DEFAULT 'DIRECT_UNIT',
-                unit_cost_price NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
-                unit_selling_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                unit_type VARCHAR(20) NOT NULL DEFAULT 'قطعة',
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                name VARCHAR(150) NOT NULL
             );
-        `);
 
-        // 5. أرصدة المخزون بالمواقع
-        await pool.query(`
             CREATE TABLE IF NOT EXISTS location_inventory (
                 product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
                 location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
@@ -82,282 +62,101 @@ async function initDB() {
             );
         `);
 
-        // 6. تحويلات البضاعة بين المخازن
+        // 2. تحديث أعمدة جدول المنتجات لتتوافق مع النظامين (قديم وجديد)
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS stock_transfers (
-                id SERIAL PRIMARY KEY,
-                source_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                destination_location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                transferred_by_user_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                notes TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS sku VARCHAR(50);
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(255) DEFAULT 'عام';
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS category_id INT;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC DEFAULT 0;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS selling_price NUMERIC DEFAULT 0;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_cost_price NUMERIC(10, 4) DEFAULT 0;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_selling_price NUMERIC(10, 2) DEFAULT 0;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS stock_quantity NUMERIC DEFAULT 0;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS unit_type VARCHAR(50) DEFAULT 'قطعة';
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS is_drink INT DEFAULT 0;
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS product_type VARCHAR(30) DEFAULT 'DIRECT_UNIT';
+            ALTER TABLE products ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
-            CREATE TABLE IF NOT EXISTS stock_transfer_items (
-                id SERIAL PRIMARY KEY,
-                transfer_id INT NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                quantity NUMERIC(12, 4) NOT NULL
-            );
+            -- تفعيل وضبط قيم الأسعار والنوع لكافة المنتجات الموجودة
+            UPDATE products SET is_active = TRUE WHERE is_active IS NULL;
+            UPDATE products SET unit_cost_price = COALESCE(unit_cost_price, cost_price, 0);
+            UPDATE products SET cost_price = COALESCE(cost_price, unit_cost_price, 0);
+            UPDATE products SET unit_selling_price = COALESCE(unit_selling_price, selling_price, 0);
+            UPDATE products SET selling_price = COALESCE(selling_price, unit_selling_price, 0);
+            UPDATE products SET product_type = CASE WHEN is_drink = 1 THEN 'PREPARED_DRINK' ELSE 'DIRECT_UNIT' END WHERE product_type IS NULL;
         `);
 
-        // 7. تركيبات الخامات (BOM)
+        // 3. إدخال المواقع الافتراضية
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS product_boms (
-                id SERIAL PRIMARY KEY,
-                parent_product_id INT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-                ingredient_product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                quantity_required NUMERIC(10, 4) NOT NULL,
-                rule VARCHAR(30) NOT NULL DEFAULT 'ALWAYS'
-            );
-        `);
-
-        // 8. الشيفتات والمطابقات
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS shifts (
-                id SERIAL PRIMARY KEY,
-                shift_number SMALLINT NOT NULL DEFAULT 1,
-                shift_date DATE NOT NULL,
-                outgoing_cashier_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                incoming_cashier_id INT REFERENCES employees(id) ON DELETE RESTRICT,
-                start_time TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                end_time TIMESTAMP WITH TIME ZONE,
-                starting_cash_float NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
-                notes TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS shift_reconciliations (
-                shift_id INT PRIMARY KEY REFERENCES shifts(id) ON DELETE CASCADE,
-                expected_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                actual_physical_cash NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                petty_expenses_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                tab_settlements_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                cash_sales_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                cash_variance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                is_shortage BOOLEAN NOT NULL DEFAULT FALSE,
-                shortage_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                outgoing_pin_verified BOOLEAN NOT NULL DEFAULT FALSE,
-                incoming_pin_verified BOOLEAN NOT NULL DEFAULT FALSE,
-                reconciled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS shift_inventory_counts (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                count_type VARCHAR(10) NOT NULL,
-                physical_count NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                system_expected_count NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                variance_qty NUMERIC(12, 4) NOT NULL DEFAULT 0.0000,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (shift_id, product_id, location_id, count_type)
-            );
-
-            CREATE TABLE IF NOT EXISTS glass_equipment_audits (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                quota_total INT NOT NULL DEFAULT 15,
-                clean_count INT NOT NULL DEFAULT 0,
-                in_use_count INT NOT NULL DEFAULT 0,
-                broken_count INT NOT NULL DEFAULT 0,
-                variance INT NOT NULL DEFAULT 0,
-                verified_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        // 9. الطلبات والمبيعات واستهلاك الموظفين
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS orders (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                cashier_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                order_mode VARCHAR(20) NOT NULL DEFAULT 'TAKEAWAY',
-                payment_type VARCHAR(20) NOT NULL DEFAULT 'CASH',
-                total_amount NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                total_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
-                status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
-                station_reference VARCHAR(50) DEFAULT 'الكاشير المباشر',
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS order_items (
-                id SERIAL PRIMARY KEY,
-                order_id INT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                quantity NUMERIC(10, 2) NOT NULL,
-                unit_price NUMERIC(10, 2) NOT NULL,
-                unit_cost NUMERIC(10, 4) NOT NULL,
-                subtotal_price NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                subtotal_cost NUMERIC(10, 4) NOT NULL DEFAULT 0.0000
-            );
-
-            CREATE TABLE IF NOT EXISTS staff_consumptions (
-                id SERIAL PRIMARY KEY,
-                order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                employee_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                total_cost_charged NUMERIC(10, 2) NOT NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-        // 10. الآجل والمصروفات والتوالف
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS customer_tabs (
-                id SERIAL PRIMARY KEY,
-                customer_name VARCHAR(100) NOT NULL,
-                phone VARCHAR(20) NOT NULL,
-                total_debt NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                amount_paid NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                remaining_balance NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
-                status VARCHAR(20) NOT NULL DEFAULT 'UNPAID',
-                origin_shift_id INT REFERENCES shifts(id) ON DELETE SET NULL,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS customer_tab_orders (
-                tab_id INT NOT NULL REFERENCES customer_tabs(id) ON DELETE CASCADE,
-                order_id INT NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
-                PRIMARY KEY (tab_id, order_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS customer_tab_payments (
-                id SERIAL PRIMARY KEY,
-                tab_id INT NOT NULL REFERENCES customer_tabs(id) ON DELETE RESTRICT,
-                collected_in_shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE RESTRICT,
-                cashier_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                amount_paid NUMERIC(10, 2) NOT NULL,
-                payment_method VARCHAR(20) NOT NULL DEFAULT 'CASH',
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS petty_cash_expenses (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                employee_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                amount NUMERIC(10, 2) NOT NULL,
-                reason TEXT NOT NULL,
-                receipt_reference VARCHAR(100),
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS wastage_logs (
-                id SERIAL PRIMARY KEY,
-                shift_id INT NOT NULL REFERENCES shifts(id) ON DELETE CASCADE,
-                product_id INT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-                location_id INT NOT NULL REFERENCES inventory_locations(id) ON DELETE RESTRICT,
-                quantity NUMERIC(10, 4) NOT NULL,
-                unit_cost_price NUMERIC(10, 4) NOT NULL,
-                total_cost_loss NUMERIC(10, 4) NOT NULL DEFAULT 0.0000,
-                reason VARCHAR(50) NOT NULL,
-                logged_by_user_id INT NOT NULL REFERENCES employees(id) ON DELETE RESTRICT,
-                notes TEXT,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
-// 11. إضافة المستخدمين والمواقع والأقسام الافتراضية بأمان
-        await pool.query(`
-            INSERT INTO employees (username, pin_code, full_name, phone, role) VALUES
-            ('admin',  '1234', 'مدير النظام',    '01000000000', 'admin'),
-            ('omar',   '1111', 'عمر - وردية 1',   '01100000001', 'cashier'),
-            ('tareq',  '2222', 'طارق - وردية 2',  '01200000002', 'cashier'),
-            ('antry',  '3333', 'عنتري - وردية 3', '01500000003', 'cashier')
-            ON CONFLICT DO NOTHING;
-
             INSERT INTO inventory_locations (code, name, description) VALUES
-            ('BACKROOM',      'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
+            ('BACKROOM', 'المخزن الداخلي', 'مخزن الاحتياطي الرئيسي'),
             ('FRONT_DISPLAY', 'الواجهة والمعروض', 'بضاعة البيع المباشر')
             ON CONFLICT DO NOTHING;
+        `);
 
+        // 4. إدخال الأقسام الافتراضية
+        await pool.query(`
             INSERT INTO product_categories (name) VALUES
-            ('مشروبات ساخنة'), 
-            ('مشروبات ساقعة'), 
-            ('شيبسيات وسناكس'), 
-            ('البسكويت والحلويات'), 
-            ('خامات ومواد تغليف')
+            ('مشروبات ساخنة'), ('مشروبات ساقعة'), ('شيبسيات وسناكس'), ('البسكويت والحلويات'), ('خامات ومواد تغليف')
             ON CONFLICT DO NOTHING;
         `);
 
-        // 12. حقن الأصناف الـ 37 تلقائياً وربطها بالمخزون
-        const prodCount = await pool.query('SELECT COUNT(*) FROM products');
-        if (parseInt(prodCount.rows[0].count) === 0) {
-            console.log('🔄 جاري إدخال أصناف السايبر والمخزون الأولي...');
+        // 5. حقن المنتجات الـ 37 إذا كان الجدول يحتوي على أقل من صنفين
+        const pCount = await pool.query('SELECT COUNT(*) FROM products');
+        if (parseInt(pCount.rows[0].count) < 2) {
+            console.log('🔄 جاري إدخال أصناف السايبر الـ 37...');
             await pool.query(`
-                INSERT INTO products (name, category_id, unit_cost_price, unit_selling_price, unit_type, product_type) VALUES
-                ('شاي', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 1.1, 10, 'قطعة', 'PREPARED_DRINK'),
-                ('قهوه', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 4.7, 15, 'قطعة', 'PREPARED_DRINK'),
-                ('نسكافيه 3x1', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 6.1, 15, 'قطعة', 'PREPARED_DRINK'),
-                ('نسكافيه ريتشي', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 10.3, 20, 'قطعة', 'PREPARED_DRINK'),
-                ('كوفي ميكس / كوفي بريك', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 5, 15, 'قطعة', 'PREPARED_DRINK'),
-                ('موهيتو', (SELECT id FROM product_categories WHERE name = 'مشروبات ساخنة' LIMIT 1), 17.5, 35, 'قطعة', 'PREPARED_DRINK'),
-                ('فيوري', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 17.9, 23, 'قطعة', 'DIRECT_UNIT'),
-                ('بلو شارك', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
-                ('تويست', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 13.3, 17, 'قطعة', 'DIRECT_UNIT'),
-                ('ماونتن ديو اكشن', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.6, 17, 'قطعة', 'DIRECT_UNIT'),
-                ('في كولا', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 13.5, 17, 'قطعة', 'DIRECT_UNIT'),
-                ('فولت', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 9.2, 13, 'قطعة', 'DIRECT_UNIT'),
-                ('مياه معدنية', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 5.5, 8, 'قطعة', 'DIRECT_UNIT'),
-                ('صن توب', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.1, 17, 'قطعة', 'DIRECT_UNIT'),
-                ('ميكس', (SELECT id FROM product_categories WHERE name = 'مشروبات ساقعة' LIMIT 1), 11.5, 18, 'قطعة', 'DIRECT_UNIT'),
-                ('جاكوار', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('شيتوس', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('توتس', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 10, 14, 'قطعة', 'DIRECT_UNIT'),
-                ('دوريتوس', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('كرانشي', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 4.8, 7, 'قطعة', 'DIRECT_UNIT'),
-                ('شيبسي', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 9.2, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('اندومي جامبو', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 8.6, 20, 'قطعة', 'DIRECT_UNIT'),
-                ('اندومي صغير', (SELECT id FROM product_categories WHERE name = 'شيبسيات وسناكس' LIMIT 1), 4.5, 15, 'قطعة', 'DIRECT_UNIT'),
-                ('ماجيك', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
-                ('4G', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
-                ('هوهوز', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
-                ('توينكز', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('بيمبو/فريسكا موف و احمر /بسكريم', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 7, 'قطعة', 'DIRECT_UNIT'),
-                ('تيبو', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('تورتة', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 4.2, 6, 'قطعة', 'DIRECT_UNIT'),
-                ('مولتو', (SELECT id FROM product_categories WHERE name = 'البسكويت والحلويات' LIMIT 1), 8.3, 12, 'قطعة', 'DIRECT_UNIT'),
-                ('شفاطة بلاستيك', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 0.2, 0.2, 'قطعة', 'PACKAGING_MATERIAL'),
-                ('شوكة / معلقة بلاستيك', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 0.4, 0.4, 'قطعة', 'PACKAGING_MATERIAL'),
-                ('كوب بلاستيك شفاف', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1.7, 1.7, 'قطعة', 'PACKAGING_MATERIAL'),
-                ('كوب إندومي صغير', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1, 1, 'قطعة', 'PACKAGING_MATERIAL'),
-                ('كوب إندومي كبير', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1.1, 1.1, 'قطعة', 'PACKAGING_MATERIAL'),
-                ('كوب ورقي ساخن', (SELECT id FROM product_categories WHERE name = 'خامات ومواد تغليف' LIMIT 1), 1.2, 1.2, 'قطعة', 'PACKAGING_MATERIAL')
-                ON CONFLICT DO NOTHING;
-
-                -- تعبئة رصيد الواجهة (Front Display) ورصيد المخزن (Backroom)
-                INSERT INTO location_inventory (product_id, location_id, quantity)
-                SELECT id, (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1), 50 FROM products
-                ON CONFLICT DO NOTHING;
-
-                INSERT INTO location_inventory (product_id, location_id, quantity)
-                SELECT id, (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1), 200 FROM products
+                INSERT INTO products (name, category, unit_cost_price, cost_price, unit_selling_price, selling_price, unit_type, product_type, is_active) VALUES
+                ('شاي', 'مشروبات ساخنة', 1.1, 1.1, 10, 10, 'قطعة', 'PREPARED_DRINK', TRUE),
+                ('قهوه', 'مشروبات ساخنة', 4.7, 4.7, 15, 15, 'قطعة', 'PREPARED_DRINK', TRUE),
+                ('نسكافيه 3x1', 'مشروبات ساخنة', 6.1, 6.1, 15, 15, 'قطعة', 'PREPARED_DRINK', TRUE),
+                ('نسكافيه ريتشي', 'مشروبات ساخنة', 10.3, 10.3, 20, 20, 'قطعة', 'PREPARED_DRINK', TRUE),
+                ('كوفي ميكس / كوفي بريك', 'مشروبات ساخنة', 5, 5, 15, 15, 'قطعة', 'PREPARED_DRINK', TRUE),
+                ('موهيتو', 'مشروبات ساخنة', 17.5, 17.5, 35, 35, 'قطعة', 'PREPARED_DRINK', TRUE),
+                ('فيوري', 'مشروبات ساقعة', 17.9, 17.9, 23, 23, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('بلو شارك', 'مشروبات ساقعة', 11.6, 11.6, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('تويست', 'مشروبات ساقعة', 13.3, 13.3, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('ماونتن ديو اكشن', 'مشروبات ساقعة', 11.6, 11.6, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('في كولا', 'مشروبات ساقعة', 13.5, 13.5, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('فولت', 'مشروبات ساقعة', 9.2, 9.2, 13, 13, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('مياه معدنية', 'مشروبات ساقعة', 5.5, 5.5, 8, 8, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('صن توب', 'مشروبات ساقعة', 11.1, 11.1, 17, 17, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('ميكس', 'مشروبات ساقعة', 11.5, 11.5, 18, 18, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('جاكوار', 'شيبسيات وسناكس', 9, 9, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('شيتوس', 'شيبسيات وسناكس', 9, 9, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('توتس', 'شيبسيات وسناكس', 10, 10, 14, 14, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('دوريتوس', 'شيبسيات وسناكس', 9, 9, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('كرانشي', 'شيبسيات وسناكس', 4.8, 4.8, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('شيبسي', 'شيبسيات وسناكس', 9.2, 9.2, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('اندومي جامبو', 'شيبسيات وسناكس', 8.6, 8.6, 20, 20, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('اندومي صغير', 'شيبسيات وسناكس', 4.5, 4.5, 15, 15, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('ماجيك', 'البسكويت والحلويات', 4.2, 4.2, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('4G', 'البسكويت والحلويات', 4.2, 4.2, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('هوهوز', 'البسكويت والحلويات', 4.2, 4.2, 6, 6, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('توينكز', 'البسكويت والحلويات', 8.3, 8.3, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('بيمبو/فريسكا موف و احمر /بسكريم', 'البسكويت والحلويات', 4.2, 4.2, 7, 7, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('تيبو', 'البسكويت والحلويات', 8.3, 8.3, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('تورتة', 'البسكويت والحلويات', 4.2, 4.2, 6, 6, 'قطعة', 'DIRECT_UNIT', TRUE),
+                ('مولتو', 'البسكويت والحلويات', 8.3, 8.3, 12, 12, 'قطعة', 'DIRECT_UNIT', TRUE)
                 ON CONFLICT DO NOTHING;
             `);
-            console.log('✅ تم إدخال الأصناف والمخزون بنجاح.');
         }
 
-        // ضبط الـ Sequences
+        // 6. ربط كل المنتجات بمخزون الواجهة والمخزن الداخلي فوراً
         await pool.query(`
-            DO $$
-            BEGIN
-                IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'employees_id_seq') THEN
-                    PERFORM setval('employees_id_seq', COALESCE((SELECT MAX(id) FROM employees), 1));
-                END IF;
-                IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'products_id_seq') THEN
-                    PERFORM setval('products_id_seq', COALESCE((SELECT MAX(id) FROM products), 1));
-                END IF;
-                IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'inventory_locations_id_seq') THEN
-                    PERFORM setval('inventory_locations_id_seq', COALESCE((SELECT MAX(id) FROM inventory_locations), 1));
-                END IF;
-                IF EXISTS (SELECT 1 FROM pg_class WHERE relname = 'product_categories_id_seq') THEN
-                    PERFORM setval('product_categories_id_seq', COALESCE((SELECT MAX(id) FROM product_categories), 1));
-                END IF;
-            END $$;
+            INSERT INTO location_inventory (product_id, location_id, quantity)
+            SELECT p.id, (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1), 50
+            FROM products p
+            ON CONFLICT (product_id, location_id) DO UPDATE 
+            SET quantity = CASE WHEN location_inventory.quantity <= 0 THEN 50 ELSE location_inventory.quantity END;
+
+            INSERT INTO location_inventory (product_id, location_id, quantity)
+            SELECT p.id, (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1), 200
+            FROM products p
+            ON CONFLICT (product_id, location_id) DO NOTHING;
         `);
 
-        console.log('✅ قاعدة البيانات متصلة وجاهزة بالكامل.');
+        console.log('✅ تم فحص وإعداد جدول المنتجات والمخزون بنجاح.');
     } catch (err) {
         console.error('❌ خطأ في إعداد قاعدة البيانات:', err.message);
     }
@@ -570,22 +369,29 @@ app.get('/api/products', async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT 
-                p.id, p.sku, p.name, 
-                p.unit_cost_price, p.unit_cost_price AS cost_price,
-                p.unit_selling_price, p.unit_selling_price AS selling_price,
-                p.unit_type, p.product_type,
-                COALESCE(c.name, 'عام') AS category,
-                COALESCE(li.quantity, 0) AS front_display_stock,
-                COALESCE(li.quantity, 0) AS stock_quantity
+                p.id, 
+                COALESCE(p.sku, '') AS sku, 
+                p.name, 
+                COALESCE(p.unit_cost_price, p.cost_price, 0) AS unit_cost_price,
+                COALESCE(p.cost_price, p.unit_cost_price, 0) AS cost_price,
+                COALESCE(p.unit_selling_price, p.selling_price, 0) AS unit_selling_price,
+                COALESCE(p.selling_price, p.unit_selling_price, 0) AS selling_price,
+                COALESCE(p.unit_type, 'قطعة') AS unit_type,
+                COALESCE(p.product_type, CASE WHEN p.is_drink = 1 THEN 'PREPARED_DRINK' ELSE 'DIRECT_UNIT' END, 'DIRECT_UNIT') AS product_type,
+                COALESCE(c.name, p.category, 'عام') AS category,
+                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS front_display_stock,
+                GREATEST(COALESCE(li.quantity, p.stock_quantity, 50), 0) AS stock_quantity,
+                COALESCE(p.is_drink, CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END, 0) AS is_drink
             FROM products p
             LEFT JOIN product_categories c ON p.category_id = c.id
             LEFT JOIN location_inventory li ON p.id = li.product_id 
                  AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
-            WHERE p.is_active = TRUE
+            WHERE p.is_active IS NULL OR p.is_active = TRUE
             ORDER BY p.id ASC
         `);
         res.json(result.rows);
     } catch (err) {
+        console.error('Error fetching products:', err.message);
         res.status(500).json({ error: err.message });
     }
 });
