@@ -1626,16 +1626,16 @@
         // PRODUCT CATALOG & ACTIONS
         // -------------------------------------------------------------
         async function loadCatalog() {
-            const res = await fetch('/api/products');
-            products = await res.json();
-
-            for (const p of products) {
-                const varRes = await fetch(`/api/product-variants/${p.id}`);
-                p.variants = await varRes.json();
+            try {
+                const res = await fetch('/api/products');
+                if (!res.ok) throw new Error('فشل جلب المنتجات');
+                products = await res.json();
+        
+                renderCategoryFilters();
+                filterCatalog();
+            } catch (err) {
+                console.error('Error loading catalog:', err);
             }
-
-            renderCategoryStrip();
-            filterCatalog();
         }
 
         function renderCategoryStrip() {
@@ -1656,24 +1656,58 @@
             });
         }
 
+        function renderCategoryFilters() {
+            const categories = ['ALL', ...new Set(products.map(p => p.category || 'عام').filter(Boolean))];
+            const container = document.getElementById('category-filter-strip') || document.getElementById('category-chips');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            categories.forEach(c => {
+                const pill = document.createElement('div');
+                pill.className = `category-pill cat-chip ${activeCategory === c ? 'active' : ''}`;
+                pill.innerText = c === 'ALL' ? 'الكل' : c;
+                pill.onclick = () => {
+                    activeCategory = c;
+                    renderCategoryFilters();
+                    filterCatalog();
+                };
+                container.appendChild(pill);
+            });
+        }
+        
         function filterCatalog() {
-            const query = (document.getElementById('pos-search').value || '').toLowerCase();
+            const searchInput = document.getElementById('pos-search');
+            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
             const deck = document.getElementById('products-deck');
+            if (!deck) return;
+        
             deck.innerHTML = '';
         
             const filtered = products.filter(p => {
-                const matchCat = activeCategory === 'ALL' || p.category === activeCategory;
-                const matchQuery = p.name.toLowerCase().includes(query);
+                const catName = p.category || 'عام';
+                const matchCat = activeCategory === 'ALL' || catName === activeCategory;
+                const matchQuery = (p.name || '').toLowerCase().includes(query);
                 return matchCat && matchQuery;
             });
         
+            if (filtered.length === 0) {
+                deck.innerHTML = `
+                    <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 40px;">
+                        <i class="fa-solid fa-box-open" style="font-size: 32px; margin-bottom: 10px; opacity: 0.5;"></i>
+                        <p>لا توجد أصناف مطابقة للبحث</p>
+                    </div>
+                `;
+                return;
+            }
+        
             filtered.forEach(p => {
-                const hasVariants = p.variants && p.variants.length > 0;
-                const isUntracked = p.is_drink === 1;
-                const isOutOfStock = !isUntracked && Number(p.stock_quantity) <= 0;
+                const price = Number(p.unit_selling_price || p.selling_price || 0);
+                const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : p.stock_quantity || 0);
+                const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
+                const isOutOfStock = !isDrink && stock <= 0;
         
                 const card = document.createElement('div');
-                card.className = 'product-card-unit';
+                card.className = 'product-card-unit product-tile';
                 if (isOutOfStock) {
                     card.style.opacity = '0.45';
                     card.style.filter = 'grayscale(0.6)';
@@ -1682,11 +1716,11 @@
                 card.onclick = () => onProductClicked(p);
                 card.innerHTML = `
                     <div>
-                        <div class="product-card-title">${p.name}</div>
-                        <div class="product-card-price">${hasVariants ? 'خيارات متنوعة' : `${formatCurrency(p.selling_price)} ج.م`}</div>
+                        <div class="product-card-title tile-name">${p.name}</div>
+                        <div class="product-card-price tile-price">${formatCurrency(price)} ج.م</div>
                     </div>
-                    <div class="product-card-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
-                        ${isUntracked ? 'غير محدود / بدون جرد' : (isOutOfStock ? '✖ نفد المخزون' : `المتاح: ${p.stock_quantity} ${p.unit_type || 'قطعة'}`)}
+                    <div class="product-card-stock tile-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
+                        ${isDrink ? 'مشروب / خدمة' : (isOutOfStock ? '✖ نفد من الواجهة' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
                     </div>
                 `;
                 deck.appendChild(card);
