@@ -285,9 +285,41 @@ app.get('/api/products', async (req, res) => {
 });
 
 // Admin Dashboard Aggregation: Accurate Physical Restock Cost Excludes Virtual Prepared Drinks
+// لوحة الإدارة مع احتساب أرباح اليوم وتكلفة البضاعة بدقة تامة
 app.get('/api/admin/dashboard', async (req, res) => {
     try {
-        const productsQuery = `
+        // 1. حساب أرباح ومبيعات اليوم (من الـ 12 صباحاً حتى الآن)
+        const todayFinancials = await pool.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_cash_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'VODAFONE_CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_vf_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'CREDIT_TAB' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_tab_sales,
+                COALESCE(SUM(CASE WHEN o.payment_type = 'STAFF_EXPENSE' AND o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as today_staff_cost,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' AND o.payment_type IN ('CASH', 'VODAFONE_CASH') THEN o.total_amount ELSE 0 END), 0) as today_collected_sales,
+                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' AND o.payment_type IN ('CASH', 'VODAFONE_CASH') THEN o.total_cost ELSE 0 END), 0) as today_cogs
+            FROM orders o
+            WHERE o.created_at >= CURRENT_DATE
+        `);
+
+        const fin = todayFinancials.rows[0];
+        const todayCollectedSales = Number(fin.today_collected_sales);
+        const todayCogs = Number(fin.today_cogs);
+        const todayNetProfit = todayCollectedSales - todayCogs;
+
+        // 2. حساب رأس مال المخزون الحالي (البضاعة الملموسة فقط على الرف والمخزن)
+        const valuationRes = await pool.query(`
+            SELECT 
+                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as front_cost,
+                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as backroom_cost,
+                COALESCE(SUM(CASE WHEN p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as total_physical_inventory_cost
+            FROM location_inventory li
+            JOIN products p ON li.product_id = p.id
+            JOIN inventory_locations l ON li.location_id = l.id
+            WHERE p.is_active = TRUE
+        `);
+
+        // 3. جلب بيانات المنتجات
+        const productsRes = await pool.query(`
             SELECT 
                 p.id, p.sku, p.name, 
                 COALESCE(p.unit_cost_price, p.cost_price, 0) AS unit_cost_price,
@@ -309,22 +341,9 @@ app.get('/api/admin/dashboard', async (req, res) => {
                  AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
             WHERE p.is_active = TRUE
             ORDER BY p.id ASC
-        `;
-        const productsRes = await pool.query(productsQuery);
-
-        // Strict Physical Restock Valuation: Excludes PREPARED_DRINK to prevent valuation distortion
-        const valuationRes = await pool.query(`
-            SELECT 
-                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as front_cost,
-                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as backroom_cost,
-                COALESCE(SUM(CASE WHEN p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as total_physical_inventory_cost
-            FROM location_inventory li
-            JOIN products p ON li.product_id = p.id
-            JOIN inventory_locations l ON li.location_id = l.id
-            WHERE p.is_active = TRUE
         `);
 
-        // Shifts & Sales Audit
+        // 4. سجل الورديات
         const shiftsRes = await pool.query(`
             SELECT 
                 s.id, s.start_time, s.end_time, s.status, s.shift_date,
@@ -336,7 +355,6 @@ app.get('/api/admin/dashboard', async (req, res) => {
                 COALESCE(SUM(CASE WHEN o.payment_type = 'VODAFONE_CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_vodafone_sales,
                 COALESCE(SUM(CASE WHEN o.payment_type = 'CREDIT_TAB' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_tab_sales,
                 COALESCE(SUM(CASE WHEN o.payment_type = 'STAFF_EXPENSE' AND o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_staff_cost,
-                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_gross_sales,
                 COALESCE(sr.shortage_amount, 0) as shortage_amount
             FROM shifts s
             LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
@@ -346,7 +364,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
             ORDER BY s.id DESC
         `);
 
-        // Recent Staff Consumptions
+        // 5. استهلاك الموظفين وصاحب العمارة
         const staffOrdersRes = await pool.query(`
             SELECT 
                 sc.id, sc.created_at, sc.beneficiary_name, sc.total_cost_charged,
@@ -363,6 +381,14 @@ app.get('/api/admin/dashboard', async (req, res) => {
             shifts: shiftsRes.rows,
             products: productsRes.rows,
             staff_orders: staffOrdersRes.rows,
+            today_financials: {
+                today_cash_sales: Number(fin.today_cash_sales),
+                today_vf_sales: Number(fin.today_vf_sales),
+                today_tab_sales: Number(fin.today_tab_sales),
+                today_staff_cost: Number(fin.today_staff_cost),
+                today_cogs: todayCogs,
+                today_net_profit: todayNetProfit
+            },
             stats: {
                 front_display_cost: Number(valuationRes.rows[0]?.front_cost || 0),
                 backroom_cost: Number(valuationRes.rows[0]?.backroom_cost || 0),
