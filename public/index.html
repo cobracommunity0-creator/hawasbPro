@@ -2267,6 +2267,11 @@ function viewTabItemDetails(tab) {
         }
 
         async function loadAdminOverview() {
+            // تعبئة كارت فلوس البضاعة المجمعة
+            const cogsEl = document.getElementById('stat-today-cogs');
+            if (cogsEl && data.today_financials) {
+                cogsEl.innerText = `${formatCurrency(data.today_financials.today_cogs)} ج.م`;
+            }
             try {
                 const prodRes = await fetch('/api/products');
                 if (prodRes.ok) {
