@@ -440,9 +440,10 @@ app.get('/api/admin/shifts-archive', async (req, res) => {
                 COALESCE(sr.cash_variance, 0) AS cash_variance,
                 COALESCE(sr.shortage_amount, 0) AS shortage_amount,
                 COALESCE(ord.cash_sales, 0) AS cash_sales,
-                COALESCE(ord.cash_cogs, 0) AS shift_cogs,
-                COALESCE(ord.cash_profit, 0) AS shift_net_profit,
-                COALESCE(ord.total_orders_count, 0) AS orders_count
+                COALESCE(ord.vf_sales, 0) AS vf_sales,
+                COALESCE(ord.total_revenue, 0) AS total_revenue,
+                COALESCE(ord.total_cogs, 0) AS total_cogs,
+                COALESCE(ord.total_profit, 0) AS total_profit
             FROM shifts s
             LEFT JOIN employees e1 ON s.outgoing_cashier_id = e1.id
             LEFT JOIN employees e2 ON s.incoming_cashier_id = e2.id
@@ -450,10 +451,11 @@ app.get('/api/admin/shifts-archive', async (req, res) => {
             LEFT JOIN (
                 SELECT 
                     shift_id,
-                    COUNT(*) AS total_orders_count,
                     SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS cash_sales,
-                    SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN total_cost ELSE 0 END) AS cash_cogs,
-                    SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN (total_amount - total_cost) ELSE 0 END) AS cash_profit
+                    SUM(CASE WHEN payment_type = 'VODAFONE_CASH' AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS vf_sales,
+                    SUM(CASE WHEN payment_type IN ('CASH', 'VODAFONE_CASH') AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS total_revenue,
+                    SUM(CASE WHEN payment_type IN ('CASH', 'VODAFONE_CASH') AND status = 'COMPLETED' THEN total_cost ELSE 0 END) AS total_cogs,
+                    SUM(CASE WHEN payment_type IN ('CASH', 'VODAFONE_CASH') AND status = 'COMPLETED' THEN (total_amount - total_cost) ELSE 0 END) AS total_profit
                 FROM orders
                 GROUP BY shift_id
             ) ord ON s.id = ord.shift_id
