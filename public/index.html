@@ -1806,7 +1806,32 @@
             });
         }
 
-        function onProductClicked(p) {
+        async function onProductClicked(p) {
+            // فحص ما إذا كان للصنف أحجام (صغير / كبير)
+            try {
+                const varRes = await fetch('/api/product-variants/' + p.id);
+                if (varRes.ok) {
+                    const variants = await varRes.json();
+                    if (variants.length > 0) {
+                        let optionsHtml = '';
+                        variants.forEach(v => {
+                            optionsHtml += `<button class="swal2-confirm swal2-styled" style="margin:4px; font-size:14px;" onclick="chooseVariant(${p.id}, '${p.name} (${v.variant_name})', ${v.selling_price}, ${v.cost_price})">${v.variant_name} - ${v.selling_price} ج.م</button>`;
+                        });
+
+                        return Swal.fire({
+                            title: `اختر حجم "${p.name}"`,
+                            html: `<div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap;">${optionsHtml}</div>`,
+                            showConfirmButton: false,
+                            showCancelButton: true,
+                            cancelButtonText: 'إلغاء'
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+
+            // إذا لم تكن هناك أحجام، يضاف الصنف بالسعر الافتراضي مباشرة
             const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
             const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
 
@@ -1814,15 +1839,14 @@
                 return Toast.fire({ icon: 'error', title: `الصنف "${p.name}" نفد من الواجهة` });
             }
 
-            const cart = stationCarts[activeStation] || [];
-            const inCart = cart.filter(x => x.id === p.id).reduce((sum, x) => sum + x.qty, 0);
-            if (!isDrink && (inCart + 1) > stock) {
-                return Toast.fire({ icon: 'warning', title: `الكمية المتاحة بالواجهة (${stock}) فقط` });
-            }
-
             const price = Number(p.unit_selling_price || p.selling_price || 0);
             const cost = Number(p.unit_cost_price || p.cost_price || 0);
             addItemToStationCart(p.id, p.name, price, cost);
+        }
+
+        function chooseVariant(id, fullName, price, cost) {
+            Swal.close();
+            addItemToStationCart(id, fullName, price, cost);
         }
 
         function addItemToStationCart(id, name, price, cost) {
