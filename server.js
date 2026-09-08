@@ -422,6 +422,49 @@ app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
     }
 });
 
+app.get('/api/admin/shifts-archive', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                s.id AS shift_id,
+                s.shift_number,
+                s.shift_date,
+                TO_CHAR(s.start_time, 'HH:MI AM') AS start_time_str,
+                TO_CHAR(s.end_time, 'HH:MI AM') AS end_time_str,
+                s.status,
+                s.starting_cash_float,
+                COALESCE(e1.full_name, 'غير محدد') AS outgoing_cashier_name,
+                COALESCE(e2.full_name, 'غير محدد') AS incoming_cashier_name,
+                COALESCE(sr.expected_cash, 0) AS expected_cash,
+                COALESCE(sr.actual_physical_cash, 0) AS actual_physical_cash,
+                COALESCE(sr.cash_variance, 0) AS cash_variance,
+                COALESCE(sr.shortage_amount, 0) AS shortage_amount,
+                COALESCE(ord.cash_sales, 0) AS cash_sales,
+                COALESCE(ord.cash_cogs, 0) AS shift_cogs,
+                COALESCE(ord.cash_profit, 0) AS shift_net_profit,
+                COALESCE(ord.total_orders_count, 0) AS orders_count
+            FROM shifts s
+            LEFT JOIN employees e1 ON s.outgoing_cashier_id = e1.id
+            LEFT JOIN employees e2 ON s.incoming_cashier_id = e2.id
+            LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
+            LEFT JOIN (
+                SELECT 
+                    shift_id,
+                    COUNT(*) AS total_orders_count,
+                    SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS cash_sales,
+                    SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN total_cost ELSE 0 END) AS cash_cogs,
+                    SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN (total_amount - total_cost) ELSE 0 END) AS cash_profit
+                FROM orders
+                GROUP BY shift_id
+            ) ord ON s.id = ord.shift_id
+            ORDER BY s.id DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/shift-tabs-summary/:shift_id', async (req, res) => {
     try {
         const result = await pool.query(`
