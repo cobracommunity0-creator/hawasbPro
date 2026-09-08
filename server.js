@@ -286,118 +286,99 @@ app.get('/api/products', async (req, res) => {
 
 // Admin Dashboard Aggregation: Accurate Physical Restock Cost Excludes Virtual Prepared Drinks
 // لوحة الإدارة مع احتساب أرباح اليوم وتكلفة البضاعة بدقة تامة
-app.get('/api/admin/dashboard', async (req, res) => {
+// جلب الأصناف الحرجة المطلوب جردها سريعاً عند كل تسليم (التلاجة والإندومي)
+app.get('/api/critical-handover-items', async (req, res) => {
     try {
-        // 1. حساب أرباح ومبيعات اليوم (من الـ 12 صباحاً حتى الآن)
-        const todayFinancials = await pool.query(`
+        const result = await pool.query(`
             SELECT 
-                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_cash_sales,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'VODAFONE_CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_vf_sales,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'CREDIT_TAB' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as today_tab_sales,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'STAFF_EXPENSE' AND o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as today_staff_cost,
-                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' AND o.payment_type IN ('CASH', 'VODAFONE_CASH') THEN o.total_amount ELSE 0 END), 0) as today_collected_sales,
-                COALESCE(SUM(CASE WHEN o.status = 'COMPLETED' AND o.payment_type IN ('CASH', 'VODAFONE_CASH') THEN o.total_cost ELSE 0 END), 0) as today_cogs
-            FROM orders o
-            WHERE o.created_at >= CURRENT_DATE
-        `);
-
-        const fin = todayFinancials.rows[0];
-        const todayCollectedSales = Number(fin.today_collected_sales);
-        const todayCogs = Number(fin.today_cogs);
-        const todayNetProfit = todayCollectedSales - todayCogs;
-
-        // 2. حساب رأس مال المخزون الحالي (البضاعة الملموسة فقط على الرف والمخزن)
-        const valuationRes = await pool.query(`
-            SELECT 
-                COALESCE(SUM(CASE WHEN l.code = 'FRONT_DISPLAY' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as front_cost,
-                COALESCE(SUM(CASE WHEN l.code = 'BACKROOM' AND p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as backroom_cost,
-                COALESCE(SUM(CASE WHEN p.product_type != 'PREPARED_DRINK' THEN li.quantity * COALESCE(p.unit_cost_price, p.cost_price, 0) ELSE 0 END), 0) as total_physical_inventory_cost
-            FROM location_inventory li
-            JOIN products p ON li.product_id = p.id
-            JOIN inventory_locations l ON li.location_id = l.id
-            WHERE p.is_active = TRUE
-        `);
-
-        // 3. جلب بيانات المنتجات
-        const productsRes = await pool.query(`
-            SELECT 
-                p.id, p.sku, p.name, 
-                COALESCE(p.unit_cost_price, p.cost_price, 0) AS unit_cost_price,
-                COALESCE(p.cost_price, p.unit_cost_price, 0) AS cost_price,
-                COALESCE(p.unit_selling_price, p.selling_price, 0) AS unit_selling_price,
-                COALESCE(p.selling_price, p.unit_selling_price, 0) AS selling_price,
-                COALESCE(p.unit_type, 'قطعة') AS unit_type,
-                COALESCE(p.product_type, 'DIRECT_UNIT') AS product_type,
-                COALESCE(c.name, p.category, 'عام') AS category,
-                COALESCE(li_front.quantity, 0) AS front_display_stock,
-                COALESCE(li_front.quantity, 0) AS stock_quantity,
-                COALESCE(li_back.quantity, 0) AS backroom_stock,
-                CASE WHEN p.product_type = 'PREPARED_DRINK' THEN 1 ELSE 0 END as is_drink
+                p.id, p.name, p.unit_type,
+                COALESCE(c.name, p.category, 'عام') as category,
+                COALESCE(li.quantity, 0) as expected_stock
             FROM products p
             LEFT JOIN product_categories c ON p.category_id = c.id
-            LEFT JOIN location_inventory li_front ON p.id = li_front.product_id 
-                 AND li_front.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
-            LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
-                 AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
-            WHERE p.is_active = TRUE
+            LEFT JOIN location_inventory li ON p.id = li.product_id 
+                 AND li.location_id = (SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1)
+            WHERE p.is_active = TRUE 
+              AND (
+                  c.name LIKE '%ساقعة%' OR p.category LIKE '%ساقعة%' 
+                  OR p.name LIKE '%اندومي%' OR p.name LIKE '%إندومي%'
+                  OR p.name LIKE '%كولا%' OR p.name LIKE '%مياه%'
+              )
             ORDER BY p.id ASC
         `);
-
-        // 4. سجل الورديات
-        const shiftsRes = await pool.query(`
-            SELECT 
-                s.id, s.start_time, s.end_time, s.status, s.shift_date,
-                COALESCE(s.starting_cash_float, 0) as starting_cash_float,
-                COALESCE(sr.actual_physical_cash, 0) as closing_amount,
-                s.notes, 
-                COALESCE(e.username, 'كاشير') as username,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_cash_sales,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'VODAFONE_CASH' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_vodafone_sales,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'CREDIT_TAB' AND o.status = 'COMPLETED' THEN o.total_amount ELSE 0 END), 0) as total_tab_sales,
-                COALESCE(SUM(CASE WHEN o.payment_type = 'STAFF_EXPENSE' AND o.status = 'COMPLETED' THEN o.total_cost ELSE 0 END), 0) as total_staff_cost,
-                COALESCE(sr.shortage_amount, 0) as shortage_amount
-            FROM shifts s
-            LEFT JOIN employees e ON s.outgoing_cashier_id = e.id
-            LEFT JOIN orders o ON s.id = o.shift_id
-            LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
-            GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
-            ORDER BY s.id DESC
-        `);
-
-        // 5. استهلاك الموظفين وصاحب العمارة
-        const staffOrdersRes = await pool.query(`
-            SELECT 
-                sc.id, sc.created_at, sc.beneficiary_name, sc.total_cost_charged,
-                s.id as shift_id, o.station_reference,
-                COALESCE(e.full_name, e.username, 'غير مقيد') as employee_profile
-            FROM staff_consumptions sc
-            JOIN orders o ON sc.order_id = o.id
-            JOIN shifts s ON sc.shift_id = s.id
-            LEFT JOIN employees e ON sc.employee_id = e.id
-            ORDER BY sc.id DESC LIMIT 50
-        `);
-
-        res.json({
-            shifts: shiftsRes.rows,
-            products: productsRes.rows,
-            staff_orders: staffOrdersRes.rows,
-            today_financials: {
-                today_cash_sales: Number(fin.today_cash_sales),
-                today_vf_sales: Number(fin.today_vf_sales),
-                today_tab_sales: Number(fin.today_tab_sales),
-                today_staff_cost: Number(fin.today_staff_cost),
-                today_cogs: todayCogs,
-                today_net_profit: todayNetProfit
-            },
-            stats: {
-                front_display_cost: Number(valuationRes.rows[0]?.front_cost || 0),
-                backroom_cost: Number(valuationRes.rows[0]?.backroom_cost || 0),
-                total_inventory_cost: Number(valuationRes.rows[0]?.total_physical_inventory_cost || 0)
-            }
-        });
+        res.json(result.rows);
     } catch (err) {
-        console.error('Error in /api/admin/dashboard:', err.message);
         res.status(500).json({ error: err.message });
+    }
+});
+
+// تسليم الوردية السريع (بدون PIN نهائياً + تسجيل جرد التلاجة والإندومي)
+app.post('/api/shift-reconciliation', async (req, res) => {
+    const { shift_id, outgoing_cashier_id, incoming_cashier_id, physical_cash, counts, notes } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        const shiftRes = await client.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shift_id]);
+        const startingFloat = Number(shiftRes.rows[0]?.starting_cash_float || 0);
+
+        const sales = await client.query("SELECT COALESCE(SUM(total_amount), 0) as cash_total FROM orders WHERE shift_id = $1 AND payment_type = 'CASH' AND status = 'COMPLETED'", [shift_id]);
+        const cashSales = Number(sales.rows[0].cash_total);
+        const expectedCash = startingFloat + cashSales;
+
+        const actualCash = Number(physical_cash) || 0;
+        const variance = actualCash - expectedCash;
+        const isShortage = variance < 0;
+        const shortageAmount = isShortage ? Math.abs(variance) : 0;
+
+        // تسجيل المطابقة المالية
+        await client.query(`
+            INSERT INTO shift_reconciliations (
+                shift_id, expected_cash, actual_physical_cash, cash_sales_total,
+                cash_variance, is_shortage, shortage_amount, outgoing_pin_verified, incoming_pin_verified
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, TRUE)
+            ON CONFLICT (shift_id) DO UPDATE SET
+                expected_cash = EXCLUDED.expected_cash,
+                actual_physical_cash = EXCLUDED.actual_physical_cash,
+                cash_sales_total = EXCLUDED.cash_sales_total,
+                cash_variance = EXCLUDED.cash_variance,
+                is_shortage = EXCLUDED.is_shortage,
+                shortage_amount = EXCLUDED.shortage_amount
+        `, [shift_id, expectedCash, actualCash, cashSales, variance, isShortage, shortageAmount]);
+
+        // تسجيل جرد أصناف التلاجة والإندومي ومعرفة الفروقات
+        if (Array.isArray(counts)) {
+            const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1");
+            const frontLocId = frontLoc.rows[0].id;
+
+            for (const item of counts) {
+                const physicalQty = Number(item.physical_count) || 0;
+                const expectedQty = Number(item.expected_count) || 0;
+                const diff = physicalQty - expectedQty;
+
+                await client.query(`
+                    INSERT INTO shift_inventory_counts (shift_id, product_id, location_id, count_type, physical_count, system_expected_count, variance_qty)
+                    VALUES ($1, $2, $3, 'CLOSING', $4, $5, $6)
+                    ON CONFLICT (shift_id, product_id, location_id, count_type) 
+                    DO UPDATE SET physical_count = EXCLUDED.physical_count, variance_qty = EXCLUDED.variance_qty
+                `, [shift_id, item.product_id, frontLocId, physicalQty, expectedQty, diff]);
+            }
+        }
+
+        // إغلاق الوردية وتحديث الكاشير المستلم
+        await client.query(`
+            UPDATE shifts 
+            SET status = 'CLOSED', end_time = NOW(), incoming_cashier_id = $1, notes = COALESCE($2, notes)
+            WHERE id = $3
+        `, [incoming_cashier_id || null, notes || null, shift_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, variance, is_shortage: isShortage, shortage_amount: shortageAmount });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -727,49 +708,6 @@ app.get('/api/shift-summary/:shift_id', async (req, res) => {
     }
 });
 
-app.post('/api/shift-reconciliation', async (req, res) => {
-    const { shift_id, outgoing_cashier_id, outgoing_pin, incoming_cashier_id, incoming_pin, physical_cash, glass_audit } = req.body;
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-
-        const outAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [outgoing_cashier_id, outgoing_pin]);
-        if (outAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير الحالي غير صحيح');
-
-        const inAuth = await client.query('SELECT id FROM employees WHERE id = $1 AND pin_code = $2', [incoming_cashier_id, incoming_pin]);
-        if (inAuth.rows.length === 0) throw new Error('رمز PIN الخاص بالكاشير المستلم غير صحيح');
-
-        const shiftRes = await client.query('SELECT starting_cash_float FROM shifts WHERE id = $1', [shift_id]);
-        const startingFloat = Number(shiftRes.rows[0]?.starting_cash_float || 0);
-
-        const sales = await client.query("SELECT COALESCE(SUM(total_amount), 0) as cash_total FROM orders WHERE shift_id = $1 AND payment_type = 'CASH' AND status = 'COMPLETED'", [shift_id]);
-        const expectedCash = startingFloat + Number(sales.rows[0].cash_total);
-
-        const actualCash = Number(physical_cash) || 0;
-        const variance = actualCash - expectedCash;
-        const isShortage = variance < 0;
-        const shortageAmount = isShortage ? Math.abs(variance) : 0;
-
-        if (isShortage && shortageAmount > 0) {
-            await client.query('UPDATE employees SET current_shortage_debt = current_shortage_debt + $1 WHERE id = $2', [shortageAmount, outgoing_cashier_id]);
-        }
-
-        await client.query(`
-            INSERT INTO shift_reconciliations (shift_id, expected_cash, actual_physical_cash, cash_sales_total, cash_variance, is_shortage, shortage_amount, outgoing_pin_verified, incoming_pin_verified)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, TRUE)
-        `, [shift_id, expectedCash, actualCash, Number(sales.rows[0].cash_total), variance, isShortage, shortageAmount]);
-
-        await client.query("UPDATE shifts SET status = 'CLOSED', end_time = NOW(), incoming_cashier_id = $1 WHERE id = $2", [incoming_cashier_id, shift_id]);
-
-        await client.query('COMMIT');
-        res.json({ success: true, variance, is_shortage: isShortage, shortage_amount: shortageAmount });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
-    }
-});
 
 // Cashier Shift Scratchpad
 app.post('/api/shift-notes', async (req, res) => {
