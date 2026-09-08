@@ -263,6 +263,89 @@ app.get('/api/employees', async (req, res) => {
     }
 });
 
+async function loadShiftsArchive() {
+    const tbody = document.getElementById('shifts-archive-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="9" style="padding:18px; color:var(--text-muted); text-align:center;">جاري تحميل الأرشيف...</td></tr>';
+
+    try {
+        const res = await fetch('/api/admin/shifts-archive');
+        const list = await res.json();
+        tbody.innerHTML = '';
+
+        if (list.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" style="padding:22px; color:var(--text-muted); text-align:center;">لا توجد أي ورديات مسجلة بالأرشيف حتى الآن</td></tr>';
+            return;
+        }
+
+        let totalEnvelopes = 0;
+        let totalVF = 0;
+        let totalCOGS = 0;
+        let totalProfits = 0;
+
+        list.forEach(s => {
+            totalEnvelopes += Number(s.actual_physical_cash) || 0;
+            totalVF += Number(s.vf_sales) || 0;
+            totalCOGS += Number(s.total_cogs) || 0;
+            totalProfits += Number(s.total_profit) || 0;
+
+            const tr = document.createElement('tr');
+            
+            // تحديد حالة العجز أو الزيادة
+            let varianceHtml = '<span style="color:var(--accent-emerald); font-weight:600;">سليم ✓</span>';
+            if (s.cash_variance < 0) {
+                varianceHtml = `<span style="color:var(--accent-rose); font-weight:700;">عجز: ${formatCurrency(Math.abs(s.cash_variance))} ج</span>`;
+            } else if (s.cash_variance > 0) {
+                varianceHtml = `<span style="color:var(--accent-sky); font-weight:700;">زيادة: ${formatCurrency(s.cash_variance)} ج</span>`;
+            }
+
+            tr.innerHTML = `
+                <td>
+                    <b>وردية ${s.shift_number}</b><br>
+                    <small style="color:var(--text-muted); font-size:10.5px;">${s.shift_date || ''}</small>
+                </td>
+                <td><b>${s.outgoing_cashier_name}</b></td>
+                <td>${s.incoming_cashier_name}</td>
+                <td>
+                    <b style="color:#fff; font-size:14px; background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:4px;">
+                        ${formatCurrency(s.actual_physical_cash)} ج.م
+                    </b>
+                </td>
+                <td>
+                    <b style="color:#f87171; font-size:14px;">${formatCurrency(s.vf_sales)} ج.م</b>
+                </td>
+                <td>
+                    <b style="color:var(--accent-rose); font-size:14px;">${formatCurrency(s.total_cogs)} ج.م</b>
+                </td>
+                <td>
+                    <b style="color:var(--accent-emerald); font-size:14.5px;">${formatCurrency(s.total_profit)} ج.م</b>
+                </td>
+                <td>${varianceHtml}</td>
+                <td>
+                    <span class="badge ${s.status === 'CLOSED' ? 'badge-settled' : 'badge-unpaid'}">
+                        ${s.status === 'CLOSED' ? 'مقفول' : 'مفتوح'}
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // تحديث كروت الإجمالي السريعة في أعلى الجدول
+        const sumEnv = document.getElementById('archive-sum-envelopes');
+        const sumVF = document.getElementById('archive-sum-vf');
+        const sumCOGS = document.getElementById('archive-sum-cogs');
+        const sumProf = document.getElementById('archive-sum-profits');
+        
+        if (sumEnv) sumEnv.innerText = `${formatCurrency(totalEnvelopes)} ج.م`;
+        if (sumVF) sumVF.innerText = `${formatCurrency(totalVF)} ج.م`;
+        if (sumCOGS) sumCOGS.innerText = `${formatCurrency(totalCOGS)} ج.م`;
+        if (sumProf) sumProf.innerText = `${formatCurrency(totalProfits)} ج.م`;
+
+    } catch (err) {
+        console.error("خطأ في تحميل الأرشيف:", err);
+    }
+}
+
 // ============================================================================
 // جلب المنتجات محملة مسبقاً بالأحجام والأوعية (سرعة استجابة فائقة 0ms)
 // ============================================================================
