@@ -531,7 +531,7 @@ app.post('/api/checkout', async (req, res) => {
             totalOrderAmount += unitPrice * item.qty;
             totalOrderCost += unitCost * item.qty;
 
-            // Direct packaged goods stock validation
+            // التحقق من رصيد بضاعة الواجهة
             if (prod.product_type === 'DIRECT_UNIT') {
                 const stockRes = await client.query(
                     'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
@@ -543,7 +543,7 @@ app.post('/api/checkout', async (req, res) => {
                 }
             }
 
-            // Paper cup stock validation if takeaway
+            // التحقق من الأكواب الورقية في حالة التيك أواي
             if (prod.product_type === 'PREPARED_DRINK' && order_mode === 'TAKEAWAY') {
                 const cupBom = await client.query(
                     "SELECT ingredient_product_id, quantity_required FROM product_boms WHERE parent_product_id = $1 AND rule = 'TAKEAWAY_ONLY'",
@@ -577,13 +577,16 @@ app.post('/api/checkout', async (req, res) => {
 
             let unitCost = Number(prod.unit_cost_price || prod.cost_price || 0);
             let unitPrice = (payment_type === 'STAFF_EXPENSE') ? unitCost : Number(prod.unit_selling_price || prod.selling_price || 0);
+            
+            const subtotalPrice = Number(item.qty) * unitPrice;
+            const subtotalCost = Number(item.qty) * unitCost;
 
             await client.query(`
                 INSERT INTO order_items (order_id, product_id, quantity, unit_price, unit_cost, subtotal_price, subtotal_cost)
-                VALUES ($1, $2, $3, $4, $5, $3 * $4, $3 * $5)
-            `, [orderId, prod.id, item.qty, unitPrice, unitCost]);
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, [orderId, prod.id, item.qty, unitPrice, unitCost, subtotalPrice, subtotalCost]);
 
-            // Deduct stock from Front Display
+            // خصم المخزون من الواجهة
             if (prod.product_type === 'DIRECT_UNIT') {
                 await client.query(`
                     UPDATE location_inventory SET quantity = quantity - $1
@@ -603,7 +606,7 @@ app.post('/api/checkout', async (req, res) => {
             }
         }
 
-        // Staff Consumption with Custom Beneficiary Name (Employees or external, e.g., building owner)
+        // استهلاك موظف أو مستفيد مخصص (مثل صاحب العمارة)
         if (payment_type === 'STAFF_EXPENSE') {
             const beneficiary = (staff_beneficiary_name && staff_beneficiary_name.trim()) 
                 ? staff_beneficiary_name.trim() 
