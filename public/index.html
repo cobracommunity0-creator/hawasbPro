@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>حواسب كافيه | نظام الكاشير ونقطة البيع</title>
+    <title>حواسب كافيه | نقطة البيع وإدارة السايبر</title>
     
-    <!-- Modern Arabic Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,7 +14,6 @@
 
     <style>
         :root {
-            /* Eye-Comfort Dark Theme */
             --bg-body: #090d16;
             --bg-surface: #101623;
             --bg-card: #162033;
@@ -89,9 +87,7 @@
             color: var(--text-secondary);
         }
 
-        /* ------------------------------------------------------------- */
-        /* AUTHENTICATION                                                */
-        /* ------------------------------------------------------------- */
+        /* Authentication Screen */
         .login-layout {
             display: flex;
             align-items: center;
@@ -166,9 +162,7 @@
             transform: translateY(-1px);
         }
 
-        /* ------------------------------------------------------------- */
-        /* TOP APP HEADER                                                */
-        /* ------------------------------------------------------------- */
+        /* Top Header */
         header.app-bar {
             height: 52px;
             background: var(--bg-surface);
@@ -227,9 +221,7 @@
         .btn-tool.danger { color: var(--accent-rose); border-color: rgba(244, 63, 94, 0.25); }
         .btn-tool.danger:hover { background: var(--accent-rose); color: #fff; }
 
-        /* ------------------------------------------------------------- */
-        /* POS WORKSPACE                                                 */
-        /* ------------------------------------------------------------- */
+        /* Workspace */
         .pos-container {
             height: calc(100vh - 52px);
             display: flex;
@@ -237,7 +229,6 @@
             overflow: hidden;
         }
 
-        /* Station Ribbon */
         .station-matrix-bar {
             background: var(--bg-surface);
             border-bottom: 1px solid var(--border);
@@ -290,20 +281,13 @@
             font-size: 10.5px;
             font-weight: 700;
         }
-        .station-hotkey-label {
-            font-size: 9.5px;
-            opacity: 0.6;
-            margin-right: 2px;
-        }
 
-        /* Split Workspace */
         .pos-main-split {
             flex: 1;
             display: flex;
             overflow: hidden;
         }
 
-        /* Left: Catalog */
         .catalog-deck-pane {
             flex: 1;
             display: flex;
@@ -376,7 +360,6 @@
             border-color: rgba(14, 165, 233, 0.35);
         }
 
-        /* Products Grid */
         .products-grid-scroll {
             flex: 1;
             overflow-y: auto;
@@ -424,9 +407,7 @@
             margin-top: 4px;
         }
 
-        /* ------------------------------------------------------------- */
-        /* RIGHT: REGISTER DOCKET TERMINAL                               */
-        /* ------------------------------------------------------------- */
+        /* Register Docket Terminal */
         .pos-terminal-docket {
             width: 380px;
             background: var(--bg-surface);
@@ -459,7 +440,6 @@
         }
         .btn-trash-clear:hover { color: var(--accent-rose); }
 
-        /* Mode Selector (Dine-in vs Takeaway) */
         .order-mode-bar {
             display: flex;
             padding: 6px 12px;
@@ -557,7 +537,6 @@
         .stepper-btn:hover { background: rgba(255, 255, 255, 0.08); color: var(--text-primary); }
         .stepper-val { font-size: 12px; font-weight: 700; min-width: 18px; text-align: center; }
 
-        /* Docket Settlement */
         .docket-settlement-hub {
             border-top: 1px solid var(--border);
             padding: 12px 14px;
@@ -632,7 +611,6 @@
             min-height: 16px;
         }
 
-        /* Payment Buttons Stack */
         .checkout-buttons-stack {
             display: flex;
             flex-direction: column;
@@ -703,7 +681,6 @@
         .shift-cell span { font-size: 9.5px; color: var(--text-muted); display: block; font-weight: 500; }
         .shift-cell b { font-size: 12px; font-weight: 700; }
 
-        /* Bottom Hotkey Bar */
         .hotkey-bar {
             height: 28px;
             background: var(--bg-surface);
@@ -718,9 +695,7 @@
         .hotkey-group { display: flex; gap: 14px; }
         .hotkey-item { display: flex; align-items: center; gap: 4px; }
 
-        /* ------------------------------------------------------------- */
-        /* ADMIN WORKSPACE                                               */
-        /* ------------------------------------------------------------- */
+        /* Admin Workspace */
         .admin-layout-pane {
             height: calc(100vh - 52px);
             display: flex;
@@ -762,7 +737,7 @@
 
         .kpi-deck {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 12px;
             margin-bottom: 18px;
         }
@@ -820,9 +795,6 @@
         table.terminal-table tr:last-child td { border-bottom: none; }
         table.terminal-table tr:hover td { background: rgba(255, 255, 255, 0.015); }
 
-        /* ------------------------------------------------------------- */
-        /* MODALS                                                        */
-        /* ------------------------------------------------------------- */
         .modal-screen {
             position: fixed;
             inset: 0;
@@ -868,6 +840,7 @@
         .badge-status.success { background: rgba(16, 185, 129, 0.15); color: var(--accent-emerald); }
         .badge-status.danger { background: rgba(244, 63, 94, 0.15); color: var(--accent-rose); }
         .badge-status.warning { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+        .badge-status.vodafone { background: rgba(230, 0, 0, 0.15); color: #ff4d4d; }
     </style>
 </head>
 <body>
@@ -877,11 +850,11 @@
         <div class="login-modal">
             <div class="login-brand-icon"><i class="fa-solid fa-mug-hot"></i></div>
             <h1 class="login-title">حواسب كافيه</h1>
-            <p class="login-sub">نظام الكاشير ونقطة البيع الذكية</p>
+            <p class="login-sub">نظام نقطة البيع وإدارة السايبر الذكي</p>
             
             <div class="input-group">
                 <i class="fa-solid fa-user"></i>
-                <input type="text" id="login-username" class="input-field" placeholder="اسم المستخدم (أو رقم الهاتف)">
+                <input type="text" id="login-username" class="input-field" placeholder="اسم المستخدم (أو الهاتف)">
             </div>
             
             <div class="input-group">
@@ -927,7 +900,6 @@
         <!-- Live Station Ribbon -->
         <div class="station-matrix-bar" id="station-matrix-deck"></div>
 
-        <!-- POS Workspace Split -->
         <div class="pos-main-split">
             
             <!-- Left: Products Catalog -->
@@ -944,7 +916,7 @@
                 <div class="products-grid-scroll" id="products-deck"></div>
             </div>
 
-            <!-- Right: Docket & Cash Tender Terminal -->
+            <!-- Right: Docket Terminal -->
             <div class="pos-terminal-docket">
                 <div class="docket-head">
                     <div class="docket-station-flag">
@@ -956,7 +928,7 @@
                     </button>
                 </div>
 
-                <!-- Mode Selector: Takeaway vs Dine-In -->
+                <!-- Order Mode: Takeaway vs Dine-In -->
                 <div class="order-mode-bar">
                     <button id="btn-mode-takeaway" class="btn-mode-toggle active" onclick="setOrderMode('TAKEAWAY')">
                         <i class="fa-solid fa-bag-shopping"></i> تيك أواي (كوب ورقي)
@@ -974,7 +946,6 @@
                         <b id="cart-subtotal-val">0 ج.م</b>
                     </div>
 
-                    <!-- Quick Tender Strip -->
                     <div class="quick-tender-strip">
                         <div class="tender-chip" onclick="applyQuickCash('exact')">بالضبط</div>
                         <div class="tender-chip" onclick="applyQuickCash(10)">+10</div>
@@ -984,7 +955,6 @@
                         <div class="tender-chip" onclick="applyQuickCash(200)">+200</div>
                     </div>
 
-                    <!-- Cash Input with Instant Enter Hotkey -->
                     <div class="cash-collected-field">
                         <span style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">المدفوع كاش:</span>
                         <input type="number" id="cash-paid-input" placeholder="0" oninput="updateChangeCalculation()">
@@ -998,7 +968,6 @@
                         <span id="cart-total-val">0 ج.م</span>
                     </div>
 
-                    <!-- Actions & Payment Methods -->
                     <div class="checkout-buttons-stack">
                         <button class="btn-tender-complete" onclick="executeCheckout('CASH')">
                             <i class="fa-solid fa-circle-check"></i>
@@ -1016,20 +985,19 @@
                                 <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-sky);"></i> شكك / آجل
                             </button>
                             <button class="btn-staff-ticket" style="flex:1; justify-content:center;" onclick="openStaffConsumptionPrompt()">
-                                <i class="fa-solid fa-id-badge"></i> استهلاك موظف
+                                <i class="fa-solid fa-id-badge"></i> استهلاك موظف / صاحب العمارة
                             </button>
                         </div>
                     </div>
 
-                    <!-- Shift live metrics -->
                     <div class="live-shift-strip">
                         <div class="shift-cell">
-                            <span>مبيعات الشيفت</span>
+                            <span>مبيعات الكاش</span>
                             <b id="live-sales-val" style="color:var(--accent-emerald);">0 ج.م</b>
                         </div>
                         <div class="shift-cell" style="border-right:1px solid var(--border);">
-                            <span>إجمالي التيبس</span>
-                            <b id="live-tips-val" style="color:var(--accent-sky);">0 ج.م</b>
+                            <span>فودافون كاش</span>
+                            <b id="live-vf-val" style="color:var(--accent-vodafone);">0 ج.م</b>
                         </div>
                     </div>
 
@@ -1037,11 +1005,8 @@
                         <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openCashierNotesModal()">
                             <i class="fa-regular fa-note-sticky" style="color:var(--accent-amber);"></i> المفكرة <span class="badge-kbd">F4</span>
                         </button>
-                        <button class="btn-tool" style="flex:1; justify-content:center;" onclick="openShiftLogModal()">
-                            <i class="fa-solid fa-clock-rotate-left"></i> سجل الوردية
-                        </button>
                         <button class="btn-tool danger" style="flex:1; justify-content:center;" onclick="openShiftHandoverModal()">
-                            <i class="fa-solid fa-lock"></i> تقفيل الوردية
+                            <i class="fa-solid fa-lock"></i> تسليم الوردية
                         </button>
                     </div>
                 </div>
@@ -1049,7 +1014,6 @@
 
         </div>
 
-        <!-- POS Hotkey Guide Footer -->
         <div class="hotkey-bar">
             <div class="hotkey-group">
                 <div class="hotkey-item"><span class="badge-kbd">Enter</span> إتمام الكاش</div>
@@ -1058,7 +1022,7 @@
                 <div class="hotkey-item"><span class="badge-kbd">F1 - F10</span> اختيار الجهاز</div>
                 <div class="hotkey-item"><span class="badge-kbd">~</span> الكاشير المباشر</div>
             </div>
-            <div>حواسب كافيه - نظام نقاط البيع 2026</div>
+            <div>حواسب كافيه - POS v2.6</div>
         </div>
 
     </div>
@@ -1067,13 +1031,16 @@
     <div id="view-admin" class="admin-layout-pane hidden">
         <div class="admin-nav-strip">
             <button class="admin-tab-btn active" onclick="switchAdminTab('pane-overview', this)">
-                <i class="fa-solid fa-chart-pie"></i> لوحة الإحصائيات
+                <i class="fa-solid fa-chart-pie"></i> لوحة الإحصائيات والجرد
             </button>
             <button class="admin-tab-btn" onclick="switchAdminTab('pane-products', this)">
-                <i class="fa-solid fa-boxes-stacked"></i> قائمة الأصناف والمخزون
+                <i class="fa-solid fa-boxes-stacked"></i> إدارة الأصناف والتسعير
             </button>
             <button class="admin-tab-btn" onclick="switchAdminTab('pane-shifts', this)">
-                <i class="fa-solid fa-vault"></i> أرشيف الشيفتات
+                <i class="fa-solid fa-vault"></i> أرشيف الورديات
+            </button>
+            <button class="admin-tab-btn" onclick="switchAdminTab('pane-staff-logs', this)">
+                <i class="fa-solid fa-id-badge"></i> سجل استهلاك الموظفين وصاحب العمارة
             </button>
             <button class="admin-tab-btn" onclick="switchAdminTab('pane-users', this)">
                 <i class="fa-solid fa-users-gear"></i> إدارة المستخدمين
@@ -1086,12 +1053,44 @@
             <div id="pane-overview" class="admin-pane">
                 <div class="kpi-deck">
                     <div class="kpi-tile">
-                        <div class="kpi-tile-label">قيمة المخزون في الواجهة (المعروض)</div>
-                        <div class="kpi-tile-val" id="kpi-collected-cost" style="color:var(--accent-sky);">0 ج.م</div>
+                        <div class="kpi-tile-label">رأس مال معروض الواجهة (تكلفة البضاعة للبيع الفوري)</div>
+                        <div class="kpi-tile-val" id="kpi-front-cost" style="color:var(--accent-sky);">0 ج.م</div>
+                        <span style="font-size:10.5px; color:var(--text-muted);">محسوبة بدقة بدون المشروبات المحضرة</span>
                     </div>
                     <div class="kpi-tile">
-                        <div class="kpi-tile-label">إجمالي رأس مال المخزون (الواجهة + المخزن)</div>
-                        <div class="kpi-tile-val" id="kpi-remaining-cost" style="color:var(--accent-emerald);">0 ج.م</div>
+                        <div class="kpi-tile-label">رأس مال المخزن الاحتياطي (Backroom)</div>
+                        <div class="kpi-tile-val" id="kpi-backroom-cost" style="color:var(--accent-amber);">0 ج.م</div>
+                        <span style="font-size:10.5px; color:var(--text-muted);">بضاعة ومشروبات احتياطية</span>
+                    </div>
+                    <div class="kpi-tile">
+                        <div class="kpi-tile-label">إجمالي رأس المال المحبوس في المخزون</div>
+                        <div class="kpi-tile-val" id="kpi-total-inventory" style="color:var(--accent-emerald);">0 ج.م</div>
+                        <span style="font-size:10.5px; color:var(--text-muted);">رأس مال البضاعة والخامات الحقيقية</span>
+                    </div>
+                </div>
+
+                <!-- Restock Warning Alerts (Items <= 5 on Front Display) -->
+                <div class="admin-card-section">
+                    <h3 style="margin-bottom:10px; font-weight:700; color:var(--accent-rose);">
+                        <i class="fa-solid fa-triangle-exclamation"></i> تنبيهات النواقص وإعادة تغذية الواجهة (Restock Alerts)
+                    </h3>
+                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+                        الأصناف التالية رصيدها منخفض على الواجهة (5 قطع أو أقل) ويمكنك تحويل كمية من المخزن الاحتياطي مباشرة:
+                    </p>
+                    <div class="table-wrap-box">
+                        <table class="terminal-table">
+                            <thead>
+                                <tr>
+                                    <th>الصنف</th>
+                                    <th>القسم</th>
+                                    <th>المتاح بالواجهة</th>
+                                    <th>المتاح بالمخزن الاحتياطي</th>
+                                    <th>سعر التكلفة</th>
+                                    <th>إجراء التغذية السريع</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-restock-alerts-tbody"></tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -1105,11 +1104,11 @@
                         <div class="form-grid-layout">
                             <div class="form-field-unit">
                                 <label>اسم الصنف</label>
-                                <input type="text" id="crud-prod-name" placeholder="مثال: لاتيه مثلج" required>
+                                <input type="text" id="crud-prod-name" placeholder="مثال: شيبسي جامبو" required>
                             </div>
                             <div class="form-field-unit">
                                 <label>القسم</label>
-                                <input type="text" id="crud-prod-cat" placeholder="مثال: مشروبات باردة" required>
+                                <input type="text" id="crud-prod-cat" placeholder="مثال: شيبسيات وسناكس" required>
                             </div>
                             <div class="form-field-unit">
                                 <label>سعر التكلفة المباشر</label>
@@ -1120,8 +1119,12 @@
                                 <input type="number" step="0.1" id="crud-prod-price" placeholder="0.0" required>
                             </div>
                             <div class="form-field-unit">
-                                <label>الكمية بالواجهة</label>
+                                <label>الكمية بالواجهة (Front)</label>
                                 <input type="number" step="0.1" id="crud-prod-stock" placeholder="0" value="50">
+                            </div>
+                            <div class="form-field-unit">
+                                <label>الكمية بالمخزن الاحتياطي (Backroom)</label>
+                                <input type="number" step="0.1" id="crud-prod-backstock" placeholder="0" value="100">
                             </div>
                             <div class="form-field-unit">
                                 <label>وحدة القياس</label>
@@ -1129,14 +1132,14 @@
                                     <option value="قطعة">قطعة</option>
                                     <option value="جرام">جرام</option>
                                     <option value="كيلو">كيلو</option>
-                                    <option value="مليلتر">مليلتر</option>
-                                    <option value="لتر">لتر</option>
+                                    <option value="كوب">كوب</option>
+                                    <option value="علبة">علبة</option>
                                 </select>
                             </div>
                             <div class="form-field-unit" style="justify-content:center;">
                                 <label style="display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:14px;">
                                     <input type="checkbox" id="crud-prod-isdrink">
-                                    <span>مشروب محضر فوري (BOM)</span>
+                                    <span>مشروب محضر فوري (BOM - لا يحسب كرأس مال مستقل)</span>
                                 </label>
                             </div>
                         </div>
@@ -1154,9 +1157,10 @@
                             <tr>
                                 <th>الصنف</th>
                                 <th>القسم</th>
-                                <th>التكلفة المباشرة</th>
+                                <th>التكلفة</th>
                                 <th>سعر البيع</th>
-                                <th>المخزون بالواجهة</th>
+                                <th>رصيد الواجهة</th>
+                                <th>رصيد المخزن الاحتياطي</th>
                                 <th>الوحدة</th>
                                 <th>النوع</th>
                                 <th>إجراءات</th>
@@ -1167,7 +1171,7 @@
                 </div>
             </div>
 
-            <!-- Shifts Pane -->
+            <!-- Shifts Archive Pane -->
             <div id="pane-shifts" class="admin-pane hidden">
                 <div class="table-wrap-box">
                     <table class="terminal-table">
@@ -1176,16 +1180,41 @@
                                 <th>#</th>
                                 <th>الكاشير</th>
                                 <th>تاريخ الوردية</th>
-                                <th>وقت البدء</th>
-                                <th>وقت الإغلاق</th>
-                                <th>المبيعات</th>
-                                <th>المبلغ بالدرج</th>
-                                <th>العجز المسجل</th>
+                                <th>البدء</th>
+                                <th>الإغلاق</th>
+                                <th>مبيعات الكاش</th>
+                                <th>فودافون كاش</th>
+                                <th>مبيعات الشكك</th>
+                                <th>المبلغ المسلم</th>
+                                <th>العجز</th>
                                 <th>الحالة</th>
                             </tr>
                         </thead>
                         <tbody id="admin-shifts-table-body"></tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- Staff & Beneficiary Consumptions Pane -->
+            <div id="pane-staff-logs" class="admin-pane hidden">
+                <div class="admin-card-section">
+                    <h3 style="margin-bottom:12px; font-weight:700;"><i class="fa-solid fa-id-badge" style="color:var(--accent-amber);"></i> سجل استهلاك الموظفين وأصحاب العقار (بسعر التكلفة)</h3>
+                    <div class="table-wrap-box">
+                        <table class="terminal-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>المستفيد / المستهلك</th>
+                                    <th>الصفة / الموظف المسجل</th>
+                                    <th>الوردية</th>
+                                    <th>المحطة</th>
+                                    <th>التكلفة المحملة</th>
+                                    <th>التاريخ والوقت</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-staff-orders-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -1213,7 +1242,7 @@
                                 <select id="crud-usr-role">
                                     <option value="cashier">كاشير (Cashier)</option>
                                     <option value="admin">مسؤول (Admin)</option>
-                                    <option value="runner">خدمات وتوريد (Runner)</option>
+                                    <option value="staff">موظف عام (Staff)</option>
                                 </select>
                             </div>
                         </div>
@@ -1266,7 +1295,7 @@
 
             <div style="display:flex; flex-direction:column; gap:10px; text-align:right;">
                 <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px;">
-                    <span style="font-size:11px; color:var(--text-muted); display:block;">رقم المحفظة للتحويل:</span>
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">رقم المحفظة المعتمد للتحويل:</span>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
                         <b id="vodafone-phone-number" style="font-size:18px; letter-spacing:1px; color:#fff;">01060473112</b>
                         <button class="btn-tool" onclick="copyVodafoneNumber()" style="background:var(--accent-vodafone); color:#fff; border:none; padding:4px 10px;">
@@ -1276,12 +1305,12 @@
                 </div>
 
                 <div style="background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-md); padding:10px;">
-                    <span style="font-size:11px; color:var(--text-muted); display:block;">صاحب المحفظة:</span>
-                    <b style="font-size:14px; color:var(--text-primary);">Amr Adel Mabrouk (عمرو عادل مبروك)</b>
+                    <span style="font-size:11px; color:var(--text-muted); display:block;">اسم صاحب المحفظة:</span>
+                    <b style="font-size:14px; color:var(--text-primary);">عمرو عادل مبروك (Amr Adel Mabrouk)</b>
                 </div>
 
                 <div>
-                    <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">رقم هاتف العميل المحول منه (اختياري):</label>
+                    <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600; display:block; margin-bottom:4px;">رقم هاتف العميل المحول منه (اختياري للتحقق):</label>
                     <input type="text" id="vodafone-sender-phone" placeholder="01xxxxxxxxx" class="input-field" style="padding:8px 12px; text-align:center;">
                 </div>
             </div>
@@ -1295,7 +1324,7 @@
         </div>
     </div>
 
-    <!-- Cashier Reminders / Notes Modal -->
+    <!-- Cashier Reminders Modal -->
     <div id="modal-cashier-notes" class="modal-screen hidden">
         <div class="modal-pane-dialog" style="max-width:480px;">
             <div class="modal-header-strip">
@@ -1309,10 +1338,6 @@
                 </div>
             </div>
 
-            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:10px;">
-                اكتب أي تذكير خلال الشيفت (مثل: حسابات مؤجلة، فكة، توريدات). تُحفظ تلقائياً وتُنقل لتقرير التقفيل.
-            </p>
-
             <textarea 
                 id="cashier-scratchpad-input" 
                 placeholder="اكتب ملاحظاتك وتذكيراتك هنا..." 
@@ -1322,14 +1347,12 @@
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px;">
                 <span style="font-size:11px; color:var(--text-muted);">اختصار سريع: <span class="badge-kbd">F4</span></span>
-                <button class="btn-emerald" style="width:auto; padding:6px 18px;" onclick="closeModal('modal-cashier-notes')">
-                    إغلاق المفكرة
-                </button>
+                <button class="btn-emerald" style="width:auto; padding:6px 18px;" onclick="closeModal('modal-cashier-notes')">إغلاق المفكرة</button>
             </div>
         </div>
     </div>
 
-    <!-- Shift Handover (Dual-PIN Reconciliation) Modal -->
+    <!-- Shift Handover Modal -->
     <div id="modal-handover-wizard" class="modal-screen hidden">
         <div class="modal-pane-dialog" style="max-width:500px;">
             <div class="modal-header-strip">
@@ -1355,70 +1378,11 @@
                 </div>
 
                 <div>
-                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">المبلغ الفعلي في الدرج (ج.م):</label>
+                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">المبلغ الفعلي في الدرج كاش (ج.م):</label>
                     <input type="number" id="handover-actual-cash" placeholder="0.00" style="width:100%; padding:9px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; font-weight:700;">
                 </div>
 
-                <!-- Glass Quota Audit (15 Total) -->
-                <div style="background:var(--bg-card); padding:10px; border-radius:6px; border:1px solid var(--border);">
-                    <span style="font-size:12px; font-weight:700; color:var(--accent-amber);">جرد الأكواب الزجاجية (العهدة: 15 مج)</span>
-                    <div style="display:flex; gap:8px; margin-top:6px;">
-                        <input type="number" id="glass-clean" placeholder="نظيف" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
-                        <input type="number" id="glass-in-use" placeholder="قيد الاستخدام" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
-                        <input type="number" id="glass-broken" placeholder="مكسور" style="flex:1; padding:6px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:4px;">
-                    </div>
-                </div>
-
-                <div>
-                    <label style="font-size:12px; font-weight:600; color:var(--text-secondary);">ملاحظات تقفيل الوردية:</label>
-                    <textarea id="handover-notes" placeholder="أي عجز، زيادة، أو ملاحظات خاصة..." style="width:100%; height:70px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px; padding:8px; resize:none;"></textarea>
-                </div>
-
                 <button class="btn-emerald" onclick="submitShiftHandover()">تأكيد الإقفال وترحيل العهدة</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Live Sales Modal -->
-    <div id="modal-live-sales" class="modal-screen hidden">
-        <div class="modal-pane-dialog">
-            <div class="modal-header-strip">
-                <h3 id="live-sales-modal-title" style="font-size:15px; font-weight:700; color:var(--accent-emerald);">سجل مبيعات الشيفت</h3>
-                <button class="btn-modal-close" onclick="closeModal('modal-live-sales')">×</button>
-            </div>
-            <div class="table-wrap-box">
-                <table class="terminal-table">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>المحطة</th>
-                            <th>الصنف</th>
-                            <th>الكمية</th>
-                            <th>السعر</th>
-                            <th>الإجمالي</th>
-                            <th>طريقة الدفع</th>
-                            <th>الوقت</th>
-                        </tr>
-                    </thead>
-                    <tbody id="live-sales-tbody"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Recipe BOM Modal -->
-    <div id="modal-recipe-editor" class="modal-screen hidden">
-        <div class="modal-pane-dialog">
-            <div class="modal-header-strip">
-                <h3 id="recipe-modal-title" style="font-size:15px; font-weight:700;">مكونات وخامات الصنف (BOM)</h3>
-                <button class="btn-modal-close" onclick="closeModal('modal-recipe-editor')">×</button>
-            </div>
-            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">ربط الخامات المستهلكة لتحضير هذا الصنف تلقائياً عند كل عملية بيع.</p>
-            <div id="recipe-rows-deck" style="display:flex; flex-direction:column; gap:8px;"></div>
-            
-            <div style="display:flex; justify-content:space-between; margin-top:14px;">
-                <button class="btn-tool" onclick="addRecipeRowItem()">+ إضافة خامة</button>
-                <button class="btn-emerald" style="width:auto; padding:8px 20px;" onclick="saveRecipeConfiguration()">حفظ التركيبة</button>
             </div>
         </div>
     </div>
@@ -1434,9 +1398,7 @@
         let isCheckingOut = false;
         let currentOrderMode = 'TAKEAWAY';
         let notesSaveDebounceTimer = null;
-        let activeRecipeParentId = null;
 
-        // Dynamic stations
         const STATIONS = [
             'الكاشير المباشر',
             'PC 1', 'PC 2', 'PC 3', 'PC 4', 'PC 5',
@@ -1448,12 +1410,8 @@
         STATIONS.forEach(st => { if (!stationCarts[st]) stationCarts[st] = []; });
 
         const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 1600,
-            background: '#162033',
-            color: '#f8fafc'
+            toast: true, position: 'top-end', showConfirmButton: false, timer: 1600,
+            background: '#162033', color: '#f8fafc'
         });
 
         function formatCurrency(num) {
@@ -1465,15 +1423,11 @@
             if (el) el.classList.add('hidden');
         }
 
-        // Live Header Clock
         setInterval(() => {
             const clock = document.getElementById('live-clock');
             if (clock) clock.innerText = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
         }, 1000);
 
-        // -------------------------------------------------------------
-        // INITIALIZATION & SHORTCUTS
-        // -------------------------------------------------------------
         window.addEventListener('DOMContentLoaded', () => {
             initSession();
             bindUniversalShortcuts();
@@ -1528,12 +1482,6 @@
 
                 if (e.key === 'Escape') {
                     document.querySelectorAll('.modal-screen').forEach(m => m.classList.add('hidden'));
-                    const searchInput = document.getElementById('pos-search');
-                    if (searchInput && document.activeElement === searchInput) {
-                        searchInput.value = '';
-                        filterCatalog();
-                        focusTenderInput();
-                    }
                 }
 
                 if (e.key.startsWith('F') && e.key.length <= 3 && !e.ctrlKey && !e.altKey) {
@@ -1571,9 +1519,7 @@
             cashInput.focus();
         }
 
-        // -------------------------------------------------------------
-        // AUTHENTICATION
-        // -------------------------------------------------------------
+        // Authentication
         async function initSession() {
             const storedUser = localStorage.getItem('hawasb_session_user');
             if (storedUser) {
@@ -1668,9 +1614,7 @@
             location.reload();
         }
 
-        // -------------------------------------------------------------
-        // STATIONS MATRIX
-        // -------------------------------------------------------------
+        // Stations Ribbon
         function renderStationMatrix() {
             const container = document.getElementById('station-matrix-deck');
             if (!container) return;
@@ -1713,9 +1657,7 @@
             document.getElementById('btn-mode-dinein').classList.toggle('active', mode === 'DINE_IN');
         }
 
-        // -------------------------------------------------------------
-        // CATALOG & PRODUCT TILES
-        // -------------------------------------------------------------
+        // Product Catalog
         async function loadCatalog() {
             try {
                 const res = await fetch('/api/products');
@@ -1792,7 +1734,7 @@
                         <div class="product-card-price">${formatCurrency(price)} ج.م</div>
                     </div>
                     <div class="product-card-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
-                        ${isDrink ? 'مشروب / خدمة (BOM)' : (isOutOfStock ? '✖ نفد من الواجهة' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
+                        ${isDrink ? 'مشروب محضر (BOM)' : (isOutOfStock ? '✖ نفد من الواجهة' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
                     </div>
                 `;
                 deck.appendChild(card);
@@ -1845,7 +1787,7 @@
                     const currentInCart = cart.filter(x => x.id === item.id).reduce((s, x) => s + x.qty, 0);
                     const stock = Number(pRef.front_display_stock !== undefined ? pRef.front_display_stock : (pRef.stock_quantity || 0));
                     if (currentInCart + 1 > stock) {
-                        return Toast.fire({ icon: 'warning', title: `أقصى كمية متاحة: (${stock})` });
+                        return Toast.fire({ icon: 'warning', title: `أقصى كمية متاحة بالواجهة: (${stock})` });
                     }
                 }
             }
@@ -1926,9 +1868,7 @@
             }
         }
 
-        // -------------------------------------------------------------
-        // CHECKOUT & VODAFONE CASH MODAL
-        // -------------------------------------------------------------
+        // Vodafone Cash
         function openVodafoneCashModal() {
             const cart = stationCarts[activeStation] || [];
             if (!cart.length) return Toast.fire({ icon: 'warning', title: 'السلة فارغة' });
@@ -1996,7 +1936,8 @@
                 if (!res.ok) throw new Error(data.error || 'فشلت عملية البيع');
 
                 let title = 'تم تسجيل البيع بنجاح';
-                if (extraPayload.payment_type === 'VODAFONE_CASH') title = 'تم تأكيد تحويل فودافون كاش بنجاح';
+                if (extraPayload.payment_type === 'VODAFONE_CASH') title = 'تم استلام تحويل فودافون كاش وإتمام الطلب';
+                if (extraPayload.payment_type === 'STAFF_EXPENSE') title = `تم تسجيل استهلاك (${extraPayload.staff_beneficiary_name || 'موظف'}) بالتكلفة`;
 
                 Toast.fire({ icon: 'success', title: title });
                 clearCurrentCart();
@@ -2010,30 +1951,57 @@
             }
         }
 
-        // Staff Consumption Flow
+        // Staff & Beneficiary Order Prompt (Choose employee or type custom name, e.g., building owner)
         async function openStaffConsumptionPrompt() {
             const empRes = await fetch('/api/employees');
             const employees = await empRes.json();
-            let optionsHtml = employees.map(e => `<option value="${e.id}">${e.full_name || e.username} (${e.role})</option>`).join('');
+            let optionsHtml = '<option value="">-- اختر من قائمة الموظفين المسجلين --</option>';
+            optionsHtml += employees.map(e => `<option value="${e.id}">${e.full_name || e.username} (${e.role})</option>`).join('');
 
-            const { value: empId } = await Swal.fire({
-                title: 'استهلاك موظف (بسعر التكلفة)',
+            const { value: formValues } = await Swal.fire({
+                title: 'طلب استهلاك موظف / صاحب العمارة (بالتكلفة)',
                 html: `
-                    <div style="text-align:right;">
-                        <label style="font-size:12px; color:var(--text-secondary);">اختر الموظف:</label>
-                        <select id="swal-staff-id" class="swal2-select" style="width:100%; margin-top:6px;">${optionsHtml}</select>
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">اسم المستفيد مخصص (مثل: صاحب العمارة):</label>
+                            <input id="swal-custom-beneficiary" class="swal2-input" placeholder="اكتب اسم المستفيد (مثال: صاحب العمارة)..." style="margin:4px 0 0 0; width:100%;">
+                        </div>
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">أو اختر موظف مسجل:</label>
+                            <select id="swal-staff-id" class="swal2-select" style="width:100%; margin:4px 0 0 0;">${optionsHtml}</select>
+                        </div>
                     </div>
                 `,
-                confirmButtonText: 'تنفيذ الاستهلاك',
-                preConfirm: () => document.getElementById('swal-staff-id').value
+                confirmButtonText: 'تأكيد وصرف بالتكلفة',
+                showCancelButton: true,
+                cancelButtonText: 'إلغاء',
+                preConfirm: () => {
+                    const custom = document.getElementById('swal-custom-beneficiary').value.trim();
+                    const empSelect = document.getElementById('swal-staff-id');
+                    const empId = empSelect.value;
+                    const empName = empId ? empSelect.options[empSelect.selectedIndex].text : '';
+
+                    if (!custom && !empId) {
+                        Swal.showValidationMessage('يرجى كتابة اسم المستفيد أو اختيار موظف');
+                        return false;
+                    }
+                    return {
+                        empId: empId || null,
+                        name: custom || empName
+                    };
+                }
             });
 
-            if (empId) {
-                executeOrderCall({ payment_type: 'STAFF_EXPENSE', staff_employee_id: empId });
+            if (formValues) {
+                executeOrderCall({
+                    payment_type: 'STAFF_EXPENSE',
+                    staff_employee_id: formValues.empId,
+                    staff_beneficiary_name: formValues.name
+                });
             }
         }
 
-        // Customer Tab Flow
+        // Customer Tab Prompt
         async function openCustomerTabPrompt() {
             const { value: formValues } = await Swal.fire({
                 title: 'تسجيل على حساب آجل (شكك)',
@@ -2044,6 +2012,8 @@
                     </div>
                 `,
                 confirmButtonText: 'تسجيل الحساب',
+                showCancelButton: true,
+                cancelButtonText: 'إلغاء',
                 preConfirm: () => ({
                     name: document.getElementById('swal-tab-name').value.trim(),
                     phone: document.getElementById('swal-tab-phone').value.trim()
@@ -2059,9 +2029,7 @@
             }
         }
 
-        // -------------------------------------------------------------
-        // CASHIER SCRATCHPAD / NOTES
-        // -------------------------------------------------------------
+        // Cashier Scratchpad
         async function openCashierNotesModal() {
             if (!currentShiftId) return;
             const textarea = document.getElementById('cashier-scratchpad-input');
@@ -2122,9 +2090,7 @@
             }, 500);
         }
 
-        // -------------------------------------------------------------
-        // SHIFT HANDOVER & METRICS
-        // -------------------------------------------------------------
+        // Shift Handover
         async function fetchLiveShiftMetrics() {
             if (!currentShiftId) return;
             try {
@@ -2132,7 +2098,7 @@
                 if (res.ok) {
                     const data = await res.json();
                     document.getElementById('live-sales-val').innerText = `${formatCurrency(data.cash_sales || 0)} ج.م`;
-                    document.getElementById('live-tips-val').innerText = `${formatCurrency(data.total_tips || 0)} ج.م`;
+                    document.getElementById('live-vf-val').innerText = `${formatCurrency(data.vf_sales || 0)} ج.م`;
                 }
             } catch (e) {
                 console.error(e);
@@ -2146,8 +2112,6 @@
             select.innerHTML = employees.filter(e => e.id !== currentUser.id)
                 .map(e => `<option value="${e.id}">${e.full_name || e.username} (${e.username})</option>`).join('');
 
-            const localNotes = localStorage.getItem(`hawasb_notes_shift_${currentShiftId}`) || '';
-            document.getElementById('handover-notes').value = localNotes;
             document.getElementById('modal-handover-wizard').classList.remove('hidden');
         }
 
@@ -2157,12 +2121,8 @@
             const inPin = document.getElementById('handover-in-pin').value;
             const actualCash = document.getElementById('handover-actual-cash').value;
 
-            const glassClean = Number(document.getElementById('glass-clean').value) || 0;
-            const glassInUse = Number(document.getElementById('glass-in-use').value) || 0;
-            const glassBroken = Number(document.getElementById('glass-broken').value) || 0;
-
             if (!outPin || !inPin || !actualCash) {
-                return Swal.fire({ title: 'تنبيه', text: 'يرجى استيفاء جميع الحقول ورموز PIN', icon: 'warning' });
+                return Swal.fire({ title: 'تنبيه', text: 'يرجى إدخال جميع الحقول ورموز PIN الخاصة بالكاشير الحالي والمستلم', icon: 'warning' });
             }
 
             try {
@@ -2175,8 +2135,7 @@
                         outgoing_pin: outPin,
                         incoming_cashier_id: incomingId,
                         incoming_pin: inPin,
-                        physical_cash: actualCash,
-                        glass_audit: { clean: glassClean, in_use: glassInUse, broken: glassBroken }
+                        physical_cash: actualCash
                     })
                 });
 
@@ -2202,92 +2161,117 @@
             }
         }
 
-        function openShiftLogModal() {
-            if (!currentShiftId) return;
-            renderShiftLogContent(currentShiftId, currentUser.username);
-        }
-
-        async function renderShiftLogContent(shiftId, cashierName) {
-            document.getElementById('live-sales-modal-title').innerText = `سجل مبيعات وردية #${shiftId} (${cashierName})`;
-            const res = await fetch(`/api/admin/dashboard`);
-            const data = await res.json();
-            const tbody = document.getElementById('live-sales-tbody');
-            tbody.innerHTML = '';
-
-            // Render live shift orders
-            const summaryRes = await fetch(`/api/shift-summary/${shiftId}`);
-            const summary = await summaryRes.json();
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>#1</td>
-                <td><b>الكاشير</b></td>
-                <td>مبيعات كاش مباشرة</td>
-                <td>-</td>
-                <td>-</td>
-                <td><b>${formatCurrency(summary.cash_sales)} ج.م</b></td>
-                <td><span class="badge-status success">CASH</span></td>
-                <td>الآن</td>
-            `;
-            tbody.appendChild(row);
-
-            if (summary.tab_credit_sales > 0) {
-                const tr2 = document.createElement('tr');
-                tr2.innerHTML = `
-                    <td>#2</td>
-                    <td><b>آجل</b></td>
-                    <td>مبيعات شكك مسجلة</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td><b>${formatCurrency(summary.tab_credit_sales)} ج.م</b></td>
-                    <td><span class="badge-status warning">CREDIT</span></td>
-                    <td>الآن</td>
-                `;
-                tbody.appendChild(tr2);
-            }
-
-            document.getElementById('modal-live-sales').classList.remove('hidden');
-        }
-
-        // -------------------------------------------------------------
-        // ADMIN DASHBOARD
-        // -------------------------------------------------------------
+        // Admin Dashboard Controller
         function switchAdminTab(paneId, btn) {
             document.querySelectorAll('.admin-pane').forEach(p => p.classList.add('hidden'));
             document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(paneId).classList.remove('hidden');
             btn.classList.add('active');
 
-            if (paneId === 'pane-overview' || paneId === 'pane-products' || paneId === 'pane-shifts') loadAdminOverview();
+            if (paneId === 'pane-overview' || paneId === 'pane-products' || paneId === 'pane-shifts' || paneId === 'pane-staff-logs') loadAdminOverview();
             if (paneId === 'pane-users') loadAdminUsers();
         }
 
         async function loadAdminOverview() {
             try {
-                const prodRes = await fetch('/api/products');
-                if (prodRes.ok) {
-                    products = await prodRes.json();
-                    renderAdminProductsTable();
-                }
-
                 const dashRes = await fetch('/api/admin/dashboard');
                 if (dashRes.ok) {
                     const data = await dashRes.json();
-                    if (data.products && data.products.length > 0) {
-                        products = data.products;
-                        renderAdminProductsTable();
-                    }
+                    products = data.products || [];
 
-                    const kpiCol = document.getElementById('kpi-collected-cost');
-                    if (kpiCol) kpiCol.innerText = `${formatCurrency(data.stats?.collected_stock_cost || 0)} ج.م`;
+                    // Accurate KPI cards
+                    document.getElementById('kpi-front-cost').innerText = `${formatCurrency(data.stats?.front_display_cost || 0)} ج.م`;
+                    document.getElementById('kpi-backroom-cost').innerText = `${formatCurrency(data.stats?.backroom_cost || 0)} ج.م`;
+                    document.getElementById('kpi-total-inventory').innerText = `${formatCurrency(data.stats?.total_inventory_cost || 0)} ج.م`;
 
-                    const kpiRem = document.getElementById('kpi-remaining-cost');
-                    if (kpiRem) kpiRem.innerText = `${formatCurrency(data.stats?.remaining_stock_cost || 0)} ج.م`;
-
+                    renderAdminProductsTable();
+                    renderRestockAlertsTable();
                     renderAdminShiftsTable(data.shifts || []);
+                    renderAdminStaffOrdersTable(data.staff_orders || []);
                 }
             } catch (err) {
                 console.error(err);
+            }
+        }
+
+        // Render Restock Alerts (Items with <= 5 units in Front Display)
+        function renderRestockAlertsTable() {
+            const tbody = document.getElementById('admin-restock-alerts-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const lowStockItems = products.filter(p => p.product_type !== 'PREPARED_DRINK' && Number(p.front_display_stock) <= 5);
+
+            if (lowStockItems.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="padding:16px; color:var(--accent-emerald);">جميع أصناف الواجهة متوفرة برصيد جيد ولا توجد نواقص حرجة حالياً ✓</td></tr>';
+                return;
+            }
+
+            lowStockItems.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><b>${p.name}</b></td>
+                    <td>${p.category || 'عام'}</td>
+                    <td><b style="color:var(--accent-rose); font-size:14px;">${p.front_display_stock}</b> ${p.unit_type}</td>
+                    <td><b style="color:var(--accent-amber); font-size:14px;">${p.backroom_stock}</b> ${p.unit_type}</td>
+                    <td>${formatCurrency(p.unit_cost_price)} ج.م</td>
+                    <td>
+                        <button class="btn-tool" style="background:var(--accent-emerald); color:#000; font-weight:700;" onclick="promptStockTransfer(${p.id}, '${p.name}', ${p.backroom_stock})">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i> تحويل من المخزن للواجهة
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Quick Stock Transfer Prompt
+        async function promptStockTransfer(prodId, prodName, backroomAvailable) {
+            const { value: qty } = await Swal.fire({
+                title: `تحويل "${prodName}" للواجهة`,
+                html: `
+                    <div style="text-align:right;">
+                        <span style="font-size:12px; color:var(--text-secondary);">المتاح حالياً بالمخزن الاحتياطي: <b>${backroomAvailable}</b></span>
+                        <input id="swal-transfer-qty" type="number" class="swal2-input" placeholder="الكمية المراد نقلها للواجهة..." style="width:100%; margin-top:8px;">
+                    </div>
+                `,
+                confirmButtonText: 'تأكيد النقل',
+                showCancelButton: true,
+                cancelButtonText: 'إلغاء',
+                preConfirm: () => {
+                    const val = parseFloat(document.getElementById('swal-transfer-qty').value);
+                    if (!val || val <= 0) {
+                        Swal.showValidationMessage('يرجى إدخال كمية صحيحة');
+                        return false;
+                    }
+                    if (val > backroomAvailable) {
+                        Swal.showValidationMessage(`أقصى كمية متاحة بالنقل: ${backroomAvailable}`);
+                        return false;
+                    }
+                    return val;
+                }
+            });
+
+            if (qty) {
+                try {
+                    const res = await fetch('/api/stock-transfer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            product_id: prodId,
+                            quantity: qty,
+                            user_id: currentUser ? currentUser.id : null,
+                            notes: 'تغذية سريعة للواجهة'
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'تعذر النقل');
+
+                    Toast.fire({ icon: 'success', title: `تم نقل ${qty} قطعة إلى الواجهة بنجاح` });
+                    loadAdminOverview();
+                } catch (e) {
+                    Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
+                }
             }
         }
 
@@ -2299,7 +2283,8 @@
             products.forEach(p => {
                 const cost = Number(p.unit_cost_price || p.cost_price || 0);
                 const price = Number(p.unit_selling_price || p.selling_price || 0);
-                const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
+                const frontStock = Number(p.front_display_stock || 0);
+                const backStock = Number(p.backroom_stock || 0);
                 const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
 
                 const tr = document.createElement('tr');
@@ -2308,12 +2293,12 @@
                     <td>${p.category || 'عام'}</td>
                     <td>${formatCurrency(cost)} ج.م</td>
                     <td><b style="color:var(--accent-emerald);">${formatCurrency(price)} ج.م</b></td>
-                    <td>${isDrink ? '-' : stock}</td>
+                    <td>${isDrink ? '-' : `<b style="${frontStock <= 5 ? 'color:var(--accent-rose);' : ''}">${frontStock}</b>`}</td>
+                    <td>${isDrink ? '-' : `<b style="color:var(--accent-amber);">${backStock}</b>`}</td>
                     <td>${p.unit_type || 'قطعة'}</td>
                     <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة واجهة</span>'}</td>
                     <td>
                         <button class="btn-tool" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-tool" onclick="openRecipeConfigModal(${p.id}, '${p.name}')"><i class="fa-solid fa-flask"></i></button>
                         <button class="btn-tool danger" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
@@ -2326,10 +2311,11 @@
             if (!p) return;
             document.getElementById('crud-prod-id').value = p.id;
             document.getElementById('crud-prod-name').value = p.name;
-            document.getElementById('crud-prod-cat').value = p.category;
+            document.getElementById('crud-prod-cat').value = p.category || '';
             document.getElementById('crud-prod-cost').value = p.unit_cost_price || p.cost_price;
             document.getElementById('crud-prod-price').value = p.unit_selling_price || p.selling_price;
-            document.getElementById('crud-prod-stock').value = p.front_display_stock || p.stock_quantity;
+            document.getElementById('crud-prod-stock').value = p.front_display_stock || 0;
+            document.getElementById('crud-prod-backstock').value = p.backroom_stock || 0;
             document.getElementById('crud-prod-unit').value = p.unit_type || 'قطعة';
             document.getElementById('crud-prod-isdrink').checked = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2344,6 +2330,7 @@
                 cost_price: parseFloat(document.getElementById('crud-prod-cost').value) || 0,
                 selling_price: parseFloat(document.getElementById('crud-prod-price').value) || 0,
                 stock_quantity: parseFloat(document.getElementById('crud-prod-stock').value) || 0,
+                backroom_stock: parseFloat(document.getElementById('crud-prod-backstock').value) || 0,
                 unit_type: document.getElementById('crud-prod-unit').value,
                 is_drink: document.getElementById('crud-prod-isdrink').checked ? 1 : 0
             };
@@ -2392,10 +2379,37 @@
                     <td>${s.shift_date ? new Date(s.shift_date).toLocaleDateString('ar-EG') : '-'}</td>
                     <td>${new Date(s.start_time).toLocaleTimeString('ar-EG')}</td>
                     <td>${s.end_time ? new Date(s.end_time).toLocaleTimeString('ar-EG') : '<b style="color:var(--accent-emerald);">نشط</b>'}</td>
-                    <td><b style="color:var(--accent-emerald);">${formatCurrency(s.total_sales)} ج.م</b></td>
+                    <td><b style="color:var(--accent-emerald);">${formatCurrency(s.total_cash_sales)} ج.م</b></td>
+                    <td><b style="color:var(--accent-vodafone);">${formatCurrency(s.total_vodafone_sales)} ج.م</b></td>
+                    <td><b>${formatCurrency(s.total_tab_sales)} ج.م</b></td>
                     <td>${formatCurrency(s.closing_amount)} ج.م</td>
                     <td>${Number(s.shortage_amount) > 0 ? `<b style="color:var(--accent-rose);">${formatCurrency(s.shortage_amount)} ج.م</b>` : '-'}</td>
                     <td>${s.status === 'OPEN' ? '<span class="badge-status warning">مفتوح</span>' : '<span class="badge-status success">مغلق</span>'}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderAdminStaffOrdersTable(staffOrders) {
+            const tbody = document.getElementById('admin-staff-orders-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (staffOrders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:16px; color:var(--text-muted);">لا توجد طلبات استهلاك مسجلة حتى الآن</td></tr>';
+                return;
+            }
+
+            staffOrders.forEach(so => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${so.id}</td>
+                    <td><b style="color:var(--accent-amber); font-size:13.5px;">${so.beneficiary_name}</b></td>
+                    <td>${so.employee_profile}</td>
+                    <td>وردية #${so.shift_id}</td>
+                    <td>${so.station_reference}</td>
+                    <td><b style="color:var(--accent-emerald);">${formatCurrency(so.total_cost_charged)} ج.م</b></td>
+                    <td>${new Date(so.created_at).toLocaleString('ar-EG')}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2471,47 +2485,6 @@
                 await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
                 loadAdminUsers();
             }
-        }
-
-        // BOM Recipe Config
-        async function openRecipeConfigModal(prodId, prodName) {
-            activeRecipeParentId = prodId;
-            document.getElementById('recipe-modal-title').innerText = `خامات تحضير: ${prodName}`;
-            const res = await fetch(`/api/product-ingredients/${prodId}`);
-            const ingList = await res.json();
-            const deck = document.getElementById('recipe-rows-deck');
-            deck.innerHTML = '';
-
-            if (ingList.length === 0) {
-                addRecipeRowItem();
-            } else {
-                ingList.forEach(ing => addRecipeRowItem(ing.ingredient_product_id, ing.quantity_required));
-            }
-
-            document.getElementById('modal-recipe-editor').classList.remove('hidden');
-        }
-
-        function addRecipeRowItem(selectedId = '', qty = 1) {
-            const deck = document.getElementById('recipe-rows-deck');
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex; gap:8px; align-items:center;';
-
-            let options = '<option value="">-- اختر الخامة المستهلكة --</option>';
-            products.forEach(p => {
-                options += `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.name} (${formatCurrency(p.unit_cost_price || p.cost_price)} ج.م / ${p.unit_type})</option>`;
-            });
-
-            row.innerHTML = `
-                <select class="recipe-ing-select" style="flex:2; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">${options}</select>
-                <input type="number" step="0.01" value="${qty}" placeholder="الكمية" class="recipe-ing-qty" style="flex:1; padding:8px; background:var(--bg-input); border:1px solid var(--border); color:#fff; border-radius:6px;">
-                <button class="btn-tool danger" onclick="this.parentElement.remove()">×</button>
-            `;
-            deck.appendChild(row);
-        }
-
-        async function saveRecipeConfiguration() {
-            closeModal('modal-recipe-editor');
-            Toast.fire({ icon: 'success', title: 'تم حفظ تركيبة الخامات' });
         }
     </script>
 </body>
