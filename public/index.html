@@ -1050,33 +1050,70 @@
         <div class="admin-workspace-scroll">
             
             <!-- Overview Pane -->
+            <!-- Overview Pane: حسبة أرباح اليوم ورأس مال البضاعة -->
             <div id="pane-overview" class="admin-pane">
-                <div class="kpi-deck">
-                    <div class="kpi-tile">
-                        <div class="kpi-tile-label">رأس مال معروض الواجهة (تكلفة البضاعة للبيع الفوري)</div>
-                        <div class="kpi-tile-val" id="kpi-front-cost" style="color:var(--accent-sky);">0 ج.م</div>
-                        <span style="font-size:10.5px; color:var(--text-muted);">محسوبة بدقة بدون المشروبات المحضرة</span>
+                
+                <!-- شريط حسبة التقفيل اليومي (الساعة 12 بليل) -->
+                <div style="background: linear-gradient(135deg, #162033 0%, #101623 100%); border: 1px solid var(--accent-emerald); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                        <h3 style="font-size:16px; font-weight:700; color:var(--accent-emerald);">
+                            <i class="fa-solid fa-coins"></i> ملخص أرباح اليوم وحسبة تقفيل الساعة 12 بليل
+                        </h3>
+                        <span style="font-size:12px; color:var(--text-secondary);">مبيعات اليوم حتى الآن</span>
                     </div>
-                    <div class="kpi-tile">
-                        <div class="kpi-tile-label">رأس مال المخزن الاحتياطي (Backroom)</div>
-                        <div class="kpi-tile-val" id="kpi-backroom-cost" style="color:var(--accent-amber);">0 ج.م</div>
-                        <span style="font-size:10.5px; color:var(--text-muted);">بضاعة ومشروبات احتياطية</span>
-                    </div>
-                    <div class="kpi-tile">
-                        <div class="kpi-tile-label">إجمالي رأس المال المحبوس في المخزون</div>
-                        <div class="kpi-tile-val" id="kpi-total-inventory" style="color:var(--accent-emerald);">0 ج.م</div>
-                        <span style="font-size:10.5px; color:var(--text-muted);">رأس مال البضاعة والخامات الحقيقية</span>
+
+                    <div class="kpi-deck" style="margin-bottom:0;">
+                        <!-- 1. الكاش المطلوب في الظروف -->
+                        <div class="kpi-tile" style="border-right:3px solid var(--accent-emerald);">
+                            <div class="kpi-tile-label">إجمالي الكاش المفروض في الظروف (الـ 3 ورديات)</div>
+                            <div class="kpi-tile-val" id="today-cash-sales-val" style="color:var(--accent-emerald);">0 ج.م</div>
+                            <span style="font-size:11px; color:var(--text-muted);">مجموع فلوس الظروف اللي هتستلمها</span>
+                        </div>
+
+                        <!-- 2. رأس مال البضاعة المباعة -->
+                        <div class="kpi-tile" style="border-right:3px solid var(--accent-rose);">
+                            <div class="kpi-tile-label">تكلفة البضاعة المبيعة (اعزلها للبضاعة)</div>
+                            <div class="kpi-tile-val" id="today-cogs-val" style="color:var(--accent-rose);">0 ج.م</div>
+                            <span style="font-size:11px; color:var(--text-muted);">الفلوس دي تشتري بيها بضاعة تعوض الرفوف</span>
+                        </div>
+
+                        <!-- 3. صافي ربحك الشخصي -->
+                        <div class="kpi-tile" style="border-right:3px solid var(--accent-sky); background:rgba(14, 165, 233, 0.06);">
+                            <div class="kpi-tile-label">صافي ربحك الشخصي (حلالك في جيبك)</div>
+                            <div class="kpi-tile-val" id="today-net-profit-val" style="color:var(--accent-sky); font-size:24px;">0 ج.م</div>
+                            <span style="font-size:11px; color:var(--accent-sky); font-weight:600;">ارباحك الصافية بعد خصم تكلفة البضاعة</span>
+                        </div>
+
+                        <!-- 4. فودافون كاش -->
+                        <div class="kpi-tile" style="border-right:3px solid var(--accent-vodafone);">
+                            <div class="kpi-tile-label">مبيعات فودافون كاش (على محفظتك)</div>
+                            <div class="kpi-tile-val" id="today-vf-sales-val" style="color:var(--accent-vodafone);">0 ج.م</div>
+                            <span style="font-size:11px; color:var(--text-muted);">محولة على 01060473112</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Restock Warning Alerts (Items <= 5 on Front Display) -->
+                <!-- قيمة البضاعة الحالية في المكان -->
+                <div class="kpi-deck">
+                    <div class="kpi-tile">
+                        <div class="kpi-tile-label">قيمة بضاعة الواجهة الحالية (المعروض)</div>
+                        <div class="kpi-tile-val" id="kpi-front-cost" style="color:var(--text-primary);">0 ج.م</div>
+                    </div>
+                    <div class="kpi-tile">
+                        <div class="kpi-tile-label">قيمة بضاعة المخزن الداخلي (الاحتياطي)</div>
+                        <div class="kpi-tile-val" id="kpi-backroom-cost" style="color:var(--accent-amber);">0 ج.م</div>
+                    </div>
+                    <div class="kpi-tile">
+                        <div class="kpi-tile-label">إجمالي رأس مال البضاعة في المكان</div>
+                        <div class="kpi-tile-val" id="kpi-total-inventory" style="color:var(--accent-emerald);">0 ج.م</div>
+                    </div>
+                </div>
+
+                <!-- جدول النواقص السريع -->
                 <div class="admin-card-section">
                     <h3 style="margin-bottom:10px; font-weight:700; color:var(--accent-rose);">
-                        <i class="fa-solid fa-triangle-exclamation"></i> تنبيهات النواقص وإعادة تغذية الواجهة (Restock Alerts)
+                        <i class="fa-solid fa-triangle-exclamation"></i> نواقص الواجهة الحرجة (5 قطع أو أقل)
                     </h3>
-                    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
-                        الأصناف التالية رصيدها منخفض على الواجهة (5 قطع أو أقل) ويمكنك تحويل كمية من المخزن الاحتياطي مباشرة:
-                    </p>
                     <div class="table-wrap-box">
                         <table class="terminal-table">
                             <thead>
