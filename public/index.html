@@ -2252,8 +2252,15 @@ function viewTabItemDetails(tab) {
             const actualCash = document.getElementById('handover-actual-cash').value;
             const notes = document.getElementById('handover-notes').value;
 
-            if (actualCash === '' || isNaN(actualCash)) {
-                return Swal.fire({ title: 'تنبيه', text: 'يرجى كتابة مبلغ الفلوس الفعلي في الظرف', icon: 'warning' });
+            // منع إغلاق الشيفت إذا كانت النقدية صفر أو فارغة
+            const cashVal = parseFloat(actualCash);
+            if (isNaN(cashVal) || cashVal <= 0) {
+                return Swal.fire({ 
+                    title: 'تنبيه هام!', 
+                    text: 'لا يمكن تقفيل الوردية بمبلغ صفر. يرجى عدّ كل النقدية الموجودة بالدرج (الفكة + المبيعات) وكتابتها.', 
+                    icon: 'warning',
+                    confirmButtonColor: '#10b981'
+                });
             }
 
             const countInputs = document.querySelectorAll('.critical-count-input');
