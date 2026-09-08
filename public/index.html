@@ -2434,6 +2434,7 @@
             }
         }
 
+        // 1. دالة رسم جدول الأصناف في الإدارة (وبداخلها زرار + توريد)
         function renderAdminProductsTable() {
             const tbody = document.getElementById('admin-products-table');
             if (!tbody) return;
@@ -2457,64 +2458,69 @@
                     <td>${p.unit_type || 'قطعة'}</td>
                     <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة واجهة</span>'}</td>
                     <td>
-                        <button class="btn-tool" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
-                        <button class="btn-tool danger" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
+                        <!-- زرار التوريد السريع المضاف -->
+                        <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id}, '${p.name}')">
+                            <i class="fa-solid fa-boxes-packing"></i> + توريد
+                        </button>
+                        <button class="btn-tool" title="تعديل الصنف" onclick="editProductById(${p.id})"><i class="fa-solid fa-pen"></i></button>
+                        <button class="btn-tool danger" title="حذف" onclick="deleteProductItem(${p.id}, '${p.name}')"><i class="fa-solid fa-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
             });
-            // دالة التوريد السريع بضغطة واحدة من جدول الإدارة
-            async function quickRestockInward(prodId, prodName) {
-                const { value: formValues } = await Swal.fire({
-                    title: `توريد شحنة جديدة لـ "${prodName}"`,
-                    html: `
-                        <div style="text-align:right; display:flex; flex-direction:column; gap:10px;">
-                            <div>
-                                <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">الكمية المستلمة من المورد / التاجر:</label>
-                                <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="مثال: 24" style="width:100%; margin:4px 0 0 0;">
-                            </div>
-                            <div>
-                                <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">أدخلتها فين؟</label>
-                                <select id="swal-inward-loc" class="swal2-select" style="width:100%; margin:4px 0 0 0;">
-                                    <option value="BACKROOM">المخزن الداخلي الاحتياطي</option>
-                                    <option value="FRONT_DISPLAY">الواجهة والمعروض (بيع فوري للكاشير)</option>
-                                </select>
-                            </div>
+        }
+
+        // 2. دالة التوريد السريع (مكانها هنا: بره الدالة الأولى وتحتها مباشرة)
+        async function quickRestockInward(prodId, prodName) {
+            const { value: formValues } = await Swal.fire({
+                title: `توريد شحنة جديدة لـ "${prodName}"`,
+                html: `
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">الكمية المستلمة من المورد / التاجر:</label>
+                            <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="مثال: 24" style="width:100%; margin:4px 0 0 0;">
                         </div>
-                    `,
-                    confirmButtonText: 'إضافة للرصيد فوراً',
-                    showCancelButton: true,
-                    cancelButtonText: 'إلغاء',
-                    preConfirm: () => {
-                        const qty = parseFloat(document.getElementById('swal-inward-qty').value);
-                        const loc = document.getElementById('swal-inward-loc').value;
-                        if (!qty || qty <= 0) {
-                            Swal.showValidationMessage('يرجى كتابة كمية صحيحة');
-                            return false;
-                        }
-                        return { qty, loc };
+                        <div>
+                            <label style="font-size:12px; color:var(--text-secondary); font-weight:600;">أدخلتها فين؟</label>
+                            <select id="swal-inward-loc" class="swal2-select" style="width:100%; margin:4px 0 0 0;">
+                                <option value="BACKROOM">المخزن الداخلي الاحتياطي</option>
+                                <option value="FRONT_DISPLAY">الواجهة والمعروض (بيع فوري للكاشير)</option>
+                            </select>
+                        </div>
+                    </div>
+                `,
+                confirmButtonText: 'إضافة للرصيد فوراً',
+                showCancelButton: true,
+                cancelButtonText: 'إلغاء',
+                preConfirm: () => {
+                    const qty = parseFloat(document.getElementById('swal-inward-qty').value);
+                    const loc = document.getElementById('swal-inward-loc').value;
+                    if (!qty || qty <= 0) {
+                        Swal.showValidationMessage('يرجى كتابة كمية صحيحة');
+                        return false;
                     }
-                });
-            
-                if (formValues) {
-                    try {
-                        const res = await fetch('/api/admin/restock-inward', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                product_id: prodId,
-                                quantity: formValues.qty,
-                                destination: formValues.loc
-                            })
-                        });
-                        const data = await res.json();
-                        if (!res.ok) throw new Error(data.error);
-            
-                        Toast.fire({ icon: 'success', title: `تمت إضافة ${formValues.qty} قطعة بنجاح` });
-                        loadAdminOverview();
-                    } catch (e) {
-                        Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
-                    }
+                    return { qty, loc };
+                }
+            });
+
+            if (formValues) {
+                try {
+                    const res = await fetch('/api/admin/restock-inward', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            product_id: prodId,
+                            quantity: formValues.qty,
+                            destination: formValues.loc
+                        })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'فشلت عملية التوريد');
+
+                    Toast.fire({ icon: 'success', title: `تمت إضافة ${formValues.qty} قطعة بنجاح` });
+                    loadAdminOverview();
+                } catch (e) {
+                    Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
                 }
             }
         }
