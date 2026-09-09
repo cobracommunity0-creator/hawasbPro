@@ -1258,23 +1258,28 @@ app.delete('/api/admin/users/:id', async (req, res) => {
 });
 
 // جلب إجمالي المديونيات المعلقة للموظفين وصاحب العمارة
+// جلب مديونيات استهلاك الموظفين وصاحب العمارة مع تفاصيل كل صنف وتاريخه وتكلفته
 app.get('/api/admin/staff-balances', async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT 
                 sc.beneficiary_name,
-                COUNT(sc.id) AS orders_count,
-                SUM(sc.total_cost_charged) AS total_unpaid,
+                COUNT(DISTINCT sc.id) AS orders_count,
+                COALESCE(SUM(sc.total_cost_charged), 0)::float AS total_cogs_owed,
                 COALESCE(json_agg(json_build_object(
-                    'id', sc.id,
-                    'cost', sc.total_cost_charged,
-                    'date', TO_CHAR(sc.created_at, 'YYYY-MM-DD HH:MI AM'),
-                    'shift_id', sc.shift_id
-                )) FILTER (WHERE sc.id IS NOT NULL), '[]'::json) AS details
+                    'product_name', p.name,
+                    'qty', oi.quantity,
+                    'cost', oi.subtotal_cost,
+                    'shift_id', sc.shift_id,
+                    'date', TO_CHAR(o.created_at, 'YYYY-MM-DD HH:MI AM')
+                )) FILTER (WHERE p.id IS NOT NULL), '[]'::json) AS items
             FROM staff_consumptions sc
+            JOIN orders o ON sc.order_id = o.id
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN products p ON oi.product_id = p.id
             WHERE sc.status = 'UNPAID'
             GROUP BY sc.beneficiary_name
-            ORDER BY total_unpaid DESC
+            ORDER BY total_cogs_owed DESC
         `);
         res.json(result.rows);
     } catch (err) {
