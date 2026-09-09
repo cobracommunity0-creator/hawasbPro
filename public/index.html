@@ -1621,7 +1621,11 @@ function viewTabItemDetails(tab) {
         }
 
         function renderCategoryFilters() {
-            const categories = ['ALL', ...new Set(products.map(p => p.category || 'عام').filter(Boolean))];
+            const rawCategories = [...new Set(products.map(p => p.category || 'عام').filter(Boolean))];
+            // ترتيب الأقسام أحدث/أبجدياً مع تثبيت "الكل" في البداية
+            rawCategories.sort((a, b) => a.localeCompare(b, 'ar'));
+            const categories = ['ALL', ...rawCategories];
+            
             const container = document.getElementById('category-filter-strip');
             if (!container) return;
             
@@ -1644,29 +1648,32 @@ function viewTabItemDetails(tab) {
             const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
             const deck = document.getElementById('products-deck');
             if (!deck) return;
-
+        
             deck.innerHTML = '';
-
+        
             const filtered = products.filter(p => {
                 const catName = p.category || 'عام';
                 const matchCat = activeCategory === 'ALL' || catName === activeCategory;
                 const matchQuery = (p.name || '').toLowerCase().includes(query);
                 return matchCat && matchQuery;
             });
-
+        
+            // فرز المنتجات أبجدياً لتتجمع العائلة الواحدة بجوار بعضها دائماً
+            filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
+        
             filtered.forEach(p => {
                 const price = Number(p.unit_selling_price || p.selling_price || 0);
                 const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
                 const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
                 const isOutOfStock = !isDrink && stock <= 0;
-
+        
                 const card = document.createElement('div');
                 card.className = 'product-card-unit';
                 if (isOutOfStock) {
                     card.style.opacity = '0.45';
                     card.style.filter = 'grayscale(0.6)';
                 }
-
+        
                 card.onclick = () => onProductClicked(p);
                 card.innerHTML = `
                     <div>
@@ -2386,14 +2393,21 @@ function viewTabItemDetails(tab) {
             const tbody = document.getElementById('admin-products-table');
             if (!tbody) return;
             tbody.innerHTML = '';
-
-            products.forEach(p => {
+        
+            // ترتيب المنتجات حسب القسم ثم اسم الصنف
+            const sortedProducts = [...products].sort((a, b) => {
+                const catCompare = (a.category || 'عام').localeCompare(b.category || 'عام', 'ar');
+                if (catCompare !== 0) return catCompare;
+                return (a.name || '').localeCompare(b.name || '', 'ar');
+            });
+        
+            sortedProducts.forEach(p => {
                 const cost = Number(p.unit_cost_price || p.cost_price || 0);
                 const price = Number(p.unit_selling_price || p.selling_price || 0);
                 const frontStock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
                 const backStock = Number(p.backroom_stock || 0);
                 const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
-
+        
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><b>${p.name}</b></td>
