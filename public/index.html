@@ -1622,8 +1622,7 @@ function viewTabItemDetails(tab) {
 
         function renderCategoryFilters() {
             const rawCategories = [...new Set(products.map(p => p.category || 'عام').filter(Boolean))];
-            // ترتيب الأقسام أحدث/أبجدياً مع تثبيت "الكل" في البداية
-            rawCategories.sort((a, b) => a.localeCompare(b, 'ar'));
+            rawCategories.sort((a, b) => (a || '').localeCompare(b || '', 'ar'));
             const categories = ['ALL', ...rawCategories];
             
             const container = document.getElementById('category-filter-strip');
@@ -1642,7 +1641,7 @@ function viewTabItemDetails(tab) {
                 container.appendChild(pill);
             });
         }
-
+        
         function filterCatalog() {
             const searchInput = document.getElementById('pos-search');
             const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
@@ -1651,6 +1650,11 @@ function viewTabItemDetails(tab) {
         
             deck.innerHTML = '';
         
+            if (!Array.isArray(products) || products.length === 0) {
+                deck.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:30px; color:var(--text-muted);">لا توجد أي منتجات متاحة</div>';
+                return;
+            }
+        
             const filtered = products.filter(p => {
                 const catName = p.category || 'عام';
                 const matchCat = activeCategory === 'ALL' || catName === activeCategory;
@@ -1658,7 +1662,6 @@ function viewTabItemDetails(tab) {
                 return matchCat && matchQuery;
             });
         
-            // فرز المنتجات أبجدياً لتتجمع العائلة الواحدة بجوار بعضها دائماً
             filtered.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ar'));
         
             filtered.forEach(p => {
@@ -1681,7 +1684,7 @@ function viewTabItemDetails(tab) {
                         <div class="product-card-price">${formatCurrency(price)} ج.م</div>
                     </div>
                     <div class="product-card-stock" style="${isOutOfStock ? 'color:var(--accent-rose); font-weight:700;' : ''}">
-                        ${isDrink ? 'مشروب محضر (BOM)' : (isOutOfStock ? '✖ نفد' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
+                        ${isMaterialOrDrink ? 'متاح للطلب' : (isOutOfStock ? '✖ نفد' : `المتاح: ${stock} ${p.unit_type || 'قطعة'}`)}
                     </div>
                 `;
                 deck.appendChild(card);
