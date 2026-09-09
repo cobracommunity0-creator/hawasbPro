@@ -1176,16 +1176,27 @@ app.get('/api/admin/dashboard', async (req, res) => {
         `);
 
         const staffOrdersRes = await pool.query(`
-            SELECT 
-                sc.id, sc.created_at, sc.beneficiary_name, sc.total_cost_charged,
-                s.id as shift_id, o.station_reference,
-                COALESCE(e.full_name, e.username, 'غير مقيد') as employee_profile
-            FROM staff_consumptions sc
-            JOIN orders o ON sc.order_id = o.id
-            JOIN shifts s ON sc.shift_id = s.id
-            LEFT JOIN employees e ON sc.employee_id = e.id
-            ORDER BY sc.id DESC LIMIT 50
-        `);
+                    SELECT 
+                        sc.id, 
+                        TO_CHAR(sc.created_at, 'YYYY-MM-DD HH:MI AM') as formatted_date, 
+                        sc.beneficiary_name, 
+                        sc.total_cost_charged,
+                        sc.status,
+                        s.shift_number, 
+                        o.station_reference,
+                        COALESCE(e.full_name, e.username, 'غير مقيد') as employee_profile,
+                        COALESCE((
+                            SELECT json_agg(json_build_object('product_name', p.name, 'qty', oi.quantity, 'cost', oi.subtotal_cost))
+                            FROM order_items oi
+                            JOIN products p ON oi.product_id = p.id
+                            WHERE oi.order_id = sc.order_id
+                        ), '[]'::json) as items
+                    FROM staff_consumptions sc
+                    JOIN orders o ON sc.order_id = o.id
+                    JOIN shifts s ON sc.shift_id = s.id
+                    LEFT JOIN employees e ON sc.employee_id = e.id
+                    ORDER BY sc.id DESC LIMIT 50
+                `);
 
         res.json({
             products: productsRes.rows,
