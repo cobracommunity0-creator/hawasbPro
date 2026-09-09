@@ -1246,6 +1246,46 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     }
 });
 
+// جلب إجمالي المديونيات المعلقة للموظفين وصاحب العمارة
+app.get('/api/admin/staff-balances', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                sc.beneficiary_name,
+                COUNT(sc.id) AS orders_count,
+                SUM(sc.total_cost_charged) AS total_unpaid,
+                COALESCE(json_agg(json_build_object(
+                    'id', sc.id,
+                    'cost', sc.total_cost_charged,
+                    'date', TO_CHAR(sc.created_at, 'YYYY-MM-DD HH:MI AM'),
+                    'shift_id', sc.shift_id
+                )) FILTER (WHERE sc.id IS NOT NULL), '[]'::json) AS details
+            FROM staff_consumptions sc
+            WHERE sc.status = 'UNPAID'
+            GROUP BY sc.beneficiary_name
+            ORDER BY total_unpaid DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// تسوية حساب الموظف أو صاحب العمارة (عند خصمه من المرتب أو تحصيله)
+app.post('/api/admin/settle-staff-debt', async (req, res) => {
+    const { beneficiary_name } = req.body;
+    try {
+        await pool.query(`
+            UPDATE staff_consumptions 
+            SET status = 'SETTLED', settled_at = NOW() 
+            WHERE beneficiary_name = $1 AND status = 'UNPAID'
+        `, [beneficiary_name]);
+        res.json({ success: true, message: `تم تسوية مديونية ${beneficiary_name}` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('*', (req, res) => {
     const indexPath = fs.existsSync(path.join(__dirname, 'public', 'index.html'))
         ? path.join(__dirname, 'public', 'index.html')
