@@ -435,15 +435,13 @@ app.get('/api/admin/shifts-archive', async (req, res) => {
                 COALESCE(s.starting_cash_float, 0)::float AS starting_cash_float,
                 COALESCE(e1.full_name, 'غير محدد') AS outgoing_cashier_name,
                 COALESCE(e2.full_name, 'غير محدد') AS incoming_cashier_name,
-                COALESCE(sr.expected_cash, 0)::float AS expected_cash,
                 COALESCE(sr.actual_physical_cash, 0)::float AS actual_physical_cash,
-                COALESCE(sr.cash_variance, 0)::float AS cash_variance,
-                COALESCE(sr.shortage_amount, 0)::float AS shortage_amount,
                 COALESCE(ord.cash_sales, 0)::float AS cash_sales,
                 COALESCE(ord.vf_sales, 0)::float AS vf_sales,
-                COALESCE(ord.total_revenue, 0)::float AS total_revenue,
                 COALESCE(ord.total_cogs, 0)::float AS total_cogs,
-                COALESCE(ord.total_profit, 0)::float AS total_profit
+                COALESCE(ord.total_profit, 0)::float AS total_profit,
+                -- الحسبة الدقيقة للعجز والزيادة
+                (COALESCE(sr.actual_physical_cash, 0) - (COALESCE(s.starting_cash_float, 0) + COALESCE(ord.cash_sales, 0)))::float AS calculated_variance
             FROM shifts s
             LEFT JOIN employees e1 ON s.outgoing_cashier_id = e1.id
             LEFT JOIN employees e2 ON s.incoming_cashier_id = e2.id
@@ -453,7 +451,6 @@ app.get('/api/admin/shifts-archive', async (req, res) => {
                     shift_id,
                     SUM(CASE WHEN payment_type = 'CASH' AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS cash_sales,
                     SUM(CASE WHEN payment_type = 'VODAFONE_CASH' AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS vf_sales,
-                    SUM(CASE WHEN payment_type IN ('CASH', 'VODAFONE_CASH') AND status = 'COMPLETED' THEN total_amount ELSE 0 END) AS total_revenue,
                     SUM(CASE WHEN payment_type IN ('CASH', 'VODAFONE_CASH') AND status = 'COMPLETED' THEN total_cost ELSE 0 END) AS total_cogs,
                     SUM(CASE WHEN payment_type IN ('CASH', 'VODAFONE_CASH') AND status = 'COMPLETED' THEN (total_amount - total_cost) ELSE 0 END) AS total_profit
                 FROM orders
