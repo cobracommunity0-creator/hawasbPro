@@ -321,7 +321,7 @@ app.get('/api/products', async (req, res) => {
             LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
                  AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
             WHERE p.is_active = TRUE
-            ORDER BY COALESCE(c.name, p.category, 'عام') ASC, p.name ASC
+            ORDER BY p.category ASC, p.name ASC
         `);
         res.json(result.rows);
     } catch (err) {
