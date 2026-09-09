@@ -321,7 +321,7 @@ app.get('/api/products', async (req, res) => {
             LEFT JOIN location_inventory li_back ON p.id = li_back.product_id 
                  AND li_back.location_id = (SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1)
             WHERE p.is_active = TRUE
-            ORDER BY p.id ASC
+            ORDER BY COALESCE(c.name, p.category, 'عام') ASC, p.name ASC
         `);
         res.json(result.rows);
     } catch (err) {
@@ -1089,7 +1089,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
             LEFT JOIN orders o ON s.id = o.shift_id
             LEFT JOIN shift_reconciliations sr ON s.id = sr.shift_id
             GROUP BY s.id, s.start_time, s.end_time, s.status, s.shift_date, s.starting_cash_float, sr.actual_physical_cash, s.notes, e.username, sr.shortage_amount
-            ORDER BY s.id DESC
+            ORDER BY s.id DESC, s.start_time DESC
         `);
 
         const staffOrdersRes = await pool.query(`
@@ -1112,7 +1112,7 @@ app.get('/api/admin/dashboard', async (req, res) => {
                     JOIN orders o ON sc.order_id = o.id
                     JOIN shifts s ON sc.shift_id = s.id
                     LEFT JOIN employees e ON sc.employee_id = e.id
-                    ORDER BY sc.id DESC LIMIT 50
+                    ORDER BY s.id DESC, s.start_time DESC
                 `);
 
         res.json({
