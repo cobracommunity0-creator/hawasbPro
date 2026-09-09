@@ -1250,7 +1250,9 @@
         });
 
         function formatCurrency(num) {
-            return (Number(num) || 0).toLocaleString('ar-EG');
+            const val = Number(num) || 0;
+            // تقريب لأقرب قرشين فقط
+            return val.toLocaleString('ar-EG', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
         }
 
         function closeModal(id) {
