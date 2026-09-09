@@ -919,11 +919,11 @@
                         <table class="terminal-table">
                             <thead>
                                 <tr>
-                                    <th style="text-align:right;">المستفيد / الموظف</th>
-                                    <th>عدد العمليات المعلقة</th>
-                                    <th style="color:var(--accent-rose);">إجمالي المستحق عليه (بالتكلفة)</th>
+                                    <th style="text-align:right;">المستفيد / الاسم</th>
+                                    <th style="color:var(--accent-rose);">تكلفة البضاعة (المطلوب تعويضه للرف)</th>
+                                    <th>تفاصيل الأصناف والتواريخ</th>
                                     <th>الحالة</th>
-                                    <th>الإجراء (عند التصفية)</th>
+                                    <th>إجراء الإدارة (عند التصفية)</th>
                                 </tr>
                             </thead>
                             <tbody id="staff-balances-tbody"></tbody>
@@ -2428,11 +2428,11 @@ function viewTabItemDetails(tab) {
                 tbody.appendChild(tr);
             });
         }
-        // تحميل مديونيات الموظفين وصاحب العمارة
+        // تحميل كشف حسابات استهلاك الموظفين وصاحب العمارة
         async function loadStaffBalances() {
             const tbody = document.getElementById('staff-balances-tbody');
             if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="5" style="padding:15px; color:var(--text-muted); text-align:center;">جاري جلب الأرصدة...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:15px; color:var(--text-muted); text-align:center;">جاري جلب الحسابات...</td></tr>';
         
             try {
                 const res = await fetch('/api/admin/staff-balances');
@@ -2440,7 +2440,7 @@ function viewTabItemDetails(tab) {
                 tbody.innerHTML = '';
         
                 if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="padding:15px; color:var(--accent-emerald); text-align:center;">لا توجد أي مديونيات معلقة على الموظفين أو صاحب العمارة (كله مسدد ✓)</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:18px; color:var(--accent-emerald); text-align:center;">لا توجد أي مديونيات معلقة (كافة حسابات الاستهلاك مسددة ✓)</td></tr>';
                     return;
                 }
         
@@ -2448,30 +2448,73 @@ function viewTabItemDetails(tab) {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td style="text-align:right;"><b style="font-size:13.5px; color:#fff;">${item.beneficiary_name}</b></td>
-                        <td><b>${item.orders_count} طلبات</b></td>
-                        <td><b style="color:var(--accent-rose); font-size:14.5px;">${formatCurrency(item.total_unpaid)} ج.م</b></td>
-                        <td><span class="badge-status warning">معلق لم يُخصم</span></td>
+                        <td><b style="color:var(--accent-rose); font-size:14.5px;">${formatCurrency(item.total_cogs_owed)} ج.م</b></td>
                         <td>
-                            <button class="btn-emerald" style="padding:5px 12px; font-size:11.5px; width:auto;" onclick="settleStaffBalanceDirect('${item.beneficiary_name}', ${item.total_unpaid})">
-                                <i class="fa-solid fa-check-double"></i> تم الخصم من المرتب / التحصيل
+                            <button class="btn-tool" style="color:var(--accent-sky); padding:4px 10px;" onclick='viewStaffItemDetails(${JSON.stringify(item)})'>
+                                <i class="fa-solid fa-list-ul"></i> الأصناف (${item.items.length})
+                            </button>
+                        </td>
+                        <td><span class="badge-status warning">معلق في ذمته</span></td>
+                        <td>
+                            <button class="btn-emerald" style="padding:5px 12px; font-size:11.5px; width:auto;" onclick="settleStaffBalanceDirect('${item.beneficiary_name}', ${item.total_cogs_owed})">
+                                <i class="fa-solid fa-check"></i> تم التحصيل / الخصم من المرتب
                             </button>
                         </td>
                     `;
                     tbody.appendChild(tr);
                 });
             } catch (e) {
-                console.error(e);
+                console.error("خطأ في تحميل حسابات الموظفين:", e);
             }
         }
         
         // تسوية الحساب بضغطة زر
+        function viewStaffItemDetails(item) {
+            let html = `
+                <div style="text-align:right; font-size:12px; max-height:280px; overflow-y:auto;">
+                    <table class="terminal-table" style="font-size:11.5px;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:right;">الصنف</th>
+                                <th>العدد</th>
+                                <th>التكلفة للرف</th>
+                                <th>الوردية</th>
+                                <th>التاريخ والوقت</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            item.items.forEach(i => {
+                html += `
+                    <tr>
+                        <td style="text-align:right;"><b>${i.product_name}</b></td>
+                        <td>${i.qty}</td>
+                        <td style="color:var(--accent-rose); font-weight:700;">${formatCurrency(i.cost)} ج</td>
+                        <td>وردية #${i.shift_id}</td>
+                        <td style="font-size:10.5px; color:var(--text-muted);">${i.date}</td>
+                    </tr>
+                `;
+            });
+            html += '</tbody></table></div>';
+        
+            Swal.fire({
+                title: `مسحوبات: ${item.beneficiary_name}`,
+                html: html,
+                confirmButtonText: 'إغلاق',
+                confirmButtonColor: '#10b981',
+                background: '#162033',
+                color: '#fff'
+            });
+        }
+        
+        // تسوية الحساب عند الخصم من المرتب أو استلام المبلغ
         async function settleStaffBalanceDirect(name, amount) {
             const conf = await Swal.fire({
-                title: `تسوية مديونية "${name}"؟`,
-                text: `المبلغ المطلوب تسويته: ${formatCurrency(amount)} ج.م (سيتم اعتباره مسدداً/مخصوماً من المرتب)`,
+                title: `تصفية حساب "${name}"؟`,
+                text: `المبلغ المطلوب تعويضه للبضاعة: ${formatCurrency(amount)} ج.م`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonText: 'نعم، تم الخصم / السداد',
+                confirmButtonText: 'نعم، تم التحصيل / الخصم',
                 cancelButtonText: 'إلغاء',
                 confirmButtonColor: '#10b981',
                 background: '#162033',
@@ -2484,11 +2527,11 @@ function viewTabItemDetails(tab) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ beneficiary_name: name })
                 });
-                Toast.fire({ icon: 'success', title: `تمت تسوية حساب ${name} بنجاح` });
+                Toast.fire({ icon: 'success', title: `تم تصفية مديونية ${name} بنجاح` });
                 loadStaffBalances();
+                loadAdminOverview();
             }
         }
-
 
         
         function editProductById(id) {
