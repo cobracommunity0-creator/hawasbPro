@@ -1664,8 +1664,8 @@ function viewTabItemDetails(tab) {
             filtered.forEach(p => {
                 const price = Number(p.unit_selling_price || p.selling_price || 0);
                 const stock = Number(p.front_display_stock !== undefined ? p.front_display_stock : (p.stock_quantity || 0));
-                const isDrink = p.product_type === 'PREPARED_DRINK' || p.is_drink === 1;
-                const isOutOfStock = !isDrink && stock <= 0;
+                const isMaterialOrDrink = p.product_type === 'PREPARED_DRINK' || p.product_type === 'PACKAGING_MATERIAL' || p.is_drink === 1;
+                const isOutOfStock = !isMaterialOrDrink && stock <= 0;
         
                 const card = document.createElement('div');
                 card.className = 'product-card-unit';
