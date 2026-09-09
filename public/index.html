@@ -2903,19 +2903,20 @@ function viewTabItemDetails(tab) {
 
             staffOrders.forEach(so => {
                 const tr = document.createElement('tr');
+                const itemsSummary = (so.items || []).map(i => `${i.qty}× ${i.product_name}`).join(', ') || 'تفاصيل غير مسجلة';
+                
                 tr.innerHTML = `
                     <td>#${so.id}</td>
                     <td><b style="color:var(--accent-amber);">${so.beneficiary_name}</b></td>
-                    <td>${so.employee_profile}</td>
-                    <td>وردية #${so.shift_id}</td>
-                    <td>${so.station_reference}</td>
+                    <td><b>${itemsSummary}</b></td>
+                    <td>وردية #${so.shift_number || so.shift_id}</td>
                     <td><b style="color:var(--accent-emerald);">${formatCurrency(so.total_cost_charged)} ج.م</b></td>
-                    <td>${new Date(so.created_at).toLocaleString('ar-EG')}</td>
+                    <td style="font-size:11px; color:var(--text-muted);">${so.formatted_date || new Date(so.created_at).toLocaleString('ar-EG')}</td>
+                    <td><span class="badge ${so.status === 'SETTLED' ? 'badge-settled' : 'badge-unpaid'}">${so.status === 'SETTLED' ? 'مسدد' : 'معلق'}</span></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
-
         async function loadAdminUsers() {
             const res = await fetch('/api/admin/users');
             const users = await res.json();
