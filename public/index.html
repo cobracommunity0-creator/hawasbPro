@@ -882,13 +882,13 @@
                                 <tr>
                                     <th style="width:100px;">الوردية</th>
                                     <th>الكاشير المسلّم</th>
-                                    <th>الكاشير المستلم</th>
-                                    <th style="color:#fff;"><i class="fa-solid fa-envelope-open-text"></i> محتوى الظرف (كاش)</th>
-                                    <th style="color:#f87171;"><i class="fa-solid fa-mobile-screen"></i> فودافون كاش</th>
-                                    <th style="color:var(--accent-rose);"><i class="fa-solid fa-box-archive"></i> فلوس البضاعة (اعزلها)</th>
-                                    <th style="color:var(--accent-emerald);"><i class="fa-solid fa-sack-dollar"></i> صافي ربحك</th>
+                                    <th>المستلم</th>
+                                    <th style="color:#fff;">محتوى الظرف (كاش)</th>
+                                    <th style="color:#f87171;">فودافون كاش</th>
+                                    <th style="color:var(--accent-rose);">فلوس البضاعة</th>
+                                    <th style="color:var(--accent-emerald);">صافي ربحك</th>
+                                    <th style="color:var(--accent-sky);"><i class="fa-solid fa-hand-holding-dollar"></i> التيبس والزيادة</th>
                                     <th>حالة العجز</th>
-                                    <th>الحالة</th>
                                 </tr>
                             </thead>
                             <tbody id="shifts-archive-tbody">
@@ -899,16 +899,47 @@
                 </div>
             </div>
             <!-- تبويب استهلاك الموظفين -->
+            <!-- تبويب كشف حساب استهلاك الموظفين وصاحب العمارة -->
             <div id="pane-staff-logs" class="admin-pane hidden">
                 <div class="admin-card-section">
-                    <h3 style="margin-bottom:10px; font-weight:700;"><i class="fa-solid fa-id-badge" style="color:var(--accent-amber);"></i> سجل استهلاك الموظفين وصاحب العمارة (بسعر التكلفة)</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                        <div>
+                            <h3 style="font-size:15px; font-weight:700; color:var(--accent-amber); margin:0 0 4px 0;">
+                                <i class="fa-solid fa-id-badge"></i> حسابات استهلاك الموظفين وصاحب العمارة (بالتكلفة)
+                            </h3>
+                            <span style="font-size:11.5px; color:var(--text-muted);">
+                                تتبع كم على كل شخص وما تم سداده أو خصمه من راتبه
+                            </span>
+                        </div>
+                        <button class="btn-tool" onclick="loadStaffBalances()"><i class="fa-solid fa-arrows-rotate"></i> تحديث الحسابات</button>
+                    </div>
+            
+                    <!-- جدول أرصدة المستحق على كل موظف -->
+                    <div class="table-wrap-box" style="margin-bottom:20px;">
+                        <table class="terminal-table">
+                            <thead>
+                                <tr>
+                                    <th style="text-align:right;">المستفيد / الموظف</th>
+                                    <th>عدد العمليات المعلقة</th>
+                                    <th style="color:var(--accent-rose);">إجمالي المستحق عليه (بالتكلفة)</th>
+                                    <th>الحالة</th>
+                                    <th>الإجراء (عند التصفية)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-balances-tbody"></tbody>
+                        </table>
+                    </div>
+            
+                    <!-- سجل العمليات التفصيلي التاريخي -->
+                    <h4 style="font-size:13px; font-weight:700; color:var(--text-secondary); margin-bottom:10px;">
+                        <i class="fa-solid fa-clock-rotate-left"></i> تفاصيل العمليات الفردية
+                    </h4>
                     <div class="table-wrap-box">
                         <table class="terminal-table">
                             <thead>
                                 <tr>
                                     <th>#</th>
-                                    <th>المستفيد / الاسم</th>
-                                    <th>حساب الموظف</th>
+                                    <th>المستفيد</th>
                                     <th>الوردية</th>
                                     <th>المحطة</th>
                                     <th>التكلفة المحملة</th>
@@ -2161,92 +2192,73 @@ function viewTabItemDetails(tab) {
             }
         }
         async function loadShiftsArchive() {
-            const tbody = document.getElementById('shifts-archive-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '<tr><td colspan="9" style="padding:15px; color:var(--text-muted); text-align:center;">جاري التحديث...</td></tr>';
-        
-            try {
-                const res = await fetch('/api/admin/shifts-archive');
-                const list = await res.json();
-                tbody.innerHTML = '';
-        
-                if (list.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted); text-align:center;">لا توجد أي ورديات سابقة</td></tr>';
-                    return;
-                }
-        
-                let totalEnvelopes = 0;
-                let totalVF = 0;
-                let totalCOGS = 0;
-                let totalProfits = 0;
-        
-                list.forEach(s => {
-                    const actualCash = parseFloat(s.actual_physical_cash) || 0;
-                    const vf = parseFloat(s.vf_sales) || 0;
-                    const cogs = parseFloat(s.total_cogs) || 0;
-                    const profit = parseFloat(s.total_profit) || 0;
-                    const variance = parseFloat(s.cash_variance) || 0;
-        
-                    totalEnvelopes += actualCash;
-                    totalVF += vf;
-                    totalCOGS += cogs;
-                    totalProfits += profit;
-        
-                    // تحديد حالة العجز
-                    let varianceHtml = '<span style="color:var(--accent-emerald); font-weight:600;">سليم ✓</span>';
-                    if (variance < -0.1) {
-                        varianceHtml = `<span style="color:var(--accent-rose); font-weight:700;">عجز: ${formatCurrency(Math.abs(variance))} ج</span>`;
-                    } else if (variance > 0.1) {
-                        varianceHtml = `<span style="color:var(--accent-sky); font-weight:700;">زيادة: ${formatCurrency(variance)} ج</span>`;
+                const tbody = document.getElementById('shifts-archive-tbody');
+                if (!tbody) return;
+                try {
+                    const res = await fetch('/api/admin/shifts-archive');
+                    const list = await res.json();
+                    tbody.innerHTML = '';
+            
+                    if (list.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="9" style="padding:20px; color:var(--text-muted); text-align:center;">لا توجد أي ورديات</td></tr>';
+                        return;
                     }
-        
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>
-                            <b>وردية ${s.shift_number}</b><br>
-                            <small style="color:var(--text-muted); font-size:10.5px;">${s.formatted_date || ''}</small>
-                        </td>
-                        <td><b>${s.outgoing_cashier_name}</b></td>
-                        <td>${s.incoming_cashier_name}</td>
-                        <td>
-                            <b style="color:#fff; font-size:14px; background:rgba(255,255,255,0.06); padding:4px 8px; border-radius:4px;">
-                                ${formatCurrency(actualCash)} ج.م
-                            </b>
-                        </td>
-                        <td>
-                            <b style="color:#f87171; font-size:14px;">${formatCurrency(vf)} ج.م</b>
-                        </td>
-                        <td>
-                            <b style="color:var(--accent-rose); font-size:14px;">${formatCurrency(cogs)} ج.م</b>
-                        </td>
-                        <td>
-                            <b style="color:var(--accent-emerald); font-size:14.5px;">${formatCurrency(profit)} ج.م</b>
-                        </td>
-                        <td>${varianceHtml}</td>
-                        <td>
-                            <span class="badge ${s.status === 'CLOSED' ? 'badge-settled' : 'badge-unpaid'}">
-                                ${s.status === 'CLOSED' ? 'مقفول' : 'مفتوح'}
-                            </span>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-        
-                // تحديث كروت الإحصائيات العلوية
-                const sumEnv = document.getElementById('archive-sum-envelopes');
-                const sumVF = document.getElementById('archive-sum-vf');
-                const sumCOGS = document.getElementById('archive-sum-cogs');
-                const sumProf = document.getElementById('archive-sum-profits');
-                
-                if (sumEnv) sumEnv.innerText = `${formatCurrency(totalEnvelopes)} ج.م`;
-                if (sumVF) sumVF.innerText = `${formatCurrency(totalVF)} ج.م`;
-                if (sumCOGS) sumCOGS.innerText = `${formatCurrency(totalCOGS)} ج.م`;
-                if (sumProf) sumProf.innerText = `${formatCurrency(totalProfits)} ج.م`;
-        
-            } catch (err) {
-                console.error("خطأ في قراءة الأرشيف:", err);
+            
+                    let totalEnvelopes = 0;
+                    let totalVF = 0;
+                    let totalCOGS = 0;
+                    let totalProfits = 0;
+            
+                    list.forEach(s => {
+                        const actualCash = parseFloat(s.actual_physical_cash) || 0;
+                        const vf = parseFloat(s.vf_sales) || 0;
+                        const cogs = parseFloat(s.total_cogs) || 0;
+                        const profit = parseFloat(s.total_profit) || 0;
+                        const variance = parseFloat(s.cash_variance) || 0;
+            
+                        totalEnvelopes += actualCash;
+                        totalVF += vf;
+                        totalCOGS += cogs;
+                        totalProfits += profit;
+            
+                        // حساب التيبس الصافي والعجز المنفصل
+                        let tipDisplay = '<span style="color:var(--text-muted);">-</span>';
+                        let statusHtml = '<span style="color:var(--accent-emerald); font-weight:600;">سليم ✓</span>';
+            
+                        if (variance > 0.1) {
+                            tipDisplay = `<b style="color:var(--accent-sky); font-size:14px;">+${formatCurrency(variance)} ج</b>`;
+                        } else if (variance < -0.1) {
+                            statusHtml = `<b style="color:var(--accent-rose); font-size:13px;">عجز: ${formatCurrency(Math.abs(variance))} ج</b>`;
+                        }
+            
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td><b>وردية ${s.shift_number}</b><br><small style="color:var(--text-muted); font-size:10px;">${s.formatted_date || ''}</small></td>
+                            <td><b>${s.outgoing_cashier_name}</b></td>
+                            <td>${s.incoming_cashier_name}</td>
+                            <td><b style="color:#fff; font-size:14px; background:rgba(255,255,255,0.06); padding:3px 7px; border-radius:4px;">${formatCurrency(actualCash)} ج.م</b></td>
+                            <td><b style="color:#f87171; font-size:14px;">${formatCurrency(vf)} ج.م</b></td>
+                            <td><b style="color:var(--accent-rose); font-size:14px;">${formatCurrency(cogs)} ج.م</b></td>
+                            <td><b style="color:var(--accent-emerald); font-size:14.5px;">${formatCurrency(profit)} ج.م</b></td>
+                            <td>${tipDisplay}</td>
+                            <td>${statusHtml}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+            
+                    // تحديث كروت الإجمالي العلوية
+                    const sumEnv = document.getElementById('archive-sum-envelopes');
+                    const sumVF = document.getElementById('archive-sum-vf');
+                    const sumCOGS = document.getElementById('archive-sum-cogs');
+                    const sumProf = document.getElementById('archive-sum-profits');
+                    if (sumEnv) sumEnv.innerText = `${formatCurrency(totalEnvelopes)} ج.م`;
+                    if (sumVF) sumVF.innerText = `${formatCurrency(totalVF)} ج.م`;
+                    if (sumCOGS) sumCOGS.innerText = `${formatCurrency(totalCOGS)} ج.م`;
+                    if (sumProf) sumProf.innerText = `${formatCurrency(totalProfits)} ج.م`;
+                } catch (err) {
+                    console.error("خطأ في قراءة الأرشيف:", err);
+                }
             }
-        }
         async function submitShiftHandover() {
             const incomingId = document.getElementById('handover-incoming-cashier').value;
             const actualCash = document.getElementById('handover-actual-cash').value;
@@ -2318,7 +2330,10 @@ function viewTabItemDetails(tab) {
             if (paneId === 'pane-overview') loadAdminOverview();
             if (paneId === 'pane-products') loadAdminOverview();
             if (paneId === 'pane-shifts') loadShiftsArchive(); // تم التصحيح: استدعاء الأرشيف مباشرة
-            if (paneId === 'pane-staff-logs') loadAdminOverview();
+            if (paneId === 'pane-staff-logs') {
+                loadAdminOverview();
+                loadStaffBalances();
+            }
             if (paneId === 'pane-customer-tabs') loadAdminCustomerTabs();
             if (paneId === 'pane-users') loadAdminUsers();
         }
@@ -2413,7 +2428,69 @@ function viewTabItemDetails(tab) {
                 tbody.appendChild(tr);
             });
         }
+        // تحميل مديونيات الموظفين وصاحب العمارة
+        async function loadStaffBalances() {
+            const tbody = document.getElementById('staff-balances-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="5" style="padding:15px; color:var(--text-muted); text-align:center;">جاري جلب الأرصدة...</td></tr>';
+        
+            try {
+                const res = await fetch('/api/admin/staff-balances');
+                const list = await res.json();
+                tbody.innerHTML = '';
+        
+                if (list.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="padding:15px; color:var(--accent-emerald); text-align:center;">لا توجد أي مديونيات معلقة على الموظفين أو صاحب العمارة (كله مسدد ✓)</td></tr>';
+                    return;
+                }
+        
+                list.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="text-align:right;"><b style="font-size:13.5px; color:#fff;">${item.beneficiary_name}</b></td>
+                        <td><b>${item.orders_count} طلبات</b></td>
+                        <td><b style="color:var(--accent-rose); font-size:14.5px;">${formatCurrency(item.total_unpaid)} ج.م</b></td>
+                        <td><span class="badge-status warning">معلق لم يُخصم</span></td>
+                        <td>
+                            <button class="btn-emerald" style="padding:5px 12px; font-size:11.5px; width:auto;" onclick="settleStaffBalanceDirect('${item.beneficiary_name}', ${item.total_unpaid})">
+                                <i class="fa-solid fa-check-double"></i> تم الخصم من المرتب / التحصيل
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        // تسوية الحساب بضغطة زر
+        async function settleStaffBalanceDirect(name, amount) {
+            const conf = await Swal.fire({
+                title: `تسوية مديونية "${name}"؟`,
+                text: `المبلغ المطلوب تسويته: ${formatCurrency(amount)} ج.م (سيتم اعتباره مسدداً/مخصوماً من المرتب)`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، تم الخصم / السداد',
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#10b981',
+                background: '#162033',
+                color: '#fff'
+            });
+        
+            if (conf.isConfirmed) {
+                await fetch('/api/admin/settle-staff-debt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ beneficiary_name: name })
+                });
+                Toast.fire({ icon: 'success', title: `تمت تسوية حساب ${name} بنجاح` });
+                loadStaffBalances();
+            }
+        }
 
+
+        
         function editProductById(id) {
             const p = products.find(x => x.id === id);
             if (!p) return;
