@@ -2425,6 +2425,12 @@ function viewTabItemDetails(tab) {
                         <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id})">
                             <i class="fa-solid fa-boxes-packing"></i> + توريد
                         </button>
+                        <button class="btn-tool" style="color:var(--accent-emerald);" title="شراء بضاعة جديدة من التاجر" onclick="quickRestockInward(${p.id})">
+                            <i class="fa-solid fa-cart-flatbed"></i> + شراء جديد
+                        </button>
+                        <button class="btn-tool" style="color:var(--accent-sky);" title="نقل من المخزن إلى الواجهة" onclick="quickTransferToFront(${p.id})">
+                            <i class="fa-solid fa-arrow-right-arrow-left"></i> ⇄ رص الرف
+                        </button>
                         <button class="btn-tool" style="color:var(--accent-sky);" title="تحديد أوعية التقديم" onclick="openServingOptionsModal(${p.id}, '${p.name}')">
                             <i class="fa-solid fa-bowl-food"></i> الأوعية
                         </button>
@@ -2622,28 +2628,31 @@ function viewTabItemDetails(tab) {
             }
         }
 
+        // 1. شراء بضاعة جديدة من التاجر (تزويد المخزن أو الواجهة كشحنة جديدة)
         async function quickRestockInward(prodId) {
             const p = products.find(x => x.id === prodId);
             const { value: formValues } = await Swal.fire({
-                title: `توريد شحنة جديدة لـ "${p ? p.name : 'الصنف'}"`,
+                title: `شراء وتوريد بضاعة جديدة: "${p ? p.name : 'الصنف'}"`,
                 html: `
                     <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
+                        <span style="font-size:11px; color:var(--text-muted);">هذه بضاعة جديدة تم شراؤها من التاجر ولا تخصم من المخزن.</span>
                         <div>
-                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">الكمية المستلمة:</label>
+                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">الكمية المشتراة:</label>
                             <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="مثال: 24" style="width:100%; margin:3px 0 0 0;">
                         </div>
                         <div>
-                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">أدخلتها فين؟</label>
+                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">وضعتها أين؟</label>
                             <select id="swal-inward-loc" class="swal2-select" style="width:100%; margin:3px 0 0 0;">
-                                <option value="BACKROOM">المخزن الداخلي الاحتياطي</option>
-                                <option value="FRONT_DISPLAY">الواجهة والمعروض (بيع فوري للكاشير)</option>
+                                <option value="BACKROOM">في المخزن الداخلي الاحتياطي</option>
+                                <option value="FRONT_DISPLAY">في الواجهة مباشرة (للبيع الفوري)</option>
                             </select>
                         </div>
                     </div>
                 `,
-                confirmButtonText: 'إضافة للرصيد فوراً',
+                confirmButtonText: 'إضافة الرصيد',
                 showCancelButton: true,
                 cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#10b981',
                 preConfirm: () => {
                     const qty = parseFloat(document.getElementById('swal-inward-qty').value);
                     const loc = document.getElementById('swal-inward-loc').value;
@@ -2654,7 +2663,7 @@ function viewTabItemDetails(tab) {
                     return { qty, loc };
                 }
             });
-
+        
             if (formValues) {
                 try {
                     const res = await fetch('/api/admin/restock-inward', {
@@ -2668,8 +2677,64 @@ function viewTabItemDetails(tab) {
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
-
-                    Toast.fire({ icon: 'success', title: `تمت إضافة ${formValues.qty} قطعة بنجاح` });
+        
+                    Toast.fire({ icon: 'success', title: `تمت إضافة الشحنة بنجاح` });
+                    loadAdminOverview();
+                } catch (e) {
+                    Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
+                }
+            }
+        }
+        
+        // 2. رص الواجهة (خصم من المخزن الاحتياطي وزيادة رصيد الواجهة)
+        async function quickTransferToFront(prodId) {
+            const p = products.find(x => x.id === prodId);
+            const backStock = Number(p ? p.backroom_stock : 0);
+        
+            const { value: qty } = await Swal.fire({
+                title: `رص الواجهة لـ "${p ? p.name : 'الصنف'}"`,
+                html: `
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
+                        <div style="background:rgba(14, 165, 233, 0.1); border:1px solid rgba(14, 165, 233, 0.3); padding:8px 12px; border-radius:6px;">
+                            <span style="font-size:12px; color:var(--text-secondary); display:block;">المتاح حالياً بالمخزن الداخلي:</span>
+                            <b style="color:var(--accent-sky); font-size:16px;">${backStock} ${p.unit_type || 'قطعة'}</b>
+                        </div>
+                        <div>
+                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">الكمية المنقولة إلى الرف/الواجهة:</label>
+                            <input id="swal-transfer-qty" type="number" class="swal2-input" placeholder="مثال: 10" style="width:100%; margin:3px 0 0 0;">
+                        </div>
+                        <span style="font-size:10.5px; color:var(--text-muted);">* سيتم خصم هذه الكمية من المخزن وإضافتها للواجهة فوراً.</span>
+                    </div>
+                `,
+                confirmButtonText: 'تأكيد النقل للرف',
+                showCancelButton: true,
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#0ea5e9',
+                preConfirm: () => {
+                    const transferQty = parseFloat(document.getElementById('swal-transfer-qty').value);
+                    if (!transferQty || transferQty <= 0) {
+                        Swal.showValidationMessage('يرجى كتابة كمية صحيحة');
+                        return false;
+                    }
+                    if (transferQty > backStock) {
+                        Swal.showValidationMessage(`الكمية المطلوبة (${transferQty}) أكبر من الموجود بالمخزن (${backStock})`);
+                        return false;
+                    }
+                    return transferQty;
+                }
+            });
+        
+            if (qty) {
+                try {
+                    const res = await fetch('/api/admin/stock-transfer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ product_id: prodId, quantity: qty })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error);
+        
+                    Toast.fire({ icon: 'success', title: `تم نقل ${qty} قطعة إلى الواجهة بنجاح` });
                     loadAdminOverview();
                 } catch (e) {
                     Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
