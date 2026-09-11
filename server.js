@@ -508,26 +508,75 @@ app.delete('/api/products/:id', async (req, res) => {
 });
 
 // توريد شحنة جديدة
+// مسار التوريد وحركة البضاعة الذكي
 app.post('/api/admin/restock-inward', async (req, res) => {
-    const { product_id, quantity, destination } = req.body;
+    const { product_id, quantity, operation_type, destination } = req.body;
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const qty = Number(quantity);
-        if (qty <= 0) throw new Error('الكمية الموردة غير صحيحة');
+        if (isNaN(qty) || qty <= 0) throw new Error('يرجى تحديد كمية صحيحة');
 
-        const locRes = await client.query('SELECT id FROM inventory_locations WHERE code = $1 LIMIT 1', [destination || 'BACKROOM']);
-        const locationId = locRes.rows[0].id;
+        const backLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'BACKROOM' LIMIT 1");
+        const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1");
+        const backId = backLoc.rows[0].id;
+        const frontId = frontLoc.rows[0].id;
 
-        await client.query(`
-            INSERT INTO location_inventory (product_id, location_id, quantity)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (product_id, location_id) 
-            DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity
-        `, [product_id, locationId, qty]);
+        const op = operation_type || destination;
 
-        await client.query('COMMIT');
-        res.json({ success: true, message: 'تمت إضافة الشحنة بنجاح' });
+        if (op === 'TRANSFER' || op === 'TRANSFER_TO_FRONT') {
+            // 1. نقل من المخزن للواجهة: يخصم من المخزن ويزود الواجهة
+            const backStockRes = await client.query(
+                'SELECT quantity FROM location_inventory WHERE product_id = $1 AND location_id = $2 FOR UPDATE',
+                [product_id, backId]
+            );
+            const currentBack = Number(backStockRes.rows[0]?.quantity || 0);
+
+            if (currentBack < qty) {
+                throw new Error(`الرصيد في المخزن (${currentBack}) لا يكفي لنقل (${qty}) قطعة!`);
+            }
+
+            // الخصم من المخزن الاحتياطي
+            await client.query(
+                'UPDATE location_inventory SET quantity = quantity - $1, updated_at = NOW() WHERE product_id = $2 AND location_id = $3',
+                [qty, product_id, backId]
+            );
+
+            // الإضافة إلى الواجهة
+            await client.query(`
+                INSERT INTO location_inventory (product_id, location_id, quantity, updated_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (product_id, location_id)
+                DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity, updated_at = NOW()
+            `, [product_id, frontId, qty]);
+
+            await client.query('COMMIT');
+            return res.json({ success: true, message: `تم خصم ${qty} من المخزن وإضافتها للواجهة بنجاح` });
+
+        } else if (op === 'FRONT_DISPLAY' || op === 'BUY_FRONT') {
+            // 2. شراء جديد من التاجر دخل الواجهة مباشرة (زيادة الواجهة فقط دون خصم)
+            await client.query(`
+                INSERT INTO location_inventory (product_id, location_id, quantity, updated_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (product_id, location_id)
+                DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity, updated_at = NOW()
+            `, [product_id, frontId, qty]);
+
+            await client.query('COMMIT');
+            return res.json({ success: true, message: `تمت إضافة الشحنة للواجهة بنجاح` });
+
+        } else {
+            // 3. شراء جديد من التاجر دخل المخزن الاحتياطي (زيادة المخزن فقط دون خصم)
+            await client.query(`
+                INSERT INTO location_inventory (product_id, location_id, quantity, updated_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (product_id, location_id)
+                DO UPDATE SET quantity = location_inventory.quantity + EXCLUDED.quantity, updated_at = NOW()
+            `, [product_id, backId, qty]);
+
+            await client.query('COMMIT');
+            return res.json({ success: true, message: `تمت إضافة الشحنة للمخزن بنجاح` });
+        }
     } catch (err) {
         await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
