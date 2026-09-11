@@ -2631,36 +2631,49 @@ function viewTabItemDetails(tab) {
         // 1. شراء بضاعة جديدة من التاجر (تزويد المخزن أو الواجهة كشحنة جديدة)
         async function quickRestockInward(prodId) {
             const p = products.find(x => x.id === prodId);
+            const frontStock = Number(p ? (p.front_display_stock !== undefined ? p.front_display_stock : p.stock_quantity) : 0);
+            const backStock = Number(p ? p.backroom_stock : 0);
+        
             const { value: formValues } = await Swal.fire({
-                title: `شراء وتوريد بضاعة جديدة: "${p ? p.name : 'الصنف'}"`,
+                title: `حركة مخزون: ${p ? p.name : 'الصنف'}`,
                 html: `
-                    <div style="text-align:right; display:flex; flex-direction:column; gap:8px;">
-                        <span style="font-size:11px; color:var(--text-muted);">هذه بضاعة جديدة تم شراؤها من التاجر ولا تخصم من المخزن.</span>
-                        <div>
-                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">الكمية المشتراة:</label>
-                            <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="مثال: 24" style="width:100%; margin:3px 0 0 0;">
+                    <div style="text-align:right; display:flex; flex-direction:column; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; background:var(--bg-input); padding:8px 12px; border-radius:6px; border:1px solid var(--border); font-size:12px;">
+                            <span>المعروض بالواجهة: <b style="color:var(--accent-emerald);">${frontStock}</b></span>
+                            <span>المتاح بالمخزن: <b style="color:var(--accent-sky);">${backStock}</b></span>
                         </div>
+        
                         <div>
-                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">وضعتها أين؟</label>
-                            <select id="swal-inward-loc" class="swal2-select" style="width:100%; margin:3px 0 0 0;">
-                                <option value="BACKROOM">في المخزن الداخلي الاحتياطي</option>
-                                <option value="FRONT_DISPLAY">في الواجهة مباشرة (للبيع الفوري)</option>
+                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">نوع الحركة اللي بتعملها:</label>
+                            <select id="swal-inward-op" class="swal2-select" style="width:100%; margin:4px 0 0 0; font-size:12.5px;">
+                                <option value="TRANSFER">🔄 نقل من المخزن للواجهة (يخصم من المخزن ويزود الواجهة)</option>
+                                <option value="BACKROOM">📦 شراء جديد من السوق ← حطيته في المخزن</option>
+                                <option value="FRONT_DISPLAY">🛍️ شراء جديد من السوق ← حطيته في الواجهة فوراً</option>
                             </select>
+                        </div>
+        
+                        <div>
+                            <label style="font-size:11.5px; color:var(--text-secondary); font-weight:600;">الكمية:</label>
+                            <input id="swal-inward-qty" type="number" class="swal2-input" placeholder="اكتب العدد..." style="width:100%; margin:4px 0 0 0;">
                         </div>
                     </div>
                 `,
-                confirmButtonText: 'إضافة الرصيد',
+                confirmButtonText: 'تأكيد العملية',
                 showCancelButton: true,
                 cancelButtonText: 'إلغاء',
                 confirmButtonColor: '#10b981',
                 preConfirm: () => {
+                    const op = document.getElementById('swal-inward-op').value;
                     const qty = parseFloat(document.getElementById('swal-inward-qty').value);
-                    const loc = document.getElementById('swal-inward-loc').value;
                     if (!qty || qty <= 0) {
-                        Swal.showValidationMessage('يرجى كتابة كمية صحيحة');
+                        Swal.showValidationMessage('يرجى كتابة كمية صحيحة أكبر من الصفر');
                         return false;
                     }
-                    return { qty, loc };
+                    if (op === 'TRANSFER' && qty > backStock) {
+                        Swal.showValidationMessage(`المخزن فيه ${backStock} قطعة فقط! لا يمكن نقل ${qty}`);
+                        return false;
+                    }
+                    return { op, qty };
                 }
             });
         
@@ -2672,13 +2685,13 @@ function viewTabItemDetails(tab) {
                         body: JSON.stringify({
                             product_id: prodId,
                             quantity: formValues.qty,
-                            destination: formValues.loc
+                            operation_type: formValues.op
                         })
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error);
         
-                    Toast.fire({ icon: 'success', title: `تمت إضافة الشحنة بنجاح` });
+                    Toast.fire({ icon: 'success', title: data.message || 'تمت العملية بنجاح' });
                     loadAdminOverview();
                 } catch (e) {
                     Swal.fire({ title: 'خطأ', text: e.message, icon: 'error' });
