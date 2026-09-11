@@ -2422,13 +2422,10 @@ function viewTabItemDetails(tab) {
                     <td>${p.unit_type || 'قطعة'}</td>
                     <td>${isDrink ? '<span class="badge-status warning">مشروب/BOM</span>' : '<span class="badge-status success">بضاعة</span>'}</td>
                     <td style="white-space: nowrap;">
-                        <button class="btn-tool" style="color:var(--accent-emerald);" title="توريد شحنة جديدة" onclick="quickRestockInward(${p.id})">
-                            <i class="fa-solid fa-boxes-packing"></i> + توريد
-                        </button>
-                        <button class="btn-tool" style="color:var(--accent-emerald);" title="شراء بضاعة جديدة من التاجر" onclick="quickRestockInward(${p.id})">
+                        <button class="btn-tool" style="color:var(--accent-emerald);" onclick="quickRestockInward(${p.id})">
                             <i class="fa-solid fa-cart-flatbed"></i> + شراء جديد
                         </button>
-                        <button class="btn-tool" style="color:var(--accent-sky);" title="نقل من المخزن إلى الواجهة" onclick="quickTransferToFront(${p.id})">
+                        <button class="btn-tool" style="color:var(--accent-sky);" onclick="quickTransferToFront(${p.id})">
                             <i class="fa-solid fa-arrow-right-arrow-left"></i> ⇄ رص الرف
                         </button>
                         <button class="btn-tool" style="color:var(--accent-sky);" title="تحديد أوعية التقديم" onclick="openServingOptionsModal(${p.id}, '${p.name}')">
