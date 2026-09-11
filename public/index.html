@@ -616,6 +616,9 @@
                         <button class="btn-tool" style="flex:1; justify-content:center; font-size:11px;" onclick="openCashierNotesModal()">
                             <i class="fa-regular fa-note-sticky" style="color:var(--accent-amber);"></i> المفكرة <span class="badge-kbd">F4</span>
                         </button>
+                        <button class="btn-tool" style="flex:1; justify-content:center; font-size:11px; color:var(--accent-rose); border-color:rgba(244,63,94,0.3);" onclick="openRefundOrdersModal()">
+                            <i class="fa-solid fa-rotate-left"></i> إرجاع فاتورة
+                        </button>
                         <button class="btn-tool danger" style="flex:1; justify-content:center; font-size:11px;" onclick="openShiftHandoverModal()">
                             <i class="fa-solid fa-lock"></i> تسليم الوردية
                         </button>
@@ -1210,6 +1213,42 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; border-top:1px solid var(--border); padding-top:8px;">
                 <button class="btn-tool" onclick="addVariantRowItem()"><i class="fa-solid fa-plus"></i> إضافة حجم جديد</button>
                 <button class="btn-emerald" style="width:auto; padding:7px 18px;" onclick="saveVariantsConfiguration()">حفظ الأحجام والأرصدة</button>
+            </div>
+        </div>
+    </div>
+
+        <!-- نافذة إرجاع الفواتير للوردية الحالية -->
+    <div id="modal-refund-orders" class="modal-screen hidden">
+        <div class="modal-pane-dialog" style="max-width:620px;">
+            <div class="modal-header-strip">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-rotate-left" style="color:var(--accent-rose); font-size:17px;"></i>
+                    <h3 style="font-size:15px; font-weight:700;">سجل فواتير الوردية (إرجاع أوردر)</h3>
+                </div>
+                <button class="btn-modal-close" onclick="closeModal('modal-refund-orders')">×</button>
+            </div>
+    
+            <p style="font-size:11.5px; color:var(--text-secondary); margin-bottom:12px;">
+                عند إرجاع أي فاتورة، يتم إرجاع أصنافها للواجهة فوراً وخصم قيمتها من مبيعات الوردية.
+            </p>
+    
+            <div style="max-height:360px; overflow-y:auto; border:1px solid var(--border); border-radius:var(--radius-sm);">
+                <table class="terminal-table" style="font-size:11.5px;">
+                    <thead>
+                        <tr>
+                            <th># الفاتورة</th>
+                            <th>الوقت</th>
+                            <th>المحطة / الجهاز</th>
+                            <th>الأصناف</th>
+                            <th>المبلغ</th>
+                            <th>الدفع</th>
+                            <th>الإجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody id="refund-orders-tbody">
+                        <!-- تعبئة الفواتير تلقائياً -->
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
