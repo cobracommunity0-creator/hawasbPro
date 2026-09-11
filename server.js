@@ -487,6 +487,116 @@ app.get('/api/shift-tabs-summary/:shift_id', async (req, res) => {
     }
 });
 
+// 1. جلب فواتير الوردية الحالية القابلة للإرجاع
+app.get('/api/shift-orders/:shift_id', async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT 
+                o.id,
+                o.station_reference,
+                o.payment_type,
+                o.total_amount,
+                TO_CHAR(o.created_at, 'HH:MI AM') AS time_str,
+                COALESCE(json_agg(json_build_object(
+                    'product_name', p.name,
+                    'qty', oi.quantity,
+                    'packaging', oi.packaging_name,
+                    'subtotal', oi.subtotal_price
+                )) FILTER (WHERE p.id IS NOT NULL), '[]'::json) AS items
+            FROM orders o
+            JOIN order_items oi ON o.id = oi.order_id
+            JOIN products p ON oi.product_id = p.id
+            WHERE o.shift_id = $1 AND o.status = 'COMPLETED'
+            GROUP BY o.id
+            ORDER BY o.id DESC
+            LIMIT 40
+        `, [req.params.shift_id]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. تنفيذ الإرجاع (رد البضاعة للواجهة وإلغاء تأثير الفاتورة من مبيعات الوردية)
+app.post('/api/refund-order', async (req, res) => {
+    const { order_id } = req.body;
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // جلب بيانات الأوردر
+        const orderRes = await client.query('SELECT * FROM orders WHERE id = $1 AND status = \'COMPLETED\' FOR UPDATE', [order_id]);
+        if (orderRes.rows.length === 0) {
+            throw new Error('الأوردر غير موجود أو تم إرجاعه مسبقاً');
+        }
+        const order = orderRes.rows[0];
+
+        // تحديد مخزن الواجهة
+        const frontLoc = await client.query("SELECT id FROM inventory_locations WHERE code = 'FRONT_DISPLAY' LIMIT 1");
+        const frontLocationId = frontLoc.rows[0].id;
+
+        // جلب كافة عناصر الأوردر وردها للمخزن
+        const itemsRes = await client.query(`
+            SELECT oi.*, p.product_type 
+            FROM order_items oi 
+            JOIN products p ON oi.product_id = p.id 
+            WHERE oi.order_id = $1
+        `, [order_id]);
+
+        for (const item of itemsRes.rows) {
+            if (item.product_type === 'DIRECT_UNIT' || item.product_type === 'PACKAGING_MATERIAL') {
+                // رد الصنف المباشر إلى الواجهة
+                await client.query(`
+                    UPDATE location_inventory 
+                    SET quantity = quantity + $1, updated_at = NOW()
+                    WHERE product_id = $2 AND location_id = $3
+                `, [item.quantity, item.product_id, frontLocationId]);
+            } else if (item.product_type === 'PREPARED_DRINK') {
+                // رد خامات المشروب (BOM)
+                const boms = await client.query("SELECT * FROM product_boms WHERE parent_product_id = $1 AND rule = 'ALWAYS'", [item.product_id]);
+                for (const bom of boms.rows) {
+                    await client.query(`
+                        UPDATE location_inventory 
+                        SET quantity = quantity + $1, updated_at = NOW()
+                        WHERE product_id = $2 AND location_id = $3
+                    `, [(Number(bom.quantity_required) * Number(item.quantity)), bom.ingredient_product_id, frontLocationId]);
+                }
+            }
+        }
+
+        // إلغاء استهلاك الموظف إذا كان الأوردر للموظفين
+        if (order.payment_type === 'STAFF_EXPENSE') {
+            await client.query('DELETE FROM staff_consumptions WHERE order_id = $1', [order_id]);
+        }
+
+        // إلغاء وتخفيض الشكك إذا كان الأوردر شكك/آجل
+        if (order.payment_type === 'CREDIT_TAB') {
+            const tabOrderRes = await client.query('SELECT tab_id FROM customer_tab_orders WHERE order_id = $1', [order_id]);
+            if (tabOrderRes.rows.length > 0) {
+                const tabId = tabOrderRes.rows[0].tab_id;
+                await client.query(`
+                    UPDATE customer_tabs 
+                    SET total_debt = GREATEST(0, total_debt - $1),
+                        remaining_balance = GREATEST(0, remaining_balance - $1)
+                    WHERE id = $2
+                `, [order.total_amount, tabId]);
+                await client.query('DELETE FROM customer_tab_orders WHERE order_id = $1', [order_id]);
+            }
+        }
+
+        // تغيير حالة الأوردر إلى مرتجع (REFUNDED)
+        await client.query("UPDATE orders SET status = 'REFUNDED' WHERE id = $1", [order_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: `تم إرجاع الفاتورة #${order_id} واسترداد البضاعة بنجاح` });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
 // تسوية وتحصيل حساب الشكك
 app.post('/api/admin/settle-tab', async (req, res) => {
     const { tab_id } = req.body;
