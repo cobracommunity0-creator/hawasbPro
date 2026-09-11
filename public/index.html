@@ -3161,6 +3161,87 @@ function viewTabItemDetails(tab) {
                 loadAdminUsers();
             }
         }
+        // فتح نافذة فواتير الوردية للإرجاع
+async function openRefundOrdersModal() {
+    if (!currentShiftId) {
+        return Toast.fire({ icon: 'warning', title: 'لا يوجد شيفت نشط حالياً' });
+    }
+    const tbody = document.getElementById('refund-orders-tbody');
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:15px; color:var(--text-muted);">جاري جلب الفواتير...</td></tr>';
+    document.getElementById('modal-refund-orders').classList.remove('hidden');
+
+    try {
+        const res = await fetch(`/api/shift-orders/${currentShiftId}`);
+        const orders = await res.json();
+        tbody.innerHTML = '';
+
+        if (orders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="padding:20px; color:var(--text-muted);">لا توجد أي فواتير مسجلة في هذه الوردية حتى الآن</td></tr>';
+            return;
+        }
+
+        orders.forEach(o => {
+            const itemsText = (o.items || []).map(i => `${i.qty}× ${i.product_name}`).join(', ');
+            let payBadge = '<span class="badge-status success">كاش</span>';
+            if (o.payment_type === 'VODAFONE_CASH') payBadge = '<span style="color:#f87171; font-weight:700;">VF كاش</span>';
+            if (o.payment_type === 'CREDIT_TAB') payBadge = '<span style="color:var(--accent-sky); font-weight:700;">شكك</span>';
+            if (o.payment_type === 'STAFF_EXPENSE') payBadge = '<span style="color:var(--accent-amber); font-weight:700;">استهلاك</span>';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><b>#${o.id}</b></td>
+                <td style="color:var(--text-muted);">${o.time_str}</td>
+                <td>${o.station_reference || 'مباشر'}</td>
+                <td style="text-align:right; max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${itemsText}">${itemsText}</td>
+                <td><b style="color:var(--accent-emerald);">${formatCurrency(o.total_amount)} ج</b></td>
+                <td>${payBadge}</td>
+                <td>
+                    <button class="btn-tool danger" style="padding:3px 8px; font-size:11px;" onclick="executeOrderRefund(${o.id}, ${o.total_amount})">
+                        <i class="fa-solid fa-rotate-left"></i> إرجاع
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--accent-rose); padding:10px;">حدث خطأ أثناء تحميل الفواتير</td></tr>';
+    }
+}
+
+        // تأكيد وتنفيذ إرجاع الفاتورة
+        async function executeOrderRefund(orderId, amount) {
+            const conf = await Swal.fire({
+                title: `إرجاع الفاتورة #${orderId}؟`,
+                text: `المبلغ: ${formatCurrency(amount)} ج.م (سيتم استرجاع البضاعة للواجهة وخصم المبلغ من مبيعات الوردية)`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، إرجاع الفاتورة',
+                cancelButtonText: 'إلغاء',
+                confirmButtonColor: '#f43f5e',
+                background: '#162033',
+                color: '#fff'
+            });
+        
+            if (conf.isConfirmed) {
+                try {
+                    const res = await fetch('/api/refund-order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_id: orderId })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error);
+        
+                    Toast.fire({ icon: 'success', title: data.message });
+                    // تحديث نافذة المرتجعات، وأرصدة الكاشير، وشريط إحصائيات الوردية
+                    openRefundOrdersModal();
+                    loadCatalog(true);
+                    fetchLiveShiftMetrics();
+                } catch (e) {
+                    Swal.fire({ title: 'خطأ', text: e.message, icon: 'error', background: '#162033', color: '#fff' });
+                }
+            }
+        }
     </script>
 </body>
 </html>
