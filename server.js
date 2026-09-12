@@ -396,9 +396,11 @@ app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
             SELECT 
                 ct.id as tab_id,
                 ct.customer_name,
-                ct.remaining_balance,
-                COALESCE(SUM(o.total_cost), 0) as total_cogs_owed,
-                (ct.remaining_balance - COALESCE(SUM(o.total_cost), 0)) as total_profit_owed,
+                ct.remaining_balance::float AS remaining_balance,
+                -- تصحيح: جمع تكلفة الأصناف الفردية لمنع تكرار تكلفة الفاتورة
+                COALESCE(SUM(oi.subtotal_cost), 0)::float as total_cogs_owed,
+                -- صافي الربح الحقيقي = المطلوب من الزبون - تكلفة بضاعته
+                (ct.remaining_balance - COALESCE(SUM(oi.subtotal_cost), 0))::float as total_profit_owed,
                 COALESCE(json_agg(json_build_object(
                     'product_name', p.name,
                     'qty', oi.quantity,
@@ -406,7 +408,7 @@ app.get('/api/admin/customer-tabs-detailed', async (req, res) => {
                     'price', oi.subtotal_price,
                     'cost', oi.subtotal_cost,
                     'date', o.created_at
-                )) FILTER (WHERE p.id IS NOT NULL), '[]'::json) as items
+                ) ORDER BY o.created_at DESC) FILTER (WHERE p.id IS NOT NULL), '[]'::json) as items
             FROM customer_tabs ct
             LEFT JOIN customer_tab_orders cto ON ct.id = cto.tab_id
             LEFT JOIN orders o ON cto.order_id = o.id
