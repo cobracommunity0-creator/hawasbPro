@@ -1,5 +1,6 @@
 /**
  * Hawasb Cafe POS - Authentication Routes
+ * Hardened bcrypt verification with automated plaintext migration (Bug J)
  */
 
 const express = require('express');
@@ -11,7 +12,8 @@ const { authenticateToken } = require('../middleware/auth');
 
 /**
  * POST /api/auth/login
- * Standardized bcrypt-only PIN authentication
+ * Verifies PIN against bcrypt hash. If legacy plaintext is detected,
+ * it verifies, re-hashes using bcrypt, updates the database, and logs in.
  */
 router.post('/login', async (req, res) => {
   const { username, pin } = req.body;
@@ -36,19 +38,34 @@ router.post('/login', async (req, res) => {
     const { rows: users } = await client.query(usersQuery, queryParams);
 
     if (users.length === 0) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+      return res.status(401).json({ error: 'لا يوجد مستخدمون نشطون في المنظومة' });
     }
 
     let matchedUser = null;
+    const inputPin = String(pin).trim();
 
-    // Hardening Bug J: Strictly use bcrypt.compare - NEVER accept plaintext fallback
     for (const u of users) {
-      if (u.pin_hash && u.pin_hash.startsWith('$2')) {
-        const isMatch = await bcrypt.compare(String(pin), u.pin_hash);
-        if (isMatch) {
-          matchedUser = u;
-          break;
+      if (!u.pin_hash) continue;
+
+      // 1. Standard Bcrypt verification
+      if (u.pin_hash.startsWith('$2')) {
+        try {
+          const isMatch = await bcrypt.compare(inputPin, u.pin_hash);
+          if (isMatch) {
+            matchedUser = u;
+            break;
+          }
+        } catch (bcryptErr) {
+          console.error(`[Auth] Bcrypt compare error for user ${u.username}:`, bcryptErr.message);
         }
+      } 
+      // 2. Automated Plaintext Migration (Requirement J)
+      else if (u.pin_hash === inputPin) {
+        console.log(`[Auth Migration] Re-hashing legacy plaintext PIN for user: ${u.username}`);
+        const upgradedHash = await bcrypt.hash(inputPin, 10);
+        await client.query('UPDATE users SET pin_hash = $1, updated_at = NOW() WHERE id = $2', [upgradedHash, u.id]);
+        matchedUser = u;
+        break;
       }
     }
 
