@@ -71,7 +71,6 @@ function renderFilteredItems() {
     const card = document.createElement('div');
     const isNegative = Number(item.current_stock) < 0;
 
-    // Compact item cards with image
     card.className = `group p-2 bg-slate-800/90 rounded-xl shadow border ${
       isNegative ? 'border-rose-500/80 bg-rose-950/20' : 'border-slate-700/80'
     } hover:border-cyan-500/80 transition-all cursor-pointer flex flex-col justify-between`;
@@ -122,8 +121,8 @@ async function updateLiveCashierStats() {
   }
 }
 
-// 3. Customer Accounts & Shakak Ledger Profiles
-async function loadCustomers() {
+// 3. Customer Accounts, Shakak Ledger & Quick Customer Creation
+async function loadCustomers(selectedId = null) {
   try {
     const customers = await request('/api/debts');
     const select = document.getElementById('customer-select');
@@ -135,6 +134,9 @@ async function loadCustomers() {
       const creditNote = Number(c.credit_balance) > 0 ? ` (رصيد دائن: ${c.credit_balance} ج.م)` : '';
       const debtNote = Number(c.current_debt) > 0 ? ` [عليه شكك: ${c.current_debt} ج.م]` : '';
       opt.innerText = `${c.name}${c.is_owner ? ' (المالك معفى)' : ''}${creditNote}${debtNote}`;
+      if (selectedId && c.id === selectedId) {
+        opt.selected = true;
+      }
       select.appendChild(opt);
     });
   } catch (err) {
@@ -153,6 +155,55 @@ function initCustomerAccounts() {
   };
 
   btnClose.onclick = () => modal.classList.add('hidden');
+
+  // Quick Customer Modal
+  const quickModal = document.getElementById('quick-add-customer-modal');
+  const btnOpenQuick = document.getElementById('btn-quick-add-customer');
+  const btnCloseQuick = document.getElementById('btn-close-quick-customer');
+  const btnSubmitQuick = document.getElementById('btn-submit-quick-customer');
+
+  if (btnOpenQuick) {
+    btnOpenQuick.onclick = () => {
+      document.getElementById('quick-customer-name').value = '';
+      document.getElementById('quick-customer-phone').value = '';
+      quickModal.classList.remove('hidden');
+    };
+  }
+
+  if (btnCloseQuick) {
+    btnCloseQuick.onclick = () => quickModal.classList.add('hidden');
+  }
+
+  if (btnSubmitQuick) {
+    btnSubmitQuick.onclick = async () => {
+      const name = document.getElementById('quick-customer-name').value.trim();
+      const phone = document.getElementById('quick-customer-phone').value.trim();
+
+      if (!name) {
+        showToast('يرجى إدخال اسم العميل', 'error');
+        return;
+      }
+
+      btnSubmitQuick.disabled = true;
+      btnSubmitQuick.innerText = 'جاري الحفظ...';
+
+      try {
+        const res = await request('/api/debts/customers', {
+          method: 'POST',
+          body: JSON.stringify({ name, phone }),
+        });
+
+        showToast(res.message || 'تم تسجيل العميل بنجاح', 'success');
+        quickModal.classList.add('hidden');
+        await loadCustomers(res.customer.id);
+      } catch (err) {
+        console.error('[Quick Add Customer Error]:', err);
+      } finally {
+        btnSubmitQuick.disabled = false;
+        btnSubmitQuick.innerText = 'إضافة وتحديد العميل';
+      }
+    };
+  }
 }
 
 async function renderCustomersList() {
@@ -391,7 +442,6 @@ window.addEventListener('DOMContentLoaded', () => {
   initAuth(async (user) => {
     document.getElementById('logged-user-name').innerText = user.name;
 
-    // Check Role: Restrict Admin-only buttons
     const isOwner = user && user.role === 'owner';
     const btnHistory = document.getElementById('btn-open-shifts-history');
     const btnAdminItems = document.getElementById('btn-open-admin-items');

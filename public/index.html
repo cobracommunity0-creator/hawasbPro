@@ -14,17 +14,17 @@
     input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   </style>
 </head>
-<body class="bg-[#070b19] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-white">
+<body class="bg-[#070b19] text-slate-100 h-screen flex flex-col overflow-hidden antialiased selection:bg-cyan-500 selection:text-white">
 
   <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed top-4 left-4 z-50 w-80 space-y-2 pointer-events-auto"></div>
 
   <!-- Top Navigation Bar -->
-  <header class="bg-[#0c1229] border-b border-slate-800 px-4 py-2.5 shadow-lg flex items-center justify-between">
+  <header class="bg-[#0c1229] border-b border-slate-800 px-4 py-2 shadow-lg flex items-center justify-between flex-shrink-0">
     <div class="flex items-center space-x-3 space-x-reverse">
       <div class="flex items-center space-x-1.5 space-x-reverse">
         <span class="text-xl">☕</span>
-        <h1 class="text-lg font-black tracking-wide text-white">كافيه حواسب <span class="text-xs text-cyan-400 font-bold">POS</span></h1>
+        <h1 class="text-base font-black tracking-wide text-white">كافيه حواسب <span class="text-xs text-cyan-400 font-bold">POS</span></h1>
       </div>
       <div id="shift-status-badge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
         جاري فحص الوردية...
@@ -42,7 +42,6 @@
       <button id="btn-open-customers" class="px-2.5 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold transition">
         حسابات الشكك
       </button>
-      <!-- Admin Only: Shift History -->
       <button id="btn-open-shifts-history" class="hidden px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-bold transition">
         سجل الورديات
       </button>
@@ -58,8 +57,8 @@
     </div>
   </header>
 
-  <!-- Live Cashier Drawer Stats Bar (Midnight Blue) -->
-  <section class="bg-[#0b1024] text-white px-4 py-1.5 flex items-center justify-between text-xs border-b border-slate-800/80">
+  <!-- Live Cashier Drawer Stats Bar -->
+  <section class="bg-[#0b1024] text-white px-4 py-1.5 flex items-center justify-between text-xs border-b border-slate-800/80 flex-shrink-0">
     <div class="flex items-center space-x-4 space-x-reverse">
       <div class="flex items-center space-x-1.5 space-x-reverse">
         <span class="text-slate-400">كاش الدرج:</span>
@@ -80,57 +79,62 @@
   </section>
 
   <!-- 18 PC Tabs Bar -->
-  <nav class="bg-[#0f172a] border-b border-slate-800 px-4 py-2 flex items-center space-x-2 space-x-reverse overflow-x-auto shadow-sm" id="pc-tabs-bar">
+  <nav class="bg-[#0f172a] border-b border-slate-800 px-4 py-1.5 flex items-center space-x-2 space-x-reverse overflow-x-auto shadow-sm flex-shrink-0" id="pc-tabs-bar">
     <!-- Rendered dynamically -->
   </nav>
 
-  <!-- Main POS Workspace -->
-  <main class="flex-1 flex flex-col md:flex-row p-3 gap-3 overflow-hidden">
+  <!-- Main POS Workspace (Fixed Height Layout) -->
+  <main class="flex-1 min-h-0 flex flex-col lg:flex-row p-3 gap-3 overflow-hidden">
     
     <!-- Left Area: Categories & Items Grid -->
-    <section class="flex-1 flex flex-col bg-[#0f172a] rounded-xl shadow-lg border border-slate-800 overflow-hidden">
+    <section class="flex-1 min-h-0 flex flex-col bg-[#0f172a] rounded-xl shadow-lg border border-slate-800 overflow-hidden">
       <!-- Search & Category Filters -->
-      <div class="p-2.5 border-b border-slate-800 flex flex-col sm:flex-row gap-2 items-center justify-between bg-[#0c1224]">
+      <div class="p-2 border-b border-slate-800 flex flex-col sm:flex-row gap-2 items-center justify-between bg-[#0c1224] flex-shrink-0">
         <input type="text" id="item-search" placeholder="بحث سريع عن صنف..." 
-          class="w-full sm:w-60 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+          class="w-full sm:w-56 px-3 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
         
         <!-- Category Filter Pills -->
-        <div id="categories-bar" class="flex items-center space-x-1.5 space-x-reverse overflow-x-auto w-full sm:w-auto">
+        <div id="categories-bar" class="flex items-center space-x-1 space-x-reverse overflow-x-auto w-full sm:w-auto">
           <!-- Rendered dynamically -->
         </div>
       </div>
 
-      <!-- Items Grid: Compact with Images -->
-      <div id="items-grid" class="flex-1 p-2.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 overflow-y-auto">
+      <!-- Items Grid: Compact with content-start so small categories don't stretch -->
+      <div id="items-grid" class="flex-1 min-h-0 p-2.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 content-start overflow-y-auto">
         <!-- Rendered dynamically -->
       </div>
     </section>
 
-    <!-- Right Area: Cart & Checkout -->
-    <aside class="w-full md:w-80 flex flex-col bg-[#0f172a] rounded-xl shadow-lg border border-slate-800 overflow-hidden">
-      <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-[#0c1224]">
+    <!-- Right Area: Cart & Checkout (Always pinned & visible) -->
+    <aside class="w-full lg:w-80 flex flex-col bg-[#0f172a] rounded-xl shadow-lg border border-slate-800 overflow-hidden flex-shrink-0">
+      <div class="p-2.5 border-b border-slate-800 flex items-center justify-between bg-[#0c1224] flex-shrink-0">
         <div class="flex items-center space-x-1.5 space-x-reverse">
-          <h2 class="font-bold text-slate-200 text-sm">طلب:</h2>
+          <h2 class="font-bold text-slate-200 text-xs">طلب:</h2>
           <span id="active-tab-title" class="px-2 py-0.5 bg-cyan-950 text-cyan-400 border border-cyan-800 rounded font-black text-xs">عام</span>
         </div>
-        <span class="text-[11px] text-slate-500">حساب فوري أو تعليق</span>
+        <span class="text-[10px] text-slate-500">حساب فوري أو تعليق</span>
       </div>
 
       <!-- Cart Item List -->
-      <div id="cart-items" class="flex-1 p-3 overflow-y-auto">
+      <div id="cart-items" class="flex-1 min-h-0 p-2.5 overflow-y-auto">
         <!-- Rendered dynamically -->
       </div>
 
-      <!-- Totals & Payment Selection -->
-      <div class="p-3 bg-[#0c1224] border-t border-slate-800 space-y-3">
-        <div class="flex items-center justify-between text-sm font-bold text-slate-200">
+      <!-- Totals & Payment Selection (Pinned at bottom) -->
+      <div class="p-3 bg-[#0c1224] border-t border-slate-800 space-y-2.5 flex-shrink-0">
+        <div class="flex items-center justify-between text-xs font-bold text-slate-200">
           <span>الإجمالي المطلوب:</span>
-          <span id="cart-subtotal" class="text-cyan-400 text-lg font-black">0.00 ج.م</span>
+          <span id="cart-subtotal" class="text-cyan-400 text-base font-black">0.00 ج.م</span>
         </div>
 
-        <!-- Customer Tab Select (Visible for Shakak) -->
+        <!-- Customer Tab Select (Visible for Shakak) with quick add button -->
         <div id="customer-select-wrapper" class="hidden">
-          <label class="block text-[11px] font-bold text-slate-400 mb-1">اسم العميل (لحساب الشكك):</label>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-[11px] font-bold text-slate-400">اسم العميل (لحساب الشكك):</label>
+            <button type="button" id="btn-quick-add-customer" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-bold underline">
+              + عميل جديد
+            </button>
+          </div>
           <select id="customer-select" class="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-semibold text-white focus:outline-none focus:border-cyan-500">
             <option value="">-- اختر العميل --</option>
           </select>
@@ -138,7 +142,7 @@
 
         <!-- Payment Method Buttons -->
         <div>
-          <label class="block text-[11px] font-bold text-slate-400 mb-1">طريقة الدفع:</label>
+          <label class="block text-[10px] font-bold text-slate-400 mb-1">طريقة الدفع:</label>
           <div class="flex gap-1.5">
             <button type="button" id="btn-pay-cash" class="flex-1 py-1.5 text-xs font-bold rounded-lg border-2 border-emerald-500 bg-emerald-950/60 text-emerald-300 shadow">
               كاش (الدرج)
@@ -158,6 +162,30 @@
       </div>
     </aside>
   </main>
+
+  <!-- MODAL: Quick Add Customer -->
+  <div id="quick-add-customer-modal" class="fixed inset-0 bg-[#050814]/85 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl shadow-xl w-full max-w-xs p-4 text-right">
+      <h3 class="font-bold text-white text-sm mb-1">إضافة عميل شكك جديد</h3>
+      <p class="text-xs text-slate-400 mb-3">تسجيل العميل لفتح حساب شكك آجل</p>
+
+      <div class="space-y-2.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">اسم العميل *:</label>
+          <input type="text" id="quick-customer-name" placeholder="مثال: حسام الدين" class="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">رقم الهاتف (اختياري):</label>
+          <input type="text" id="quick-customer-phone" placeholder="01xxxxxxxxx" class="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500">
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button id="btn-close-quick-customer" class="flex-1 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-bold">إلغاء</button>
+        <button id="btn-submit-quick-customer" class="flex-1 py-1.5 bg-cyan-600 text-white rounded-lg text-xs font-bold">إضافة وتحديد العميل</button>
+      </div>
+    </div>
+  </div>
 
   <!-- MODAL: PIN Login -->
   <div id="login-modal" class="fixed inset-0 bg-[#050814]/90 backdrop-blur-md z-50 flex items-center justify-center hidden p-4">

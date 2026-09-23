@@ -26,6 +26,35 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/debts/customers
+ * Quick-add new customer for Shakak tabs (Cashier or Owner)
+ */
+router.post('/customers', authenticateToken, async (req, res) => {
+  const { name, phone } = req.body;
+
+  if (!name || name.trim() === '') {
+    return res.status(400).json({ error: 'اسم العميل مطلوب' });
+  }
+
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO customers (name, phone, current_debt, credit_balance, is_owner)
+       VALUES ($1, $2, 0.00, 0.00, FALSE)
+       RETURNING *`,
+      [name.trim(), phone ? phone.trim() : null]
+    );
+
+    return res.status(201).json({
+      message: 'تم تسجيل العميل بنجاح',
+      customer: rows[0],
+    });
+  } catch (err) {
+    console.error('[Create Customer Error]:', err);
+    return res.status(500).json({ error: 'فشل في تسجيل العميل الجديد' });
+  }
+});
+
+/**
  * GET /api/debts/:id/history
  * Comprehensive Customer Profile: past orders, items bought, and payment history
  */
@@ -47,7 +76,6 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'العميل غير موجود' });
     }
 
-    // Orders taken by customer
     const ordersRes = await db.query(
       `SELECT o.id, o.shift_id, o.payment_method, o.subtotal, o.created_at, o.device_tab_name,
               json_agg(json_build_object('item_name', i.name, 'quantity', oi.quantity, 'unit_price', oi.unit_price, 'total_price', oi.total_price)) as items
@@ -61,7 +89,6 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
       [custId]
     );
 
-    // Payments made by customer
     const paymentsRes = await db.query(
       `SELECT dp.id, dp.amount_paid, dp.debt_cleared, dp.credit_added, dp.payment_method, dp.notes, dp.created_at,
               u.name as cashier_name

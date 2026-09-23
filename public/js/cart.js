@@ -2,7 +2,6 @@
  * Hawasb Cafe POS - Multi-Tab Gaming Cafe Cart System (18 PCs + General)
  */
 
-// Generate 18 PCs + General Tab
 const defaultTabs = { 'عام': [] };
 for (let i = 1; i <= 18; i++) {
   defaultTabs[`جهاز ${i}`] = [];
@@ -85,17 +84,17 @@ export function renderPCTabs() {
     btn.type = 'button';
     btn.className = `flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 space-x-reverse ${
       isActive
-        ? 'bg-emerald-600 text-white shadow-md'
+        ? 'bg-cyan-600 text-white shadow-md'
         : count > 0
-        ? 'bg-amber-100 text-amber-900 border border-amber-300'
-        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+        ? 'bg-amber-950/80 text-amber-300 border border-amber-700/60'
+        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-750'
     }`;
 
     btn.innerHTML = `
       <span>${name}</span>
       ${
         count > 0
-          ? `<span class="mr-1 px-1.5 py-0.2 rounded-full text-[10px] ${               isActive ? 'bg-white text-emerald-800' : 'bg-amber-600 text-white'             }">${count}</span>`
+          ? `<span class="mr-1 px-1.5 py-0.2 rounded-full text-[10px] ${               isActive ? 'bg-white text-cyan-900 font-black' : 'bg-amber-500 text-slate-950 font-black'             }">${count}</span>`
           : ''
       }
     `;
@@ -118,9 +117,9 @@ export function renderCart() {
 
   if (cart.length === 0) {
     cartItemsContainer.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-10 text-gray-400">
-        <span class="text-4xl mb-2">🎮</span>
-        <p class="text-xs font-semibold">لا توجد طلبات معلقة لـ (${cartState.activeTab})</p>
+      <div class="flex flex-col items-center justify-center py-10 text-slate-500">
+        <span class="text-3xl mb-2">🛒</span>
+        <p class="text-xs font-semibold">السلة فارغة لـ (${cartState.activeTab})</p>
       </div>`;
   } else {
     cart.forEach((item) => {
@@ -128,16 +127,18 @@ export function renderCart() {
       subtotal += lineTotal;
 
       const row = document.createElement('div');
-      row.className = 'flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-100 mb-2';
+      row.className = 'flex items-center justify-between p-2.5 bg-slate-800/90 rounded-lg border border-slate-700/80 mb-2';
       row.innerHTML = `
         <div class="flex-1">
-          <h4 class="font-bold text-gray-800 text-xs leading-tight">${item.name}</h4>
-          <span class="text-[11px] text-gray-500">${item.price.toFixed(2)} × ${item.quantity} = <b>${lineTotal.toFixed(2)} ج.م</b></span>
+          <h4 class="font-bold text-slate-100 text-xs leading-tight">${item.name}</h4>
+          <span class="text-[11px] text-slate-400">
+            ${item.price.toFixed(2)} × ${item.quantity} = <b class="text-cyan-400 font-extrabold">${lineTotal.toFixed(2)} ج.م</b>
+          </span>
         </div>
-        <div class="flex items-center space-x-1 space-x-reverse">
-          <button class="btn-qty-minus w-6 h-6 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded font-bold text-gray-700">-</button>
-          <span class="w-5 text-center text-xs font-bold">${item.quantity}</span>
-          <button class="btn-qty-plus w-6 h-6 flex items-center justify-center bg-gray-200 hover:bg-gray-300 rounded font-bold text-gray-700">+</button>
+        <div class="flex items-center space-x-1.5 space-x-reverse">
+          <button class="btn-qty-minus w-6 h-6 flex items-center justify-center bg-slate-750 hover:bg-slate-700 rounded font-bold text-slate-200 border border-slate-650 transition">-</button>
+          <span class="w-6 text-center text-xs font-black text-cyan-300">${item.quantity}</span>
+          <button class="btn-qty-plus w-6 h-6 flex items-center justify-center bg-slate-750 hover:bg-slate-700 rounded font-bold text-slate-200 border border-slate-650 transition">+</button>
         </div>
       `;
 
