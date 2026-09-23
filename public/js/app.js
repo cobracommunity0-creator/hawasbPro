@@ -1,5 +1,5 @@
 /**
- * Hawasb Cafe POS - Main Application Bootstrap
+ * Hawasb Cafe POS - Main Application Bootstrap (Midnight Blue Edition)
  */
 
 import { request, showToast } from './api.js';
@@ -11,6 +11,8 @@ import { initReports } from './reports.js';
 
 let allItems = [];
 let activeCategory = 'الكل';
+
+const FALLBACK_ITEM_IMG = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=300&q=80';
 
 // 1. Load and Render POS Items with Category Bar
 async function loadItems() {
@@ -33,10 +35,10 @@ function renderCategoryFilter() {
   categories.forEach((cat) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+    btn.className = `flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
       activeCategory === cat
-        ? 'bg-emerald-700 text-white shadow-sm'
-        : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
+        ? 'bg-cyan-600 text-white shadow-sm'
+        : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-750'
     }`;
     btn.innerText = cat;
     btn.onclick = () => {
@@ -61,7 +63,7 @@ function renderFilteredItems() {
   });
 
   if (filtered.length === 0) {
-    grid.innerHTML = '<div class="col-span-full text-center py-10 text-gray-400 text-xs">لا توجد أصناف تطابق هذا الاختيار</div>';
+    grid.innerHTML = '<div class="col-span-full text-center py-8 text-slate-500 text-xs">لا توجد أصناف مطابقة للبحث</div>';
     return;
   }
 
@@ -69,26 +71,34 @@ function renderFilteredItems() {
     const card = document.createElement('div');
     const isNegative = Number(item.current_stock) < 0;
 
-    card.className = `p-3 bg-white rounded-xl shadow-sm border ${
-      isNegative ? 'border-rose-400 bg-rose-50/20' : 'border-gray-200'
-    } hover:shadow-md transition-shadow cursor-pointer flex flex-col justify-between`;
+    // Compact item cards with image
+    card.className = `group p-2 bg-slate-800/90 rounded-xl shadow border ${
+      isNegative ? 'border-rose-500/80 bg-rose-950/20' : 'border-slate-700/80'
+    } hover:border-cyan-500/80 transition-all cursor-pointer flex flex-col justify-between`;
+
+    const imgUrl = item.image_url || FALLBACK_ITEM_IMG;
 
     card.innerHTML = `
       <div>
-        <div class="flex items-start justify-between">
-          <span class="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-semibold">${item.category}</span>
+        <div class="relative w-full h-20 rounded-lg overflow-hidden bg-slate-900 border border-slate-750 mb-1.5">
+          <img src="${imgUrl}" alt="${item.name}" 
+            onerror="this.src='${FALLBACK_ITEM_IMG}'" 
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+          <span class="absolute top-1 right-1 text-[9px] px-1.5 py-0.5 rounded bg-slate-900/80 backdrop-blur-sm text-cyan-300 font-semibold border border-slate-700">
+            ${item.category}
+          </span>
           ${
             isNegative
-              ? '<span class="text-[10px] px-1 py-0.5 rounded bg-rose-600 text-white font-bold animate-pulse">رصيد سالب!</span>'
-              : `<span class="text-[10px] text-gray-400">مخزون: ${item.current_stock}</span>`
+              ? '<span class="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.2 rounded bg-rose-600 text-white font-bold animate-pulse">سالب!</span>'
+              : `<span class="absolute bottom-1 left-1 text-[9px] px-1.5 py-0.2 rounded bg-slate-900/80 text-slate-300 font-bold">${item.current_stock}</span>`
           }
         </div>
-        <h3 class="font-bold text-gray-800 text-sm mt-2 leading-tight">${item.name}</h3>
+        <h3 class="font-bold text-slate-100 text-xs truncate leading-snug" title="${item.name}">${item.name}</h3>
       </div>
-      <div class="flex items-center justify-between mt-3">
-        <span class="font-black text-emerald-700 text-sm">${Number(item.price).toFixed(2)} <small class="text-[10px] font-normal">ج.م</small></span>
-        <button class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors">
-          + إضافة
+      <div class="flex items-center justify-between mt-2 pt-1 border-t border-slate-750">
+        <span class="font-extrabold text-cyan-400 text-xs">${Number(item.price).toFixed(2)} <small class="text-[9px] font-normal text-slate-400">ج.م</small></span>
+        <button class="px-2 py-0.5 bg-cyan-600 hover:bg-cyan-500 text-white text-[11px] font-bold rounded-md transition shadow">
+          +
         </button>
       </div>
     `;
@@ -153,26 +163,23 @@ async function renderCustomersList() {
 
   customers.forEach((c) => {
     const tr = document.createElement('tr');
-    tr.className = 'border-b border-gray-100 hover:bg-gray-50 text-xs';
+    tr.className = 'border-b border-slate-750 hover:bg-slate-800 text-xs';
     tr.innerHTML = `
-      <td class="p-2 font-bold text-gray-800">${c.name}</td>
-      <td class="p-2 text-gray-500">${c.phone || '-'}</td>
-      <td class="p-2 font-bold ${Number(c.current_debt) > 0 ? 'text-rose-600' : 'text-gray-500'}">${Number(c.current_debt).toFixed(2)} ج.م</td>
-      <td class="p-2 font-bold text-emerald-700">${Number(c.credit_balance).toFixed(2)} ج.م</td>
+      <td class="p-2 font-bold text-slate-200">${c.name}</td>
+      <td class="p-2 text-slate-400">${c.phone || '-'}</td>
+      <td class="p-2 font-bold ${Number(c.current_debt) > 0 ? 'text-rose-400' : 'text-slate-400'}">${Number(c.current_debt).toFixed(2)} ج.م</td>
+      <td class="p-2 font-bold text-emerald-400">${Number(c.credit_balance).toFixed(2)} ج.م</td>
       <td class="p-2 text-left space-x-1 space-x-reverse">
-        <button class="btn-claim-debt px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold">
+        <button class="btn-claim-debt px-2 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-bold">
           تحصيل
         </button>
-        <button class="btn-view-customer-profile px-2 py-1 bg-gray-800 hover:bg-gray-900 text-white rounded text-[11px] font-bold">
+        <button class="btn-view-customer-profile px-2 py-1 bg-slate-700 hover:bg-slate-600 text-white rounded text-[11px] font-bold">
           كشف الحساب
         </button>
       </td>
     `;
 
-    // Claim debt button
     tr.querySelector('.btn-claim-debt').onclick = () => openClaimDebtModal(c);
-
-    // Profile Ledger button
     tr.querySelector('.btn-view-customer-profile').onclick = () => openCustomerProfileModal(c.id);
 
     container.appendChild(tr);
@@ -233,43 +240,41 @@ async function openCustomerProfileModal(customerId) {
     document.getElementById('profile-current-debt').innerText = `${Number(data.customer.current_debt).toFixed(2)} ج.م`;
     document.getElementById('profile-credit-balance').innerText = `${Number(data.customer.credit_balance).toFixed(2)} ج.م`;
 
-    // Render Orders taken
     const ordersContainer = document.getElementById('profile-orders-list');
     ordersContainer.innerHTML = '';
     if (data.orders.length === 0) {
-      ordersContainer.innerHTML = '<span class="text-xs text-gray-400">لا توجد طلبات سابقة</span>';
+      ordersContainer.innerHTML = '<span class="text-xs text-slate-500">لا توجد طلبات سابقة</span>';
     } else {
       data.orders.forEach((o) => {
         const row = document.createElement('div');
-        row.className = 'p-2 bg-gray-50 rounded-lg border border-gray-100 text-xs mb-1.5';
+        row.className = 'p-2 bg-slate-800/80 rounded-lg border border-slate-700 text-xs mb-1.5';
         const itemsList = o.items.map((it) => `${it.item_name} × ${it.quantity}`).join('، ');
         row.innerHTML = `
-          <div class="flex justify-between font-bold text-gray-800">
+          <div class="flex justify-between font-bold text-slate-200">
             <span>طلب #${o.id} (${o.device_tab_name || 'عام'})</span>
-            <span class="text-emerald-700">${Number(o.subtotal).toFixed(2)} ج.م</span>
+            <span class="text-cyan-400">${Number(o.subtotal).toFixed(2)} ج.م</span>
           </div>
-          <div class="text-[11px] text-gray-500 mt-1">${itemsList}</div>
-          <div class="text-[10px] text-gray-400 mt-0.5">${new Date(o.created_at).toLocaleString('ar-EG')} - ${o.payment_method}</div>
+          <div class="text-[11px] text-slate-400 mt-1">${itemsList}</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">${new Date(o.created_at).toLocaleString('ar-EG')} - ${o.payment_method}</div>
         `;
         ordersContainer.appendChild(row);
       });
     }
 
-    // Render Payments made
     const paymentsContainer = document.getElementById('profile-payments-list');
     paymentsContainer.innerHTML = '';
     if (data.payments.length === 0) {
-      paymentsContainer.innerHTML = '<span class="text-xs text-gray-400">لا توجد دفعات سداد مسجلة</span>';
+      paymentsContainer.innerHTML = '<span class="text-xs text-slate-500">لا توجد دفعات سداد مسجلة</span>';
     } else {
       data.payments.forEach((p) => {
         const row = document.createElement('div');
-        row.className = 'p-2 bg-emerald-50 rounded-lg border border-emerald-100 text-xs mb-1.5';
+        row.className = 'p-2 bg-emerald-950/40 rounded-lg border border-emerald-800/60 text-xs mb-1.5';
         row.innerHTML = `
-          <div class="flex justify-between font-bold text-emerald-900">
+          <div class="flex justify-between font-bold text-emerald-300">
             <span>سداد مبلغ: ${Number(p.amount_paid).toFixed(2)} ج.م</span>
-            <span class="text-[11px] text-gray-600">${p.payment_method === 'cash' ? 'كاش بالدرج' : 'فودافون كاش'}</span>
+            <span class="text-[11px] text-slate-400">${p.payment_method === 'cash' ? 'كاش بالدرج' : 'فودافون كاش'}</span>
           </div>
-          <div class="text-[10px] text-emerald-800 mt-0.5">استلمه: ${p.cashier_name} | ${new Date(p.created_at).toLocaleString('ar-EG')}</div>
+          <div class="text-[10px] text-emerald-500 mt-0.5">المستلم: ${p.cashier_name} | ${new Date(p.created_at).toLocaleString('ar-EG')}</div>
         `;
         paymentsContainer.appendChild(row);
       });
@@ -279,17 +284,13 @@ async function openCustomerProfileModal(customerId) {
   }
 }
 
-// 4. Admin Items Management (Full CRUD)
+// 4. Admin Items Management
 function initAdminItemManagement() {
   const modal = document.getElementById('admin-items-modal');
   const btnOpen = document.getElementById('btn-open-admin-items');
   const btnClose = document.getElementById('btn-close-admin-items');
   const btnSaveItem = document.getElementById('btn-save-item');
   const itemForm = document.getElementById('admin-item-form');
-
-  if (authState.user && authState.user.role === 'owner') {
-    btnOpen.classList.remove('hidden');
-  }
 
   btnOpen.onclick = async () => {
     await renderAdminItemsTable();
@@ -305,6 +306,7 @@ function initAdminItemManagement() {
     const price = parseFloat(document.getElementById('item-form-price').value);
     const cost_price = parseFloat(document.getElementById('item-form-cost').value);
     const current_stock = parseFloat(document.getElementById('item-form-stock').value);
+    const image_url = document.getElementById('item-form-image').value;
     const track_in_handover = document.getElementById('item-form-handover').checked;
 
     if (!name || isNaN(price)) {
@@ -312,7 +314,7 @@ function initAdminItemManagement() {
       return;
     }
 
-    const payload = { name, category, price, cost_price, current_stock, track_in_handover };
+    const payload = { name, category, price, cost_price, current_stock, track_in_handover, image_url };
 
     try {
       if (id) {
@@ -340,16 +342,20 @@ async function renderAdminItemsTable() {
 
   items.forEach((item) => {
     const tr = document.createElement('tr');
-    tr.className = 'border-b border-gray-100 hover:bg-gray-50 text-xs';
+    tr.className = 'border-b border-slate-750 hover:bg-slate-800 text-xs';
     tr.innerHTML = `
-      <td class="p-2 font-bold text-gray-900">${item.name}</td>
-      <td class="p-2 text-gray-600">${item.category}</td>
-      <td class="p-2 font-bold text-emerald-700">${Number(item.price).toFixed(2)} ج.م</td>
-      <td class="p-2 text-gray-500">${Number(item.cost_price).toFixed(2)} ج.م</td>
-      <td class="p-2 font-bold ${Number(item.current_stock) < 0 ? 'text-rose-600' : 'text-gray-800'}">${item.current_stock}</td>
+      <td class="p-2 font-bold text-slate-200 flex items-center space-x-2 space-x-reverse">
+        <img src="${item.image_url || FALLBACK_ITEM_IMG}" class="w-7 h-7 rounded object-cover border border-slate-700">
+        <span>${item.name}</span>
+      </td>
+      <td class="p-2 text-slate-400">${item.category}</td>
+      <td class="p-2 font-bold text-cyan-400">${Number(item.price).toFixed(2)} ج.م</td>
+      <td class="p-2 text-slate-400">${Number(item.cost_price).toFixed(2)} ج.م</td>
+      <td class="p-2 font-bold ${Number(item.current_stock) < 0 ? 'text-rose-400' : 'text-slate-300'}">${item.current_stock}</td>
+      <td class="p-2 text-slate-400">${item.track_in_handover ? '✓' : '✗'}</td>
       <td class="p-2 text-left space-x-1 space-x-reverse">
-        <button class="btn-edit-item px-2 py-1 bg-blue-600 text-white rounded text-[11px] font-bold">تعديل</button>
-        <button class="btn-delete-item px-2 py-1 bg-rose-600 text-white rounded text-[11px] font-bold">حذف</button>
+        <button class="btn-edit-item px-2 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded text-[11px] font-bold">تعديل</button>
+        <button class="btn-delete-item px-2 py-1 bg-rose-700 hover:bg-rose-600 text-white rounded text-[11px] font-bold">حذف</button>
       </td>
     `;
 
@@ -360,6 +366,7 @@ async function renderAdminItemsTable() {
       document.getElementById('item-form-price').value = item.price;
       document.getElementById('item-form-cost').value = item.cost_price;
       document.getElementById('item-form-stock').value = item.current_stock;
+      document.getElementById('item-form-image').value = item.image_url || '';
       document.getElementById('item-form-handover').checked = item.track_in_handover;
     };
 
@@ -383,6 +390,22 @@ async function renderAdminItemsTable() {
 window.addEventListener('DOMContentLoaded', () => {
   initAuth(async (user) => {
     document.getElementById('logged-user-name').innerText = user.name;
+
+    // Check Role: Restrict Admin-only buttons
+    const isOwner = user && user.role === 'owner';
+    const btnHistory = document.getElementById('btn-open-shifts-history');
+    const btnAdminItems = document.getElementById('btn-open-admin-items');
+
+    if (btnHistory) {
+      if (isOwner) btnHistory.classList.remove('hidden');
+      else btnHistory.classList.add('hidden');
+    }
+
+    if (btnAdminItems) {
+      if (isOwner) btnAdminItems.classList.remove('hidden');
+      else btnAdminItems.classList.add('hidden');
+    }
+
     renderPCTabs();
     renderCart();
 
@@ -412,7 +435,6 @@ window.addEventListener('DOMContentLoaded', () => {
     initCustomerAccounts();
     initAdminItemManagement();
 
-    // Search bar listener
     document.getElementById('item-search')?.addEventListener('input', renderFilteredItems);
   });
 });

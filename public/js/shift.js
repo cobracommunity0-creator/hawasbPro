@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Shift Management & Handover
- * Supports opening shifts, seamless handovers, and drawer cash tracking
+ * Automatic logout upon completing shift handover
  */
 
 import { request, showToast } from './api.js';
@@ -26,19 +26,17 @@ export function renderShiftBadge(shift) {
   const btnOpenHandover = document.getElementById('btn-open-handover');
 
   if (shift && (shift.status === 'open' || shift.status === 'pending_handover')) {
-    badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800';
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
-    infoText.innerText = `الشيفتاجي: ${shift.cashier_name || 'أنت'} | البداية: ${shift.starting_cash} ج.م`;
+    badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700/50';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
+    infoText.innerText = `الشيفتاجي: ${shift.cashier_name || 'أنت'} | البداية: ${Number(shift.starting_cash).toFixed(2)} ج.م`;
     
-    // Toggle action buttons
     if (btnOpenShift) btnOpenShift.classList.add('hidden');
     if (btnOpenHandover) btnOpenHandover.classList.remove('hidden');
   } else {
-    badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800';
-    badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 ml-1.5"></span>لا توجد وردية مفتوحة`;
+    badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/80 text-rose-400 border border-rose-700/50';
+    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 ml-1.5"></span>لا توجد وردية مفتوحة`;
     infoText.innerText = `يجب فتح وردية لإتمام المبيعات`;
 
-    // Toggle action buttons
     if (btnOpenShift) btnOpenShift.classList.remove('hidden');
     if (btnOpenHandover) btnOpenHandover.classList.add('hidden');
   }
@@ -66,7 +64,7 @@ export function initOpenShift(onShiftOpened) {
     const startingCash = parseFloat(startingCashInput.value);
 
     if (isNaN(startingCash) || startingCash < 0) {
-      showToast('يرجى إدخال نقدية بداية الوردية بشكل صحيح (0 أو أكثر)', 'error');
+      showToast('يرجى إدخال نقدية بداية الوردية بشكل صحيح', 'error');
       return;
     }
 
@@ -117,17 +115,27 @@ export function initShiftHandover(onHandoverComplete) {
       const container = document.getElementById('handover-items-list');
       container.innerHTML = '';
 
-      items.filter((i) => i.track_in_handover).forEach((item) => {
+      // Only countable items (track_in_handover == true)
+      const countableItems = items.filter((i) => i.track_in_handover);
+
+      countableItems.forEach((item) => {
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between p-2 border-b border-gray-100 text-sm';
+        row.className = 'flex items-center justify-between p-2 border-b border-slate-700/60 text-xs bg-slate-800/40 rounded my-1';
         row.innerHTML = `
-          <div class="flex-1">
-            <span class="font-semibold text-gray-800">${item.name}</span>
-            <span class="text-xs text-gray-400 block">رصيد المنظومة: ${item.current_stock}</span>
+          <div class="flex items-center space-x-2 space-x-reverse flex-1">
+            ${
+              item.image_url
+                ? `<img src="${item.image_url}" class="w-8 h-8 rounded object-cover border border-slate-700">`
+                : ''
+            }
+            <div>
+              <span class="font-bold text-slate-200">${item.name}</span>
+              <span class="text-[10px] text-slate-400 block">رصيد المنظومة: ${item.current_stock}</span>
+            </div>
           </div>
-          <div class="w-28">
+          <div class="w-24">
             <input type="number" step="1" min="0" 
-              class="handover-item-input w-full px-2 py-1 border border-gray-300 rounded text-center font-bold"
+              class="handover-item-input w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-center font-bold text-white focus:border-cyan-500"
               data-item-id="${item.id}" placeholder="${item.current_stock}" value="${item.current_stock}">
           </div>
         `;
@@ -178,11 +186,15 @@ export function initShiftHandover(onHandoverComplete) {
       handoverModal.classList.add('hidden');
       cashInput.value = '';
 
-      await fetchCurrentShift();
-      if (onHandoverComplete) onHandoverComplete();
+      // Business Rule: Logout cashier upon completing handover
+      setTimeout(() => {
+        localStorage.removeItem('hawasb_token');
+        localStorage.removeItem('hawasb_user');
+        window.location.reload();
+      }, 1000);
+
     } catch (err) {
       console.error('[Handover Submission Error]:', err);
-    } finally {
       submitHandoverBtn.disabled = false;
       submitHandoverBtn.innerText = 'تأكيد واستلام الوردية';
     }

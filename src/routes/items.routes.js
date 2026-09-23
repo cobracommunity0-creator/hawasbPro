@@ -14,7 +14,7 @@ const { authenticateToken, requireOwner } = require('../middleware/auth');
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT id, name, category, price, cost_price, current_stock, track_in_handover, is_active,
+      `SELECT id, name, category, price, cost_price, current_stock, track_in_handover, image_url, is_active,
               (current_stock < 0) as is_negative_stock
        FROM items 
        WHERE is_active = TRUE 
@@ -32,7 +32,7 @@ router.get('/', authenticateToken, async (req, res) => {
  * Create new menu item (Owner only)
  */
 router.post('/', authenticateToken, requireOwner, async (req, res) => {
-  const { name, category, price, cost_price, current_stock, track_in_handover } = req.body;
+  const { name, category, price, cost_price, current_stock, track_in_handover, image_url } = req.body;
 
   if (!name || price === undefined) {
     return res.status(400).json({ error: 'اسم الصنف وسعر البيع مطلوبان' });
@@ -40,8 +40,8 @@ router.post('/', authenticateToken, requireOwner, async (req, res) => {
 
   try {
     const { rows } = await db.query(
-      `INSERT INTO items (name, category, price, cost_price, current_stock, track_in_handover, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+      `INSERT INTO items (name, category, price, cost_price, current_stock, track_in_handover, image_url, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
        RETURNING *`,
       [
         name.trim(),
@@ -50,6 +50,7 @@ router.post('/', authenticateToken, requireOwner, async (req, res) => {
         parseFloat(cost_price) || 0.00,
         parseFloat(current_stock) || 0.00,
         track_in_handover !== undefined ? Boolean(track_in_handover) : true,
+        image_url || null,
       ]
     );
     return res.status(201).json({ message: 'تمت إضافة الصنف بنجاح', item: rows[0] });
@@ -65,7 +66,7 @@ router.post('/', authenticateToken, requireOwner, async (req, res) => {
  */
 router.put('/:id', authenticateToken, requireOwner, async (req, res) => {
   const itemId = parseInt(req.params.id, 10);
-  const { name, category, price, cost_price, current_stock, track_in_handover } = req.body;
+  const { name, category, price, cost_price, current_stock, track_in_handover, image_url } = req.body;
 
   if (isNaN(itemId)) {
     return res.status(400).json({ error: 'معرف الصنف غير صالح' });
@@ -80,8 +81,9 @@ router.put('/:id', authenticateToken, requireOwner, async (req, res) => {
            cost_price = COALESCE($4, cost_price),
            current_stock = COALESCE($5, current_stock),
            track_in_handover = COALESCE($6, track_in_handover),
+           image_url = COALESCE($7, image_url),
            updated_at = NOW()
-       WHERE id = $7
+       WHERE id = $8
        RETURNING *`,
       [
         name ? name.trim() : null,
@@ -90,6 +92,7 @@ router.put('/:id', authenticateToken, requireOwner, async (req, res) => {
         cost_price !== undefined ? parseFloat(cost_price) : null,
         current_stock !== undefined ? parseFloat(current_stock) : null,
         track_in_handover !== undefined ? Boolean(track_in_handover) : null,
+        image_url !== undefined ? image_url : null,
         itemId,
       ]
     );
