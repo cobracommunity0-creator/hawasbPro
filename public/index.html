@@ -42,8 +42,9 @@
       <button id="btn-open-customers" class="px-2.5 py-1 text-xs bg-amber-600 hover:bg-amber-500 text-white rounded-lg font-bold transition">
         حسابات الشكك
       </button>
-      <button id="btn-open-shifts-history" class="hidden px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-bold transition">
-        سجل الورديات
+      <!-- Admin Only: Full Shift History Page -->
+      <button id="btn-open-shifts-history" class="hidden px-3 py-1 text-xs bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg font-bold transition shadow">
+        سجل وتقارير الورديات
       </button>
       <button id="btn-open-report" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg font-bold transition">
         تقرير الوردية
@@ -83,7 +84,7 @@
     <!-- Rendered dynamically -->
   </nav>
 
-  <!-- Main POS Workspace (Fixed Height Layout) -->
+  <!-- Main POS Workspace -->
   <main class="flex-1 min-h-0 flex flex-col lg:flex-row p-3 gap-3 overflow-hidden">
     
     <!-- Left Area: Categories & Items Grid -->
@@ -93,7 +94,6 @@
         <input type="text" id="item-search" placeholder="بحث سريع عن صنف..." 
           class="w-full sm:w-56 px-3 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
         
-        <!-- Category Filter Pills -->
         <div id="categories-bar" class="flex items-center space-x-1 space-x-reverse overflow-x-auto w-full sm:w-auto">
           <!-- Rendered dynamically -->
         </div>
@@ -120,14 +120,13 @@
         <!-- Rendered dynamically -->
       </div>
 
-      <!-- Totals & Payment Selection (Pinned at bottom) -->
+      <!-- Totals & Payment Selection -->
       <div class="p-3 bg-[#0c1224] border-t border-slate-800 space-y-2.5 flex-shrink-0">
         <div class="flex items-center justify-between text-xs font-bold text-slate-200">
           <span>الإجمالي المطلوب:</span>
           <span id="cart-subtotal" class="text-cyan-400 text-base font-black">0.00 ج.م</span>
         </div>
 
-        <!-- Customer Tab Select (Visible for Shakak) with quick add button -->
         <div id="customer-select-wrapper" class="hidden">
           <div class="flex items-center justify-between mb-1">
             <label class="block text-[11px] font-bold text-slate-400">اسم العميل (لحساب الشكك):</label>
@@ -140,7 +139,6 @@
           </select>
         </div>
 
-        <!-- Payment Method Buttons -->
         <div>
           <label class="block text-[10px] font-bold text-slate-400 mb-1">طريقة الدفع:</label>
           <div class="flex gap-1.5">
@@ -162,6 +160,47 @@
       </div>
     </aside>
   </main>
+
+  <!-- ===================================================================== -->
+  <!-- FULL-SCREEN EXECUTIVE SHIFTS DOSSIER & LEDGER PAGE (ADMIN/REPORTS) -->
+  <!-- ===================================================================== -->
+  <div id="shifts-history-page" class="hidden fixed inset-0 z-50 bg-[#070b19] flex flex-col overflow-hidden">
+    <!-- Top Action Bar -->
+    <header class="bg-[#0c1229] border-b border-slate-800 px-6 py-3.5 flex items-center justify-between flex-shrink-0 shadow-lg">
+      <div class="flex items-center space-x-3 space-x-reverse">
+        <span class="text-2xl">📊</span>
+        <div>
+          <h2 class="text-lg font-black text-white leading-tight">سجل وتقارير الورديات المالية التفصيلي</h2>
+          <p class="text-xs text-slate-400">متابعة مبيعات الكافيتريا، جرد الأصناف، وعمولات وتقسيم أرباح المالك</p>
+        </div>
+      </div>
+
+      <button id="btn-close-shifts-history" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-black text-xs shadow-lg transition flex items-center space-x-1.5 space-x-reverse">
+        <span>←</span>
+        <span>العودة إلى شاشة الكاشير (POS)</span>
+      </button>
+    </header>
+
+    <!-- Two-Column Master-Detail Workspace -->
+    <div class="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+      <!-- Left Column: Shift Directory Sidebar -->
+      <aside class="w-full md:w-80 lg:w-96 bg-[#0b1024] border-l border-slate-800 flex flex-col flex-shrink-0 overflow-hidden">
+        <div class="p-3 border-b border-slate-800 bg-[#090e21]">
+          <input type="text" id="shift-search-input" placeholder="بحث برقم الوردية أو اسم الشيفتاجي..."
+            class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div id="shifts-sidebar-list" class="flex-1 min-h-0 p-3 space-y-2 overflow-y-auto">
+          <!-- Populated dynamically -->
+        </div>
+      </aside>
+
+      <!-- Right Column: Shift Dossier (Dossier, Items Sold, Shortages, Money Split) -->
+      <main id="shift-dossier-content" class="flex-1 min-h-0 p-4 md:p-6 overflow-y-auto">
+        <!-- Rendered dynamically -->
+      </main>
+    </div>
+  </div>
 
   <!-- MODAL: Quick Add Customer -->
   <div id="quick-add-customer-modal" class="fixed inset-0 bg-[#050814]/85 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
@@ -245,13 +284,20 @@
   <div id="handover-modal" class="fixed inset-0 bg-[#050814]/85 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-[#0f172a] border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
       <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-[#0c1224]">
-        <h3 class="font-bold text-white text-sm">تسليم واستلام الوردية (الأصناف القابلة للجرد فقط)</h3>
+        <h3 class="font-bold text-white text-sm">تسليم الوردية والجرد اليدوي</h3>
         <button id="btn-close-handover" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
       </div>
 
       <div class="p-3 flex-1 overflow-y-auto space-y-3">
         <div class="bg-amber-950/40 p-2.5 rounded-lg border border-amber-800/60 text-xs text-amber-300 leading-relaxed">
-          <b>أمانة الجرد:</b> يتم جرد الأصناف المعدودة فقط (المعلبات والباكتات)، وأي عجز يُحمّل كمديونية على <u>الشيفتاجي المستلم</u>.
+          <b>أمانة الجرد:</b> يتم جرد الأصناف المعدودة فقط، وأي عجز في الجرد يُحمّل كمديونية على الشيفتاجي المستلم المحدد أدناه.
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1">الشيفتاجي المستلم (المسؤول عن الجرد):</label>
+          <select id="handover-incoming-cashier" class="w-full px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-white focus:outline-none focus:border-cyan-500">
+            <!-- Populated dynamically -->
+          </select>
         </div>
 
         <div>
@@ -275,97 +321,8 @@
 
       <div class="p-3 border-t border-slate-800 bg-[#0c1224]">
         <button id="btn-submit-handover" class="w-full py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold text-xs shadow">
-          تأكيد واستلام الوردية والخروج
+          تأكيد التسليم وإنهاء الوردية والخروج
         </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Canonical Shift Report -->
-  <div id="report-modal" class="fixed inset-0 bg-[#050814]/85 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
-      <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-[#0c1224]">
-        <h3 class="font-bold text-white text-sm">تقرير الوردية المالية وتجنيب الأموال</h3>
-        <button id="btn-close-report" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
-      </div>
-
-      <div class="p-4 flex-1 overflow-y-auto space-y-3 text-xs">
-        <div class="bg-slate-850 p-2.5 rounded-lg border border-slate-800 space-y-1">
-          <div class="flex justify-between"><span>مبيعات كاش (الدرج):</span><b id="rep-cash-sales" class="text-white">0.00 ج.م</b></div>
-          <div class="flex justify-between"><span>مبيعات فودافون كاش:</span><b id="rep-vf-sales" class="text-white">0.00 ج.م</b></div>
-          <div class="flex justify-between"><span>مبيعات شكك (آجل):</span><b id="rep-shakak-sales" class="text-white">0.00 ج.م</b></div>
-          <div class="flex justify-between pt-1 border-t border-slate-750 font-bold text-cyan-300">
-            <span>إجمالي المبيعات الكاملة:</span><span id="rep-total-sales">0.00 ج.م</span>
-          </div>
-        </div>
-
-        <div class="bg-emerald-950/30 p-2.5 rounded-lg border border-emerald-900/50 space-y-1">
-          <div class="flex justify-between"><span>نقدية بداية الوردية:</span><b id="rep-start-cash">0.00 ج.م</b></div>
-          <div class="flex justify-between"><span>المتوقع بالدرج:</span><b id="rep-exp-cash" class="text-emerald-400">0.00 ج.م</b></div>
-          <div class="flex justify-between"><span>عمولة الشيفتاجي (من الكاش فقط):</span><b id="rep-commission-earned" class="text-amber-400">0.00 ج.م</b></div>
-          <div class="flex justify-between font-bold"><span>عجز / زيادة الدرج:</span><span id="rep-cash-discrepancy">بانتظار الجرد</span></div>
-        </div>
-
-        <div class="bg-blue-950/40 p-2.5 rounded-lg border border-blue-900/50 space-y-1.5">
-          <h4 class="font-extrabold text-cyan-300 text-xs">خطة تقسيم وتجنيب أموال الدرج للمالك:</h4>
-          <div class="flex justify-between text-slate-300">
-            <span>1. تجنيب شراء بضاعة (سعر التكلفة):</span>
-            <b id="rep-cogs-reserve" class="font-bold text-cyan-400">0.00 ج.م</b>
-          </div>
-          <div class="flex justify-between text-emerald-400 font-bold">
-            <span>2. صافي نقدية المالك للدرج:</span>
-            <span id="rep-owner-drawer-cash">0.00 ج.م</span>
-          </div>
-          <div class="flex justify-between text-rose-400 font-bold">
-            <span>3. أرباح فودافون كاش الصافية:</span>
-            <span id="rep-vf-pure-profit">0.00 ج.م</span>
-          </div>
-          <div class="flex justify-between text-amber-400 font-bold">
-            <span>4. أرباح شكك آجلة للمالك:</span>
-            <span id="rep-shakak-profit">0.00 ج.م</span>
-          </div>
-          <div class="flex justify-between pt-1 border-t border-blue-800 font-black text-sm text-cyan-200">
-            <span>إجمالي صافي أرباح المالك:</span>
-            <span id="rep-total-owner-profit">0.00 ج.م</span>
-          </div>
-        </div>
-
-        <div>
-          <h4 class="font-bold text-slate-300 mb-1">الأصناف المباعة في هذه الوردية:</h4>
-          <div id="rep-items-sold-list" class="max-h-28 overflow-y-auto border border-slate-800 rounded-lg p-2 bg-[#090e21]"></div>
-        </div>
-
-        <div>
-          <h4 class="font-bold text-rose-400 mb-1">عجز جرد الأصناف المحمّل على الشيفتاجي:</h4>
-          <div id="rep-shortages-list" class="max-h-24 overflow-y-auto border border-rose-900/40 rounded-lg p-2 bg-rose-950/20"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL: Shifts History (Admin Only) -->
-  <div id="shifts-history-modal" class="fixed inset-0 bg-[#050814]/85 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-[#0f172a] border border-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
-      <div class="p-3 border-b border-slate-800 flex items-center justify-between bg-[#0c1224]">
-        <h3 class="font-bold text-white text-sm">سجل تقارير الورديات السابقة (المالك فقط)</h3>
-        <button id="btn-close-shifts-history" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
-      </div>
-
-      <div class="p-3 flex-1 overflow-y-auto">
-        <table class="w-full text-right">
-          <thead>
-            <tr class="bg-slate-850 text-[11px] text-slate-400">
-              <th class="p-2">الوردية</th>
-              <th class="p-2">الشيفتاجي</th>
-              <th class="p-2">وقت البدء</th>
-              <th class="p-2">المبيعات</th>
-              <th class="p-2">فارق النقدية</th>
-              <th class="p-2">الحالة</th>
-              <th class="p-2 text-left">إجراء</th>
-            </tr>
-          </thead>
-          <tbody id="shifts-history-table-body"></tbody>
-        </table>
       </div>
     </div>
   </div>

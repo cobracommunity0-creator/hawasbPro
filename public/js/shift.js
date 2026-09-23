@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Shift Management & Handover
- * Automatic logout upon completing shift handover
+ * Clean handover, automatic logout, and manual open shift workflow
  */
 
 import { request, showToast } from './api.js';
@@ -29,7 +29,7 @@ export function renderShiftBadge(shift) {
     badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700/50';
     badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
     infoText.innerText = `الشيفتاجي: ${shift.cashier_name || 'أنت'} | البداية: ${Number(shift.starting_cash).toFixed(2)} ج.م`;
-    
+
     if (btnOpenShift) btnOpenShift.classList.add('hidden');
     if (btnOpenHandover) btnOpenHandover.classList.remove('hidden');
   } else {
@@ -115,7 +115,6 @@ export function initShiftHandover(onHandoverComplete) {
       const container = document.getElementById('handover-items-list');
       container.innerHTML = '';
 
-      // Only countable items (track_in_handover == true)
       const countableItems = items.filter((i) => i.track_in_handover);
 
       countableItems.forEach((item) => {
@@ -142,6 +141,18 @@ export function initShiftHandover(onHandoverComplete) {
         container.appendChild(row);
       });
 
+      const cashiersSelect = document.getElementById('handover-incoming-cashier');
+      if (cashiersSelect) {
+        cashiersSelect.innerHTML = '';
+        const cashiers = await request('/api/shifts/cashiers');
+        cashiers.forEach((c) => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.innerText = `${c.name} (${c.role === 'owner' ? 'المالك' : 'شيفتاجي'})`;
+          cashiersSelect.appendChild(opt);
+        });
+      }
+
       handoverModal.classList.remove('hidden');
     } catch (err) {
       showToast('تعذر تحميل بيانات الجرد اليدوي', 'error');
@@ -167,6 +178,8 @@ export function initShiftHandover(onHandoverComplete) {
       });
     });
 
+    const incomingCashierId = document.getElementById('handover-incoming-cashier')?.value;
+
     submitHandoverBtn.disabled = true;
     submitHandoverBtn.innerText = 'جاري تسجيل التسليم...';
 
@@ -174,6 +187,7 @@ export function initShiftHandover(onHandoverComplete) {
       const payload = {
         closing_cash_actual: actualCash,
         item_counts: itemCounts,
+        incoming_cashier_id: incomingCashierId ? parseInt(incomingCashierId, 10) : null,
         notes: document.getElementById('handover-notes')?.value || '',
       };
 
@@ -182,21 +196,22 @@ export function initShiftHandover(onHandoverComplete) {
         body: JSON.stringify(payload),
       });
 
-      showToast(res.message, 'success');
+      showToast(res.message || 'تم تسليم الوردية وإغلاقها بنجاح', 'success');
       handoverModal.classList.add('hidden');
       cashInput.value = '';
+      currentShift = null;
 
-      // Business Rule: Logout cashier upon completing handover
+      // Log out and reload into a completely clean state
       setTimeout(() => {
         localStorage.removeItem('hawasb_token');
         localStorage.removeItem('hawasb_user');
         window.location.reload();
-      }, 1000);
+      }, 800);
 
     } catch (err) {
       console.error('[Handover Submission Error]:', err);
       submitHandoverBtn.disabled = false;
-      submitHandoverBtn.innerText = 'تأكيد واستلام الوردية';
+      submitHandoverBtn.innerText = 'تأكيد التسليم وإنهاء الوردية والخروج';
     }
   };
 }

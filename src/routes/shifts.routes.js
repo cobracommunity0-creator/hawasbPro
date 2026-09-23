@@ -32,8 +32,24 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/shifts/cashiers
+ * List available cashiers for selection during handover
+ */
+router.get('/cashiers', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, name, username, role FROM users WHERE is_active = TRUE ORDER BY id ASC`
+    );
+    return res.json(rows);
+  } catch (err) {
+    console.error('[Get Cashiers Error]:', err);
+    return res.status(500).json({ error: 'فشل في استرجاع قائمة الشيفتاجية' });
+  }
+});
+
+/**
  * GET /api/shifts/current
- * Returns the currently active shift
+ * Returns the currently active shift (open or pending_handover)
  */
 router.get('/current', authenticateToken, async (req, res) => {
   try {
@@ -92,7 +108,7 @@ router.get('/current/live-stats', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/open
- * Opens a brand new shift
+ * Explicitly opens a new shift (Requires cashier to click "+ فتح وردية جديدة")
  */
 router.post('/open', authenticateToken, async (req, res) => {
   const { starting_cash, notes } = req.body;
@@ -144,11 +160,12 @@ router.post('/open', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/:id/accept-handover
- * Direct Handover Acceptance endpoint
+ * Direct Handover Acceptance endpoint:
+ * Strictly CLOSES the shift. NEVER creates an open shift automatically.
  */
 router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
   const shiftId = parseInt(req.params.id, 10);
-  const { closing_cash_actual, item_counts, notes } = req.body;
+  const { closing_cash_actual, item_counts, incoming_cashier_id, notes } = req.body;
 
   const actualCash = parseFloat(closing_cash_actual);
   if (isNaN(actualCash) || actualCash < 0) {
@@ -185,7 +202,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
     const commissionEarned = report.commission.earned;
 
     let totalShortageDebt = 0.00;
-    const incomingCashierId = req.user.id;
+    const targetIncomingId = incoming_cashier_id ? parseInt(incoming_cashier_id, 10) : req.user.id;
 
     if (Array.isArray(item_counts) && item_counts.length > 0) {
       for (const countItem of item_counts) {
@@ -225,10 +242,14 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       }
     }
 
-    if (totalShortageDebt > 0) {
+    // Charge inventory shortage debt to the incoming cashier tab
+    if (totalShortageDebt > 0 && targetIncomingId) {
+      const userRes = await client.query('SELECT name FROM users WHERE id = $1', [targetIncomingId]);
+      const userName = userRes.rows.length > 0 ? userRes.rows[0].name : `شيفتاجي #${targetIncomingId}`;
+
       const custRes = await client.query(
-        `SELECT id, current_debt FROM customers WHERE id = $1 FOR UPDATE`,
-        [incomingCashierId]
+        `SELECT id, current_debt FROM customers WHERE name ILIKE $1 OR name ILIKE $2 LIMIT 1 FOR UPDATE`,
+        [`%${userName}%`, `%شيفتاجي #${targetIncomingId}%`]
       );
 
       if (custRes.rows.length > 0) {
@@ -238,11 +259,12 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       } else {
         await client.query(
           `INSERT INTO customers (name, current_debt) VALUES ($1, $2)`,
-          [`شيفتاجي #${incomingCashierId}`, totalShortageDebt]
+          [userName, totalShortageDebt]
         );
       }
     }
 
+    // STRICTLY CLOSE THE SHIFT (No new shift is inserted)
     await client.query(
       `UPDATE shifts 
        SET status = 'closed',
@@ -254,7 +276,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
            net_profit = $5,
            commission_earned = $6,
            incoming_cashier_id = $7,
-           notes = COALESCE(notes || ' | ', '') || $8,
+           notes = COALESCE(notes, '') || ' | ' || $8,
            updated_at = NOW()
        WHERE id = $9`,
       [
@@ -264,32 +286,18 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
         totalSales,
         netProfit,
         commissionEarned,
-        incomingCashierId,
-        notes || 'تم إتمام التسليم وتأكيد الجرد',
+        targetIncomingId,
+        notes || 'تم تسليم الوردية وإغلاقها بنجاح',
         shiftId,
       ]
-    );
-
-    const rateSetting = await client.query(
-      `SELECT value FROM settings WHERE key = $1`,
-      [SETTINGS_KEYS.COMMISSION_RATE]
-    );
-    const commissionRate = rateSetting.rows.length > 0 ? parseFloat(rateSetting.rows[0].value) : 0.10;
-
-    const newShiftRes = await client.query(
-      `INSERT INTO shifts (cashier_id, starting_cash, commission_rate, status, notes)
-       VALUES ($1, $2, $3, 'open', $4)
-       RETURNING *`,
-      [incomingCashierId, actualCash, commissionRate, `مستلمة من الوردية #${shiftId}`]
     );
 
     await client.query('COMMIT');
     inTransaction = false;
 
     return res.json({
-      message: 'تم إتمام تسليم الوردية بنجاح وفتح الوردية الجديدة',
+      message: 'تم إتمام تسليم الوردية وإغلاقها بنجاح. سيتم تسجيل الخروج الآن.',
       closed_shift_id: shiftId,
-      new_shift: newShiftRes.rows[0],
       financial_reconciliation: {
         closing_cash_actual: actualCash,
         closing_cash_expected: expectedCash,

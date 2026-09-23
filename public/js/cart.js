@@ -1,17 +1,47 @@
 /**
  * Hawasb Cafe POS - Multi-Tab Gaming Cafe Cart System (18 PCs + General)
+ * With Continuous LocalStorage Persistence
  */
 
-const defaultTabs = { 'عام': [] };
-for (let i = 1; i <= 18; i++) {
-  defaultTabs[`جهاز ${i}`] = [];
+const STORAGE_KEY_TABS = 'hawasb_cafe_pc_tabs_v2';
+const STORAGE_KEY_ACTIVE_TAB = 'hawasb_cafe_active_tab_v2';
+
+function initDefaultTabs() {
+  const tabs = { 'عام': [] };
+  for (let i = 1; i <= 18; i++) {
+    tabs[`جهاز ${i}`] = [];
+  }
+  return tabs;
+}
+
+function loadSavedTabs() {
+  const defaultTabs = initDefaultTabs();
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_TABS);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...defaultTabs, ...parsed };
+    }
+  } catch (e) {
+    console.error('Failed to parse saved tabs from localStorage', e);
+  }
+  return defaultTabs;
 }
 
 export const cartState = {
-  activeTab: 'عام',
-  tabs: defaultTabs,
+  activeTab: localStorage.getItem(STORAGE_KEY_ACTIVE_TAB) || 'عام',
+  tabs: loadSavedTabs(),
   selectedCustomerId: null,
 };
+
+function persistCartState() {
+  try {
+    localStorage.setItem(STORAGE_KEY_TABS, JSON.stringify(cartState.tabs));
+    localStorage.setItem(STORAGE_KEY_ACTIVE_TAB, cartState.activeTab);
+  } catch (e) {
+    console.error('Failed to persist cart state to localStorage', e);
+  }
+}
 
 export function getActiveCart() {
   if (!cartState.tabs[cartState.activeTab]) {
@@ -27,6 +57,7 @@ export function getTabCount(tabName) {
 
 export function switchTab(tabName) {
   cartState.activeTab = tabName;
+  persistCartState();
   renderPCTabs();
   renderCart();
 }
@@ -45,6 +76,7 @@ export function addToCart(item) {
       quantity: 1,
     });
   }
+  persistCartState();
   renderPCTabs();
   renderCart();
 }
@@ -59,12 +91,14 @@ export function updateQty(itemId, delta) {
     const idx = cart.indexOf(item);
     cart.splice(idx, 1);
   }
+  persistCartState();
   renderPCTabs();
   renderCart();
 }
 
 export function clearActiveCart() {
   cartState.tabs[cartState.activeTab] = [];
+  persistCartState();
   renderPCTabs();
   renderCart();
 }
@@ -111,6 +145,7 @@ export function renderCart() {
   const cart = getActiveCart();
 
   if (tabTitle) tabTitle.innerText = cartState.activeTab;
+  if (!cartItemsContainer || !subtotalEl) return;
 
   cartItemsContainer.innerHTML = '';
   let subtotal = 0;

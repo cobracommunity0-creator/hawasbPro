@@ -1,6 +1,5 @@
 /**
  * Hawasb Cafe POS - Canonical Shift Financial Report Service
- * Single source of truth for shift finances, drawer split, and profit calculation.
  */
 
 const db = require('../db');
@@ -127,7 +126,7 @@ async function getShiftReport(shiftId, dbClient = null) {
     }
   });
 
-  // 6. Shift Drawer Cash Expenses
+  // 6. Expenses from Drawer
   const expensesRes = await runner.query(
     `SELECT COALESCE(SUM(amount), 0) as total_expenses 
      FROM expenses 
@@ -136,7 +135,7 @@ async function getShiftReport(shiftId, dbClient = null) {
   );
   const totalExpenses = Number(expensesRes.rows[0].total_expenses);
 
-  // 7. Commission Calculation: strictly on cash drawer sales
+  // 7. Commission: strictly on cash drawer sales
   let commissionBasisSales = 0.00;
   if (commissionMethods.includes('cash')) commissionBasisSales += cashSales;
   if (commissionMethods.includes('vodafone_cash')) commissionBasisSales += vodafoneCashSales;
@@ -165,20 +164,18 @@ async function getShiftReport(shiftId, dbClient = null) {
     ? Number((closingCashActual - closingCashExpected).toFixed(2))
     : null;
 
-  // 9. Goods Cost Reserve and Owner Drawer Split
-  // Cash drawer covers all inventory restocking costs (COGS)
+  // 9. Goods Cost Reserve & Owner Drawer Split
   const restockingCOGSReserve = totalOrdersCOGS;
   const totalDrawerCashInflow = startingCash + cashSales + cashDebtCollected;
   const ownerDrawerNetCash = Number(
     (totalDrawerCashInflow - totalExpenses - commissionEarned - restockingCOGSReserve).toFixed(2)
   );
 
-  // Pure Profit channels: 100% of VF Cash and Shakak go to owner pure profit
   const ownerVodafoneProfit = vodafoneCashSales + vodafoneDebtCollected;
   const ownerShakakProfit = creditShakakSales;
   const totalOwnerProfit = Number((ownerDrawerNetCash + ownerVodafoneProfit + ownerShakakProfit).toFixed(2));
 
-  // 10. Item Sales Breakdown
+  // 10. Items Sold Breakdown
   const itemSalesRes = await runner.query(
     `SELECT 
         i.id as item_id,
@@ -196,14 +193,12 @@ async function getShiftReport(shiftId, dbClient = null) {
     [shiftId]
   );
 
-  // 11. Handover Shortages
+  // 11. Handover Shortages (Safe query without joining missing column)
   const handoverItemsRes = await runner.query(
     `SELECT 
-        hi.*, i.name as item_name, u.name as charged_cashier_name
+        hi.*, i.name as item_name
      FROM handover_items hi
      JOIN items i ON hi.item_id = i.id
-     LEFT JOIN shifts s ON hi.shift_id = s.id
-     LEFT JOIN users u ON s.incoming_cashier_id = u.id
      WHERE hi.shift_id = $1
      ORDER BY hi.discrepancy_cost DESC`,
     [shiftId]
@@ -271,7 +266,7 @@ async function getShiftReport(shiftId, dbClient = null) {
       shortage_qty: Number(row.discrepancy_qty),
       unit_cost: Number(row.unit_cost),
       shortage_cost: Number(row.discrepancy_cost),
-      charged_cashier: row.charged_cashier_name || 'الشيفتاجي المستلم',
+      charged_cashier: 'الشيفتاجي المستلم',
     })),
   };
 }

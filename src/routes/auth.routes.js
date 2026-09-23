@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Authentication Routes
- * Bcrypt PIN verification with Strict Active Shift Lockout (Zero Exception)
+ * Bcrypt PIN verification with Cashier Concurrency Guard
  */
 
 const express = require('express');
@@ -12,7 +12,12 @@ const { authenticateToken } = require('../middleware/auth');
 
 /**
  * POST /api/auth/login
- * Verifies PIN and strictly blocks anyone other than the active shift's cashier from logging in.
+ * Allows:
+ * 1. Anyone if zero shifts are open.
+ * 2. The active shift's cashier to resume.
+ * 3. The Owner/Admin to log in as supervisor/manager (without interfering with the shift).
+ * Blocks:
+ * Other cashiers from entering while someone else has an active shift running.
  */
 router.post('/login', async (req, res) => {
   const { username, pin } = req.body;
@@ -57,7 +62,6 @@ router.post('/login', async (req, res) => {
           console.error(`[Auth] Bcrypt compare error for user ${u.username}:`, bcryptErr.message);
         }
       } else if (u.pin_hash === inputPin) {
-        // Auto-upgrade legacy plaintext to bcrypt
         const upgradedHash = await bcrypt.hash(inputPin, 10);
         await client.query('UPDATE users SET pin_hash = $1, updated_at = NOW() WHERE id = $2', [upgradedHash, u.id]);
         matchedUser = u;
@@ -73,7 +77,7 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'هذا الحساب معطل حالياً. يرجى مراجعة المالك.' });
     }
 
-    // Strict Shift Lockout: Check if any shift is currently open
+    // Cashier Concurrency Guard: Check if an active shift is running
     const activeShiftRes = await client.query(
       `SELECT s.id, s.cashier_id, u.name as cashier_name 
        FROM shifts s 
@@ -84,11 +88,12 @@ router.post('/login', async (req, res) => {
 
     if (activeShiftRes.rows.length > 0) {
       const activeShift = activeShiftRes.rows[0];
-      
-      // Strict Check: ONLY the exact cashier who opened this active shift is allowed in
-      if (matchedUser.id !== activeShift.cashier_id) {
+
+      // If a shift is open, other cashiers cannot log in until it is handed over
+      // The shift's cashier and the Owner are allowed
+      if (matchedUser.role !== 'owner' && matchedUser.id !== activeShift.cashier_id) {
         return res.status(403).json({
-          error: `المنظومة مقفلة تماماً: توجد وردية نشطة حالياً للشيفتاجي (${activeShift.cashier_name}). لا يمكن لأي شخص آخر (بما في ذلك المالك) الدخول حتى يتم تسليم الوردية وإغلاقها منعاً لتداخل الحسابات.`,
+          error: `توجد وردية نشطة حالياً للشيفتاجي (${activeShift.cashier_name}). لا يمكن لشيفتاجي آخر تسجيل الدخول حتى يتم تسليم الوردية وإغلاقها.`,
         });
       }
     }

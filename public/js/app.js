@@ -156,7 +156,6 @@ function initCustomerAccounts() {
 
   btnClose.onclick = () => modal.classList.add('hidden');
 
-  // Quick Customer Modal
   const quickModal = document.getElementById('quick-add-customer-modal');
   const btnOpenQuick = document.getElementById('btn-quick-add-customer');
   const btnCloseQuick = document.getElementById('btn-close-quick-customer');
@@ -439,6 +438,10 @@ async function renderAdminItemsTable() {
 
 // App Initialization
 window.addEventListener('DOMContentLoaded', () => {
+  // Synchronously render PC tabs and cart immediately from localStorage on startup
+  renderPCTabs();
+  renderCart();
+
   initAuth(async (user) => {
     document.getElementById('logged-user-name').innerText = user.name;
 
@@ -456,6 +459,7 @@ window.addEventListener('DOMContentLoaded', () => {
       else btnAdminItems.classList.add('hidden');
     }
 
+    // Refresh tabs display
     renderPCTabs();
     renderCart();
 
