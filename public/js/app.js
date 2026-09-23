@@ -6,7 +6,7 @@ import { request, showToast } from './api.js';
 import { initAuth, authState } from './auth.js';
 import { addToCart, cartState } from './cart.js';
 import { initCheckout } from './checkout.js';
-import { initShiftHandover, fetchCurrentShift } from './shift.js';
+import { initOpenShift, initShiftHandover, fetchCurrentShift } from './shift.js';
 import { initReports } from './reports.js';
 
 async function loadItems() {
@@ -70,7 +70,6 @@ async function loadCustomers() {
   }
 }
 
-// Global Force Close Modal setup for Owner (Bug E)
 function initForceClose() {
   const forceModal = document.getElementById('force-close-modal');
   const btnOpenForce = document.getElementById('btn-open-force-close');
@@ -121,14 +120,22 @@ window.addEventListener('DOMContentLoaded', () => {
     await fetchCurrentShift();
     await loadItems();
     await loadCustomers();
+    
+    initOpenShift(() => {
+      loadItems();
+      loadCustomers();
+    });
+    
     initCheckout(() => {
       loadItems();
       loadCustomers();
     });
+    
     initShiftHandover(() => {
       loadItems();
       loadCustomers();
     });
+    
     initReports();
     initForceClose();
   });

@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Shift Management & Handover
- * Fixes missing closing cash (Bug D) and single active shift constraint (Bug E)
+ * Supports opening shifts, seamless handovers, and drawer cash tracking
  */
 
 import { request, showToast } from './api.js';
@@ -22,16 +22,80 @@ export async function fetchCurrentShift() {
 export function renderShiftBadge(shift) {
   const badge = document.getElementById('shift-status-badge');
   const infoText = document.getElementById('shift-info-text');
+  const btnOpenShift = document.getElementById('btn-open-shift');
+  const btnOpenHandover = document.getElementById('btn-open-handover');
 
   if (shift && (shift.status === 'open' || shift.status === 'pending_handover')) {
     badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800';
     badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
     infoText.innerText = `الشيفتاجي: ${shift.cashier_name || 'أنت'} | البداية: ${shift.starting_cash} ج.م`;
+    
+    // Toggle action buttons
+    if (btnOpenShift) btnOpenShift.classList.add('hidden');
+    if (btnOpenHandover) btnOpenHandover.classList.remove('hidden');
   } else {
     badge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800';
     badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500 ml-1.5"></span>لا توجد وردية مفتوحة`;
-    infoText.innerText = `يجب فتح وردية لإتمام العمليات`;
+    infoText.innerText = `يجب فتح وردية لإتمام المبيعات`;
+
+    // Toggle action buttons
+    if (btnOpenShift) btnOpenShift.classList.remove('hidden');
+    if (btnOpenHandover) btnOpenHandover.classList.add('hidden');
   }
+}
+
+export function initOpenShift(onShiftOpened) {
+  const openShiftModal = document.getElementById('open-shift-modal');
+  const btnOpenShift = document.getElementById('btn-open-shift');
+  const btnCloseOpenShift = document.getElementById('btn-close-open-shift');
+  const btnSubmitOpenShift = document.getElementById('btn-submit-open-shift');
+  const startingCashInput = document.getElementById('open-shift-starting-cash');
+  const notesInput = document.getElementById('open-shift-notes');
+
+  if (!btnOpenShift || !openShiftModal) return;
+
+  btnOpenShift.onclick = () => {
+    openShiftModal.classList.remove('hidden');
+  };
+
+  btnCloseOpenShift.onclick = () => {
+    openShiftModal.classList.add('hidden');
+  };
+
+  btnSubmitOpenShift.onclick = async () => {
+    const startingCash = parseFloat(startingCashInput.value);
+
+    if (isNaN(startingCash) || startingCash < 0) {
+      showToast('يرجى إدخال نقدية بداية الوردية بشكل صحيح (0 أو أكثر)', 'error');
+      return;
+    }
+
+    btnSubmitOpenShift.disabled = true;
+    btnSubmitOpenShift.innerText = 'جاري فتح الوردية...';
+
+    try {
+      const res = await request('/api/shifts/open', {
+        method: 'POST',
+        body: JSON.stringify({
+          starting_cash: startingCash,
+          notes: notesInput.value || '',
+        }),
+      });
+
+      showToast(res.message || 'تم فتح الوردية بنجاح', 'success');
+      openShiftModal.classList.add('hidden');
+      startingCashInput.value = '';
+      notesInput.value = '';
+
+      await fetchCurrentShift();
+      if (onShiftOpened) onShiftOpened(res.shift);
+    } catch (err) {
+      console.error('[Open Shift Error]:', err);
+    } finally {
+      btnSubmitOpenShift.disabled = false;
+      btnSubmitOpenShift.innerText = 'تأكيد فتح الوردية';
+    }
+  };
 }
 
 export function initShiftHandover(onHandoverComplete) {
@@ -39,6 +103,8 @@ export function initShiftHandover(onHandoverComplete) {
   const openHandoverBtn = document.getElementById('btn-open-handover');
   const submitHandoverBtn = document.getElementById('btn-submit-handover');
   const closeHandoverBtn = document.getElementById('btn-close-handover');
+
+  if (!openHandoverBtn || !handoverModal) return;
 
   openHandoverBtn.onclick = async () => {
     if (!currentShift) {
@@ -80,7 +146,6 @@ export function initShiftHandover(onHandoverComplete) {
     const cashInput = document.getElementById('handover-actual-cash');
     const actualCash = parseFloat(cashInput.value);
 
-    // Bug D Validation: Do not allow proceeding without counting physical drawer cash
     if (isNaN(actualCash) || actualCash < 0) {
       showToast('يرجى إدخال مبلغ النقدية الفعلي الموجود في الدرج بدقة!', 'error');
       return;

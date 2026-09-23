@@ -16,7 +16,7 @@
 </head>
 <body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
 
-  <!-- Toast Notification Container (Bug I) -->
+  <!-- Toast Notification Container -->
   <div id="toast-container" class="fixed top-4 left-4 z-50 w-80 space-y-2 pointer-events-auto"></div>
 
   <!-- Top Navigation Bar -->
@@ -33,13 +33,18 @@
     </div>
 
     <div class="flex items-center space-x-3 space-x-reverse">
+      <!-- Open Shift Trigger (Shown when no active shift exists) -->
+      <button id="btn-open-shift" class="hidden px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition shadow animate-pulse">
+        + فتح وردية جديدة
+      </button>
+
       <button id="btn-open-force-close" class="hidden px-3 py-1.5 text-xs bg-rose-700 hover:bg-rose-800 text-white rounded font-bold transition">
         إغلاق اضطراري (المالك)
       </button>
       <button id="btn-open-report" class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded font-bold transition">
         تقرير الوردية
       </button>
-      <button id="btn-open-handover" class="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition">
+      <button id="btn-open-handover" class="hidden px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition">
         تسليم الوردية
       </button>
       <div class="h-6 w-px bg-gray-700"></div>
@@ -96,7 +101,7 @@
           </select>
         </div>
 
-        <!-- Payment Method Toggle Buttons (Bug C: Fixed IDs) -->
+        <!-- Payment Method Toggle Buttons -->
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">طريقة الدفع:</label>
           <div class="flex gap-2">
@@ -112,7 +117,7 @@
           </div>
         </div>
 
-        <!-- Checkout Submit Button (Bug B) -->
+        <!-- Checkout Submit Button -->
         <button id="btn-submit-order" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition">
           إتمام البيع
         </button>
@@ -147,7 +152,36 @@
     </div>
   </div>
 
-  <!-- MODAL: Shift Handover & Actual Cash Input (Bug D) -->
+  <!-- MODAL: Open New Shift -->
+  <div id="open-shift-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-right">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+        <h3 class="font-bold text-gray-800 text-base">فتح وردية جديدة</h3>
+        <button id="btn-close-open-shift" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="py-4 space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">نقدية بداية الوردية (العهدة بالدرج) *:</label>
+          <input type="number" id="open-shift-starting-cash" step="0.5" min="0" placeholder="0.00" value="0.00"
+            class="w-full px-3 py-2 border-2 border-emerald-600 rounded-lg text-lg font-black text-center text-emerald-800 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">ملاحظات البداية (اختياري):</label>
+          <input type="text" id="open-shift-notes" placeholder="مثال: استلام الوردية الصباحية"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs">
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button id="btn-submit-open-shift" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow">
+          تأكيد فتح الوردية
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Shift Handover & Actual Cash Input -->
   <div id="handover-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
       <div class="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -187,7 +221,7 @@
     </div>
   </div>
 
-  <!-- MODAL: Canonical Shift Report (Bug G) -->
+  <!-- MODAL: Canonical Shift Report -->
   <div id="report-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
       <div class="flex items-center justify-between pb-3 border-b border-gray-100">
@@ -241,7 +275,7 @@
     </div>
   </div>
 
-  <!-- MODAL: Force Close Stuck Shift (Bug E) -->
+  <!-- MODAL: Force Close Stuck Shift -->
   <div id="force-close-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 text-center">
       <h3 class="font-bold text-gray-900 text-base mb-1">إغلاق اضطراري لوردية معلقة</h3>
