@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Authentication Routes
- * Hardened bcrypt verification with automated plaintext migration (Bug J)
+ * Bcrypt PIN verification with Strict Active Shift Lockout (Zero Exception)
  */
 
 const express = require('express');
@@ -12,8 +12,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 /**
  * POST /api/auth/login
- * Verifies PIN against bcrypt hash. If legacy plaintext is detected,
- * it verifies, re-hashes using bcrypt, updates the database, and logs in.
+ * Verifies PIN and strictly blocks anyone other than the active shift's cashier from logging in.
  */
 router.post('/login', async (req, res) => {
   const { username, pin } = req.body;
@@ -47,7 +46,6 @@ router.post('/login', async (req, res) => {
     for (const u of users) {
       if (!u.pin_hash) continue;
 
-      // 1. Standard Bcrypt verification
       if (u.pin_hash.startsWith('$2')) {
         try {
           const isMatch = await bcrypt.compare(inputPin, u.pin_hash);
@@ -58,10 +56,8 @@ router.post('/login', async (req, res) => {
         } catch (bcryptErr) {
           console.error(`[Auth] Bcrypt compare error for user ${u.username}:`, bcryptErr.message);
         }
-      } 
-      // 2. Automated Plaintext Migration (Requirement J)
-      else if (u.pin_hash === inputPin) {
-        console.log(`[Auth Migration] Re-hashing legacy plaintext PIN for user: ${u.username}`);
+      } else if (u.pin_hash === inputPin) {
+        // Auto-upgrade legacy plaintext to bcrypt
         const upgradedHash = await bcrypt.hash(inputPin, 10);
         await client.query('UPDATE users SET pin_hash = $1, updated_at = NOW() WHERE id = $2', [upgradedHash, u.id]);
         matchedUser = u;
@@ -75,6 +71,26 @@ router.post('/login', async (req, res) => {
 
     if (!matchedUser.is_active) {
       return res.status(403).json({ error: 'هذا الحساب معطل حالياً. يرجى مراجعة المالك.' });
+    }
+
+    // Strict Shift Lockout: Check if any shift is currently open
+    const activeShiftRes = await client.query(
+      `SELECT s.id, s.cashier_id, u.name as cashier_name 
+       FROM shifts s 
+       JOIN users u ON s.cashier_id = u.id 
+       WHERE s.status IN ('open', 'pending_handover') 
+       LIMIT 1`
+    );
+
+    if (activeShiftRes.rows.length > 0) {
+      const activeShift = activeShiftRes.rows[0];
+      
+      // Strict Check: ONLY the exact cashier who opened this active shift is allowed in
+      if (matchedUser.id !== activeShift.cashier_id) {
+        return res.status(403).json({
+          error: `المنظومة مقفلة تماماً: توجد وردية نشطة حالياً للشيفتاجي (${activeShift.cashier_name}). لا يمكن لأي شخص آخر (بما في ذلك المالك) الدخول حتى يتم تسليم الوردية وإغلاقها منعاً لتداخل الحسابات.`,
+        });
+      }
     }
 
     const payload = {
