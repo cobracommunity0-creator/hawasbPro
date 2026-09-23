@@ -1,5 +1,5 @@
 /**
- * Hawasb Cafe POS - Shifts & Handover Routes
+ * Hawasb Cafe POS - Shifts, Reports & Live Stats Routes
  */
 
 const express = require('express');
@@ -10,8 +10,30 @@ const { getShiftReport } = require('../services/shiftReportService');
 const { SHIFT_STATUS, SETTINGS_KEYS } = require('../config/constants');
 
 /**
+ * GET /api/shifts
+ * List all past and present shifts for admin reports review
+ */
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT s.id, s.cashier_id, u.name as cashier_name, s.start_time, s.end_time,
+              s.starting_cash, s.closing_cash_actual, s.closing_cash_expected, s.cash_discrepancy,
+              s.total_sales, s.net_profit, s.commission_earned, s.status, s.notes
+       FROM shifts s
+       JOIN users u ON s.cashier_id = u.id
+       ORDER BY s.id DESC
+       LIMIT 50`
+    );
+    return res.json(rows);
+  } catch (err) {
+    console.error('[Get Shifts History Error]:', err);
+    return res.status(500).json({ error: 'فشل في جلب سجل الورديات' });
+  }
+});
+
+/**
  * GET /api/shifts/current
- * Returns the currently active shift (open or pending_handover)
+ * Returns the currently active shift
  */
 router.get('/current', authenticateToken, async (req, res) => {
   try {
@@ -35,8 +57,42 @@ router.get('/current', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/shifts/current/live-stats
+ * Real-time stats for the cashier: cash drawer sales, commission, and restocking fund
+ */
+router.get('/current/live-stats', authenticateToken, async (req, res) => {
+  try {
+    const shiftRes = await db.query(
+      `SELECT id FROM shifts WHERE status = 'open' LIMIT 1`
+    );
+
+    if (shiftRes.rows.length === 0) {
+      return res.json({ active: false, stats: null });
+    }
+
+    const report = await getShiftReport(shiftRes.rows[0].id);
+
+    return res.json({
+      active: true,
+      shift_id: shiftRes.rows[0].id,
+      stats: {
+        cash_sales: report.sales.cash_sales,
+        cashier_commission_earned: report.commission.earned,
+        restocking_cogs_reserve: report.drawer_split.restocking_cogs_reserve,
+        starting_cash: report.cash_drawer.starting_cash,
+        cash_debt_collected: report.sales.debt_collected_cash,
+        drawer_expected: report.cash_drawer.closing_cash_expected,
+      },
+    });
+  } catch (err) {
+    console.error('[Get Live Stats Error]:', err);
+    return res.status(500).json({ error: 'فشل في حساب الإحصائيات الفورية' });
+  }
+});
+
+/**
  * POST /api/shifts/open
- * Opens a brand new shift. Enforces DB constraint for single active shift.
+ * Opens a brand new shift
  */
 router.post('/open', authenticateToken, async (req, res) => {
   const { starting_cash, notes } = req.body;
@@ -48,7 +104,6 @@ router.post('/open', authenticateToken, async (req, res) => {
 
   const client = await db.getClient();
   try {
-    // Check for any currently active shift
     const existingActive = await client.query(
       `SELECT id, status FROM shifts WHERE status IN ('open', 'pending_handover') LIMIT 1`
     );
@@ -59,7 +114,6 @@ router.post('/open', authenticateToken, async (req, res) => {
       });
     }
 
-    // Read current default commission rate from settings
     const rateSetting = await client.query(
       `SELECT value FROM settings WHERE key = $1`,
       [SETTINGS_KEYS.COMMISSION_RATE]
@@ -78,7 +132,6 @@ router.post('/open', authenticateToken, async (req, res) => {
       shift: newShiftRes.rows[0],
     });
   } catch (err) {
-    // Database partial index violation catch (Bug E)
     if (err.code === '23505') {
       return res.status(400).json({ error: 'عذراً، توجد وردية نشطة مفتوحة بالفعل بالنظام ولا يمكن تكرارها.' });
     }
@@ -91,9 +144,7 @@ router.post('/open', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/:id/accept-handover
- * Direct Handover Acceptance endpoint (Bugs D & Business Rule 6).
- * Accepts actual cash counted, calculates expected cash & inventory shortage,
- * charges shortage to INCOMING cashier, closes old shift, and opens new shift.
+ * Direct Handover Acceptance endpoint
  */
 router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
   const shiftId = parseInt(req.params.id, 10);
@@ -125,16 +176,14 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
     await client.query('BEGIN');
     inTransaction = true;
 
-    // 1. Calculate Full Financial Report using single shared function (Bugs D & G)
     const report = await getShiftReport(shiftId, client);
 
     const expectedCash = report.cash_drawer.closing_cash_expected;
     const cashDiscrepancy = Number((actualCash - expectedCash).toFixed(2));
-    const totalSales = report.profitability.total_revenue;
-    const netProfit = report.profitability.net_profit;
+    const totalSales = report.sales.total_sales;
+    const netProfit = report.drawer_split.total_owner_profit;
     const commissionEarned = report.commission.earned;
 
-    // 2. Process Handover Inventory Manual Counts (Business Rule 6)
     let totalShortageDebt = 0.00;
     const incomingCashierId = req.user.id;
 
@@ -162,7 +211,6 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
           totalShortageDebt += discrepancyCost;
         }
 
-        // Record handover item count record
         await client.query(
           `INSERT INTO handover_items 
             (shift_id, item_id, system_qty, actual_qty, discrepancy_qty, unit_cost, discrepancy_cost)
@@ -170,7 +218,6 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
           [shiftId, itemId, systemQty, actualCount, discrepancyQty, unitCost, discrepancyCost]
         );
 
-        // Synchronize inventory to manual actual count
         await client.query(
           `UPDATE items SET current_stock = $1, updated_at = NOW() WHERE id = $2`,
           [actualCount, itemId]
@@ -178,30 +225,24 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       }
     }
 
-    // 3. Charge Shortage Debt to INCOMING Cashier (Business Rule 6)
     if (totalShortageDebt > 0) {
-      // Find incoming cashier's customer profile or create one
       const custRes = await client.query(
         `SELECT id, current_debt FROM customers WHERE id = $1 FOR UPDATE`,
         [incomingCashierId]
       );
 
-      let targetCustId = null;
       if (custRes.rows.length > 0) {
-        targetCustId = custRes.rows[0].id;
+        const targetCustId = custRes.rows[0].id;
         const newDebt = Number((Number(custRes.rows[0].current_debt) + totalShortageDebt).toFixed(2));
-        await client.query(`UPDATE customers SET current_debt = $1 WHERE id = $2`, [newDebt, targetCustId]);
+        await client.query(`UPDATE customers SET current_debt = $1, updated_at = NOW() WHERE id = $2`, [newDebt, targetCustId]);
       } else {
-        // Fallback: create customer record for incoming cashier
-        const newCustRes = await client.query(
-          `INSERT INTO customers (name, current_debt) VALUES ($1, $2) RETURNING id`,
+        await client.query(
+          `INSERT INTO customers (name, current_debt) VALUES ($1, $2)`,
           [`شيفتاجي #${incomingCashierId}`, totalShortageDebt]
         );
-        targetCustId = newCustRes.rows[0].id;
       }
     }
 
-    // 4. Close the Old Shift
     await client.query(
       `UPDATE shifts 
        SET status = 'closed',
@@ -229,7 +270,6 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       ]
     );
 
-    // 5. Seamlessly open the incoming shift for the 24-hour café
     const rateSetting = await client.query(
       `SELECT value FROM settings WHERE key = $1`,
       [SETTINGS_KEYS.COMMISSION_RATE]
@@ -261,9 +301,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
     if (inTransaction) {
       try {
         await client.query('ROLLBACK');
-      } catch (rbErr) {
-        console.error('[Rollback Error]:', rbErr);
-      }
+      } catch (rbErr) {}
     }
     console.error('[Handover Error]:', err);
     return res.status(500).json({ error: err.message || 'فشل في إتمام عملية تسليم الوردية' });
@@ -274,7 +312,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/:id/force-close
- * Admin recovery endpoint to force-close stuck or orphaned shifts (Bug E)
+ * Admin recovery endpoint
  */
 router.post('/:id/force-close', authenticateToken, requireOwner, async (req, res) => {
   const shiftId = parseInt(req.params.id, 10);
@@ -285,26 +323,7 @@ router.post('/:id/force-close', authenticateToken, requireOwner, async (req, res
   }
 
   const client = await db.getClient();
-  let inTransaction = false;
-
   try {
-    const shiftRes = await client.query(
-      `SELECT id, status FROM shifts WHERE id = $1 FOR UPDATE`,
-      [shiftId]
-    );
-
-    if (shiftRes.rows.length === 0) {
-      return res.status(404).json({ error: 'الوردية غير موجودة' });
-    }
-
-    const shift = shiftRes.rows[0];
-    if (shift.status === 'closed' || shift.status === 'force_closed') {
-      return res.status(400).json({ error: 'هذه الوردية مغلقة بالفعل' });
-    }
-
-    await client.query('BEGIN');
-    inTransaction = true;
-
     const report = await getShiftReport(shiftId, client);
     const actualCash = closing_cash_actual !== undefined && closing_cash_actual !== null
       ? parseFloat(closing_cash_actual)
@@ -334,19 +353,8 @@ router.post('/:id/force-close', authenticateToken, requireOwner, async (req, res
       ]
     );
 
-    await client.query('COMMIT');
-    inTransaction = false;
-
-    return res.json({
-      message: 'تم إغلاق الوردية المعلقة اضطرارياً بنجاح بواسطة المالك',
-      shift_id: shiftId,
-    });
+    return res.json({ message: 'تم إغلاق الوردية اضطرارياً بنجاح', shift_id: shiftId });
   } catch (err) {
-    if (inTransaction) {
-      try {
-        await client.query('ROLLBACK');
-      } catch (rb) {}
-    }
     console.error('[Force Close Shift Error]:', err);
     return res.status(500).json({ error: 'فشل في إغلاق الوردية اضطرارياً' });
   } finally {
@@ -356,7 +364,6 @@ router.post('/:id/force-close', authenticateToken, requireOwner, async (req, res
 
 /**
  * GET /api/shifts/:id/report
- * Canonical wrapper calling shiftReportService (Bug G)
  */
 router.get('/:id/report', authenticateToken, async (req, res) => {
   try {

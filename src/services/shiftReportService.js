@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Canonical Shift Financial Report Service
- * Single source of truth for all shift financial calculations, sales, COGS, commissions, and drawer cash.
+ * Single source of truth for shift finances, drawer split, and profit calculation.
  */
 
 const db = require('../db');
@@ -26,7 +26,7 @@ async function getShiftReport(shiftId, dbClient = null) {
 
   const shift = shiftRes.rows[0];
 
-  // 2. Fetch System Settings for Commission & Rates
+  // 2. Fetch System Settings
   const settingsRes = await runner.query(
     `SELECT key, value FROM settings WHERE key IN ($1, $2, $3)`,
     [SETTINGS_KEYS.COMMISSION_RATE, SETTINGS_KEYS.COMMISSION_PAYMENT_METHODS, SETTINGS_KEYS.DAILY_FIXED_COST]
@@ -34,7 +34,6 @@ async function getShiftReport(shiftId, dbClient = null) {
 
   let commissionRate = DEFAULT_COMMISSION_RATE;
   let commissionMethods = DEFAULT_COMMISSION_PAYMENT_METHODS;
-  let dailyFixedCost = 0.00;
 
   settingsRes.rows.forEach((row) => {
     if (row.key === SETTINGS_KEYS.COMMISSION_RATE) {
@@ -42,13 +41,9 @@ async function getShiftReport(shiftId, dbClient = null) {
       if (!isNaN(parsed) && parsed >= 0) commissionRate = parsed;
     } else if (row.key === SETTINGS_KEYS.COMMISSION_PAYMENT_METHODS) {
       commissionMethods = row.value.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
-    } else if (row.key === SETTINGS_KEYS.DAILY_FIXED_COST) {
-      const parsed = parseFloat(row.value);
-      if (!isNaN(parsed) && parsed >= 0) dailyFixedCost = parsed;
     }
   });
 
-  // If shift already recorded a frozen commission rate upon creation/close, use that rate
   if (shift.commission_rate !== null && shift.commission_rate !== undefined) {
     commissionRate = Number(shift.commission_rate);
   }
@@ -105,7 +100,7 @@ async function getShiftReport(shiftId, dbClient = null) {
     else if (row.payment_method === 'vodafone_cash') vodafoneDebtCollected += amt;
   });
 
-  // 5. Personal Consumptions Breakdown (Staff vs Owner)
+  // 5. Personal Consumptions Breakdown
   const consumptionsRes = await runner.query(
     `SELECT 
         is_owner,
@@ -132,7 +127,7 @@ async function getShiftReport(shiftId, dbClient = null) {
     }
   });
 
-  // 6. Expenses taken from Cash Drawer during this shift
+  // 6. Shift Drawer Cash Expenses
   const expensesRes = await runner.query(
     `SELECT COALESCE(SUM(amount), 0) as total_expenses 
      FROM expenses 
@@ -141,8 +136,7 @@ async function getShiftReport(shiftId, dbClient = null) {
   );
   const totalExpenses = Number(expensesRes.rows[0].total_expenses);
 
-  // 7. Calculate Commission
-  // Determine sales eligible for commission based on configurable methods
+  // 7. Commission Calculation: strictly on cash drawer sales
   let commissionBasisSales = 0.00;
   if (commissionMethods.includes('cash')) commissionBasisSales += cashSales;
   if (commissionMethods.includes('vodafone_cash')) commissionBasisSales += vodafoneCashSales;
@@ -150,7 +144,6 @@ async function getShiftReport(shiftId, dbClient = null) {
 
   const commissionEarned = Number((commissionBasisSales * commissionRate).toFixed(2));
 
-  // Bug G Safe check: explicit non-null check to preserve legitimate 0 values
   const commissionPaidCash = (shift.commission_paid_cash !== null && shift.commission_paid_cash !== undefined)
     ? Number(shift.commission_paid_cash)
     : 0.00;
@@ -159,8 +152,7 @@ async function getShiftReport(shiftId, dbClient = null) {
     ? Number(shift.starting_cash)
     : 0.00;
 
-  // 8. Drawer Cash Reconciliation
-  // Physical Drawer Expected = Starting Cash + Physical Cash Sales + Cash Debt Repayments - Paid Commission - Cash Expenses
+  // 8. Physical Drawer Cash Calculation
   const closingCashExpected = Number(
     (startingCash + cashSales + cashDebtCollected - commissionPaidCash - totalExpenses).toFixed(2)
   );
@@ -173,14 +165,20 @@ async function getShiftReport(shiftId, dbClient = null) {
     ? Number((closingCashActual - closingCashExpected).toFixed(2))
     : null;
 
-  // 9. Profit & Loss (Accounting Perspective)
-  // Total Revenue includes Cash + Vodafone Cash (Owner wallet) + Shakak Credit tabs
-  const totalRevenue = totalOrdersSales;
-  const totalCOGS = totalOrdersCOGS + staffConsumptionCost + ownerConsumptionCost;
-  const grossProfit = Number((totalRevenue - totalCOGS).toFixed(2));
-  const netProfit = Number((grossProfit - commissionEarned - totalExpenses).toFixed(2));
+  // 9. Goods Cost Reserve and Owner Drawer Split
+  // Cash drawer covers all inventory restocking costs (COGS)
+  const restockingCOGSReserve = totalOrdersCOGS;
+  const totalDrawerCashInflow = startingCash + cashSales + cashDebtCollected;
+  const ownerDrawerNetCash = Number(
+    (totalDrawerCashInflow - totalExpenses - commissionEarned - restockingCOGSReserve).toFixed(2)
+  );
 
-  // 10. Detailed Sales by Item
+  // Pure Profit channels: 100% of VF Cash and Shakak go to owner pure profit
+  const ownerVodafoneProfit = vodafoneCashSales + vodafoneDebtCollected;
+  const ownerShakakProfit = creditShakakSales;
+  const totalOwnerProfit = Number((ownerDrawerNetCash + ownerVodafoneProfit + ownerShakakProfit).toFixed(2));
+
+  // 10. Item Sales Breakdown
   const itemSalesRes = await runner.query(
     `SELECT 
         i.id as item_id,
@@ -198,12 +196,14 @@ async function getShiftReport(shiftId, dbClient = null) {
     [shiftId]
   );
 
-  // 11. Handover Items Shortage (if recorded)
+  // 11. Handover Shortages
   const handoverItemsRes = await runner.query(
     `SELECT 
-        hi.*, i.name as item_name 
+        hi.*, i.name as item_name, u.name as charged_cashier_name
      FROM handover_items hi
      JOIN items i ON hi.item_id = i.id
+     LEFT JOIN shifts s ON hi.shift_id = s.id
+     LEFT JOIN users u ON s.incoming_cashier_id = u.id
      WHERE hi.shift_id = $1
      ORDER BY hi.discrepancy_cost DESC`,
     [shiftId]
@@ -219,26 +219,19 @@ async function getShiftReport(shiftId, dbClient = null) {
       status: shift.status,
       notes: shift.notes,
       incoming_cashier_id: shift.incoming_cashier_id,
-      force_closed_at: shift.force_closed_at,
-      force_closed_reason: shift.force_closed_reason,
     },
     sales: {
       cash_sales: cashSales,
       vodafone_cash_sales: vodafoneCashSales,
       credit_shakak_sales: creditShakakSales,
-      total_sales: totalRevenue,
+      total_sales: totalOrdersSales,
       debt_collected_cash: cashDebtCollected,
       debt_collected_vodafone: vodafoneDebtCollected,
-    },
-    consumptions: {
-      staff_cost: staffConsumptionCost,
-      staff_charged: staffConsumptionCharged,
-      owner_cost: ownerConsumptionCost,
     },
     commission: {
       rate: commissionRate,
       rate_percentage: `${(commissionRate * 100).toFixed(0)}%`,
-      eligible_sales: commissionBasisSales,
+      eligible_cash_sales: commissionBasisSales,
       earned: commissionEarned,
       paid_from_drawer: commissionPaidCash,
     },
@@ -252,14 +245,14 @@ async function getShiftReport(shiftId, dbClient = null) {
       closing_cash_actual: closingCashActual,
       discrepancy: cashDiscrepancy,
     },
-    profitability: {
-      total_revenue: totalRevenue,
-      cogs_orders: totalOrdersCOGS,
-      cogs_consumptions: staffConsumptionCost + ownerConsumptionCost,
-      total_cogs: totalCOGS,
-      gross_profit: grossProfit,
-      net_profit: netProfit,
+    drawer_split: {
+      restocking_cogs_reserve: restockingCOGSReserve,
+      commission_earned: commissionEarned,
       expenses: totalExpenses,
+      owner_drawer_net_cash: ownerDrawerNetCash,
+      vodafone_pure_profit: ownerVodafoneProfit,
+      shakak_pure_profit: ownerShakakProfit,
+      total_owner_profit: totalOwnerProfit,
     },
     items_breakdown: itemSalesRes.rows.map((row) => ({
       item_id: row.item_id,
@@ -278,6 +271,7 @@ async function getShiftReport(shiftId, dbClient = null) {
       shortage_qty: Number(row.discrepancy_qty),
       unit_cost: Number(row.unit_cost),
       shortage_cost: Number(row.discrepancy_cost),
+      charged_cashier: row.charged_cashier_name || 'الشيفتاجي المستلم',
     })),
   };
 }

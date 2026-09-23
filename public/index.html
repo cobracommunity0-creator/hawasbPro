@@ -20,105 +20,138 @@
   <div id="toast-container" class="fixed top-4 left-4 z-50 w-80 space-y-2 pointer-events-auto"></div>
 
   <!-- Top Navigation Bar -->
-  <header class="bg-gray-900 text-white px-6 py-3 shadow-md flex items-center justify-between">
-    <div class="flex items-center space-x-4 space-x-reverse">
-      <div class="flex items-center space-x-2 space-x-reverse">
-        <span class="text-2xl">☕</span>
-        <h1 class="text-xl font-extrabold tracking-wide">كافيه حواسب <span class="text-xs text-emerald-400 font-semibold">Hawasb POS</span></h1>
+  <header class="bg-gray-900 text-white px-4 py-2.5 shadow-md flex items-center justify-between">
+    <div class="flex items-center space-x-3 space-x-reverse">
+      <div class="flex items-center space-x-1.5 space-x-reverse">
+        <span class="text-xl">☕</span>
+        <h1 class="text-lg font-black tracking-wide">كافيه حواسب <span class="text-[11px] text-emerald-400 font-semibold">POS</span></h1>
       </div>
-      <div id="shift-status-badge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-800 text-gray-400">
+      <div id="shift-status-badge" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-800 text-gray-400">
         جاري فحص الوردية...
       </div>
-      <span id="shift-info-text" class="text-xs text-gray-400 font-medium hidden md:inline"></span>
+      <span id="shift-info-text" class="text-xs text-gray-400 hidden lg:inline"></span>
     </div>
 
-    <div class="flex items-center space-x-3 space-x-reverse">
-      <!-- Open Shift Trigger (Shown when no active shift exists) -->
-      <button id="btn-open-shift" class="hidden px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition shadow animate-pulse">
-        + فتح وردية جديدة
+    <div class="flex items-center space-x-2 space-x-reverse">
+      <button id="btn-open-shift" class="hidden px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition shadow animate-pulse">
+        + فتح وردية
       </button>
-
-      <button id="btn-open-force-close" class="hidden px-3 py-1.5 text-xs bg-rose-700 hover:bg-rose-800 text-white rounded font-bold transition">
-        إغلاق اضطراري (المالك)
+      <button id="btn-open-admin-items" class="hidden px-2.5 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition">
+        إدارة الأصناف
       </button>
-      <button id="btn-open-report" class="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded font-bold transition">
+      <button id="btn-open-customers" class="px-2.5 py-1 text-xs bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition">
+        حسابات الشكك
+      </button>
+      <button id="btn-open-shifts-history" class="px-2.5 py-1 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-bold transition">
+        سجل الورديات
+      </button>
+      <button id="btn-open-report" class="px-2.5 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold transition">
         تقرير الوردية
       </button>
-      <button id="btn-open-handover" class="hidden px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold transition">
+      <button id="btn-open-handover" class="hidden px-2.5 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold transition">
         تسليم الوردية
       </button>
-      <div class="h-6 w-px bg-gray-700"></div>
-      <span id="logged-user-name" class="text-sm font-semibold text-emerald-400"></span>
+      <div class="h-5 w-px bg-gray-700"></div>
+      <span id="logged-user-name" class="text-xs font-bold text-emerald-400"></span>
       <button id="btn-logout" class="text-xs text-gray-400 hover:text-white underline">خروج</button>
     </div>
   </header>
 
+  <!-- Live Cashier Drawer Stats Bar -->
+  <section class="bg-gray-800 text-white px-4 py-1.5 flex items-center justify-between text-xs border-t border-gray-700">
+    <div class="flex items-center space-x-4 space-x-reverse">
+      <div class="flex items-center space-x-1.5 space-x-reverse">
+        <span class="text-gray-400">كاش الدرج الحالي:</span>
+        <span id="stat-drawer-sales" class="font-extrabold text-emerald-400">0.00 ج.م</span>
+      </div>
+      <div class="h-3 w-px bg-gray-600"></div>
+      <div class="flex items-center space-x-1.5 space-x-reverse">
+        <span class="text-gray-400">عمولتك (10% كاش):</span>
+        <span id="stat-cashier-commission" class="font-extrabold text-amber-400">0.00 ج.م</span>
+      </div>
+      <div class="h-3 w-px bg-gray-600"></div>
+      <div class="flex items-center space-x-1.5 space-x-reverse">
+        <span class="text-gray-400">المطلوب تجنيبه للبضاعة:</span>
+        <span id="stat-cogs-reserve" class="font-extrabold text-blue-300">0.00 ج.م</span>
+      </div>
+    </div>
+    <span class="text-[10px] text-gray-400 hidden sm:inline">فودافون كاش والشكك لا تُخصم منها عمولة الكاشير</span>
+  </section>
+
+  <!-- 18 PC Tabs Bar -->
+  <nav class="bg-white border-b border-gray-200 px-4 py-2 flex items-center space-x-2 space-x-reverse overflow-x-auto shadow-sm" id="pc-tabs-bar">
+    <!-- Rendered dynamically -->
+  </nav>
+
   <!-- Main POS Workspace -->
-  <main class="flex-1 flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
+  <main class="flex-1 flex flex-col md:flex-row p-3 gap-3 overflow-hidden">
     
-    <!-- Left Area: Menu Items & Categories -->
-    <section class="flex-1 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      <!-- Search & Filters -->
-      <div class="p-4 border-b border-gray-100 flex items-center justify-between gap-4">
-        <input type="text" id="item-search" placeholder="بحث عن صنف أو مشروب..." 
-          class="w-full max-w-sm px-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-        <div class="text-xs text-gray-500 font-semibold">
-          قائمة الكافيتريا والمشروبات
+    <!-- Left Area: Categories & Items Grid -->
+    <section class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <!-- Search & Category Filters -->
+      <div class="p-3 border-b border-gray-100 flex flex-col sm:flex-row gap-2 items-center justify-between">
+        <input type="text" id="item-search" placeholder="بحث سريع عن صنف أو مشروب..." 
+          class="w-full sm:w-64 px-3 py-1.5 rounded-lg border border-gray-200 text-xs focus:ring-2 focus:ring-emerald-500">
+        
+        <!-- Category Filter Pills -->
+        <div id="categories-bar" class="flex items-center space-x-1 space-x-reverse overflow-x-auto w-full sm:w-auto">
+          <!-- Rendered dynamically -->
         </div>
       </div>
 
-      <!-- Items Grid Container -->
-      <div id="items-grid" class="flex-1 p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto">
+      <!-- Items Grid -->
+      <div id="items-grid" class="flex-1 p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 overflow-y-auto">
         <!-- Rendered dynamically -->
       </div>
     </section>
 
     <!-- Right Area: Cart & Checkout -->
-    <aside class="w-full md:w-96 flex flex-col bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-      <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 class="font-bold text-gray-800 text-base">طلب العميل</h2>
-        <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">الوردية الحالية</span>
+    <aside class="w-full md:w-80 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center space-x-1.5 space-x-reverse">
+          <h2 class="font-bold text-gray-800 text-sm">طلب:</h2>
+          <span id="active-tab-title" class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-extrabold text-xs">عام</span>
+        </div>
+        <span class="text-[11px] text-gray-400">حساب فوري أو تعليق</span>
       </div>
 
       <!-- Cart Item List -->
-      <div id="cart-items" class="flex-1 p-4 overflow-y-auto">
+      <div id="cart-items" class="flex-1 p-3 overflow-y-auto">
         <!-- Rendered dynamically -->
       </div>
 
-      <!-- Financial Totals & Payment Selection -->
-      <div class="p-4 bg-gray-50 border-t border-gray-100 space-y-4">
-        <!-- Subtotal -->
-        <div class="flex items-center justify-between text-base font-bold text-gray-800">
+      <!-- Totals & Payment Selection -->
+      <div class="p-3 bg-gray-50 border-t border-gray-100 space-y-3">
+        <div class="flex items-center justify-between text-sm font-bold text-gray-800">
           <span>الإجمالي المطلوب:</span>
-          <span id="cart-subtotal" class="text-emerald-700 text-lg">0.00 ج.م</span>
+          <span id="cart-subtotal" class="text-emerald-700 text-base">0.00 ج.م</span>
         </div>
 
-        <!-- Customer Tab Select (Visible for Shakak / Debt) -->
+        <!-- Customer Tab Select (Visible for Shakak) -->
         <div id="customer-select-wrapper" class="hidden">
-          <label class="block text-xs font-bold text-gray-700 mb-1">اسم العميل (لحساب الشكك / الموظف):</label>
-          <select id="customer-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500">
+          <label class="block text-[11px] font-bold text-gray-700 mb-1">اسم العميل (لحساب الشكك):</label>
+          <select id="customer-select" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-emerald-500">
             <option value="">-- اختر العميل --</option>
           </select>
         </div>
 
-        <!-- Payment Method Toggle Buttons -->
+        <!-- Payment Method Buttons -->
         <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">طريقة الدفع:</label>
-          <div class="flex gap-2">
-            <button type="button" id="btn-pay-cash" class="flex-1 py-2 text-xs font-bold rounded-lg border-2 border-emerald-600 bg-emerald-50 text-emerald-700 shadow-sm">
-              نقداً (الدرج)
+          <label class="block text-[11px] font-bold text-gray-700 mb-1">طريقة الدفع:</label>
+          <div class="flex gap-1.5">
+            <button type="button" id="btn-pay-cash" class="flex-1 py-1.5 text-xs font-bold rounded-lg border-2 border-emerald-600 bg-emerald-50 text-emerald-700 shadow-sm">
+              كاش (الدرج)
             </button>
-            <button type="button" id="btn-pay-vf" class="flex-1 py-2 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+            <button type="button" id="btn-pay-vf" class="flex-1 py-1.5 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
               فودافون كاش
             </button>
-            <button type="button" id="btn-pay-shakak" class="flex-1 py-2 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+            <button type="button" id="btn-pay-shakak" class="flex-1 py-1.5 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
               شكك (آجل)
             </button>
           </div>
         </div>
 
-        <!-- Checkout Submit Button -->
-        <button id="btn-submit-order" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-sm shadow-md hover:shadow-lg transition">
+        <button id="btn-submit-order" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold text-xs shadow-md transition">
           إتمام البيع
         </button>
       </div>
@@ -154,44 +187,42 @@
 
   <!-- MODAL: Open New Shift -->
   <div id="open-shift-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-right">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 text-right">
       <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-        <h3 class="font-bold text-gray-800 text-base">فتح وردية جديدة</h3>
+        <h3 class="font-bold text-gray-800 text-sm">فتح وردية جديدة</h3>
         <button id="btn-close-open-shift" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
       </div>
 
       <div class="py-4 space-y-3">
         <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">نقدية بداية الوردية (العهدة بالدرج) *:</label>
+          <label class="block text-xs font-bold text-gray-700 mb-1">نقدية بداية الوردية (الدرج) *:</label>
           <input type="number" id="open-shift-starting-cash" step="0.5" min="0" placeholder="0.00" value="0.00"
             class="w-full px-3 py-2 border-2 border-emerald-600 rounded-lg text-lg font-black text-center text-emerald-800 focus:outline-none">
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">ملاحظات البداية (اختياري):</label>
-          <input type="text" id="open-shift-notes" placeholder="مثال: استلام الوردية الصباحية"
+          <label class="block text-xs font-bold text-gray-700 mb-1">ملاحظات (اختياري):</label>
+          <input type="text" id="open-shift-notes" placeholder="ملاحظات افتتاح الوردية"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs">
         </div>
       </div>
 
-      <div class="pt-2">
-        <button id="btn-submit-open-shift" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm shadow">
-          تأكيد فتح الوردية
-        </button>
-      </div>
+      <button id="btn-submit-open-shift" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow">
+        تأكيد فتح الوردية
+      </button>
     </div>
   </div>
 
-  <!-- MODAL: Shift Handover & Actual Cash Input -->
+  <!-- MODAL: Handover & Stock Audit -->
   <div id="handover-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
-      <div class="p-4 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="font-bold text-gray-800 text-base">تسليم واستلام الوردية (الجرد اليدوي)</h3>
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-bold text-gray-800 text-sm">تسليم واستلام الوردية (الجرد الفعلي)</h3>
         <button id="btn-close-handover" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
       </div>
 
-      <div class="p-4 flex-1 overflow-y-auto space-y-4">
-        <div class="bg-amber-50 p-3 rounded-lg border border-amber-200 text-xs text-amber-900">
-          <b>تنبيه أمانة الجرد:</b> أي عجز في جرد الأصناف يتم تحميله كمديونية على <u>الشيفتاجي المستلم</u> للوردية.
+      <div class="p-3 flex-1 overflow-y-auto space-y-3">
+        <div class="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs text-amber-900 leading-relaxed">
+          <b>أمانة الجرد:</b> أي عجز في جرد الأصناف يتم تحميله كمديونية على <u>الشيفتاجي المستلم</u> للوردية.
         </div>
 
         <div>
@@ -201,7 +232,7 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-gray-700 mb-2">جرد أصناف الكافيتريا (العدد الفعلي):</label>
+          <label class="block text-xs font-bold text-gray-700 mb-1">العدد الفعلي لأصناف الكافيتريا:</label>
           <div id="handover-items-list" class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
             <!-- Rendered dynamically -->
           </div>
@@ -209,103 +240,253 @@
 
         <div>
           <label class="block text-xs font-bold text-gray-700 mb-1">ملاحظات التسليم:</label>
-          <input type="text" id="handover-notes" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs">
+          <input type="text" id="handover-notes" class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs">
         </div>
       </div>
 
-      <div class="p-4 border-t border-gray-100 flex gap-2">
-        <button id="btn-submit-handover" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm">
+      <div class="p-3 border-t border-gray-100">
+        <button id="btn-submit-handover" class="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs">
           تأكيد واستلام الوردية
         </button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: Canonical Shift Report -->
+  <!-- MODAL: Canonical Shift Report & Drawer Money Split -->
   <div id="report-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-      <div class="flex items-center justify-between pb-3 border-b border-gray-100">
-        <h3 class="font-bold text-gray-800 text-base">تقرير الوردية المالية</h3>
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-bold text-gray-800 text-sm">تقرير الوردية المالية وتقسيم الأموال</h3>
         <button id="btn-close-report" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
       </div>
 
-      <div class="py-4 space-y-3 text-xs">
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">مبيعات الكاش (الدرج):</span>
-          <span id="rep-cash-sales" class="font-bold text-gray-900">0.00 ج.م</span>
-        </div>
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">مبيعات فودافون كاش:</span>
-          <span id="rep-vf-sales" class="font-bold text-gray-900">0.00 ج.م</span>
-        </div>
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">مبيعات شكك (آجل):</span>
-          <span id="rep-shakak-sales" class="font-bold text-gray-900">0.00 ج.م</span>
-        </div>
-        <div class="flex justify-between py-1 border-b border-gray-200 font-bold text-sm text-gray-900">
-          <span>إجمالي المبيعات الكاملة:</span>
-          <span id="rep-total-sales" class="text-emerald-700">0.00 ج.م</span>
+      <div class="p-4 flex-1 overflow-y-auto space-y-3 text-xs">
+        <!-- Sales breakdown -->
+        <div class="bg-gray-50 p-2.5 rounded-lg border border-gray-200 space-y-1">
+          <div class="flex justify-between"><span>مبيعات كاش (الدرج):</span><b id="rep-cash-sales" class="text-gray-900">0.00 ج.م</b></div>
+          <div class="flex justify-between"><span>مبيعات فودافون كاش:</span><b id="rep-vf-sales" class="text-gray-900">0.00 ج.م</b></div>
+          <div class="flex justify-between"><span>مبيعات شكك (آجل):</span><b id="rep-shakak-sales" class="text-gray-900">0.00 ج.م</b></div>
+          <div class="flex justify-between pt-1 border-t border-gray-200 font-bold text-emerald-800">
+            <span>إجمالي المبيعات الكلي:</span><span id="rep-total-sales">0.00 ج.م</span>
+          </div>
         </div>
 
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">نقدية بداية الوردية:</span>
-          <span id="rep-start-cash" class="font-bold">0.00 ج.م</span>
+        <!-- Drawer Reconciliation -->
+        <div class="bg-emerald-50/50 p-2.5 rounded-lg border border-emerald-100 space-y-1">
+          <div class="flex justify-between"><span>نقدية بداية الوردية:</span><b id="rep-start-cash">0.00 ج.م</b></div>
+          <div class="flex justify-between"><span>المتوقع وجوده بالدرج:</span><b id="rep-exp-cash" class="text-emerald-800">0.00 ج.م</b></div>
+          <div class="flex justify-between"><span>عمولة الشيفتاجي (من الكاش فقط):</span><b id="rep-commission-earned" class="text-amber-700">0.00 ج.م</b></div>
+          <div class="flex justify-between font-bold"><span>عجز / زيادة الدرج:</span><span id="rep-cash-discrepancy">بانتظار الجرد</span></div>
         </div>
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">النقدية المتوقعة بالدرج:</span>
-          <span id="rep-exp-cash" class="font-bold text-emerald-800">0.00 ج.م</span>
+
+        <!-- Money Split Instructions for Owner -->
+        <div class="bg-blue-50 p-2.5 rounded-lg border border-blue-200 space-y-1.5">
+          <h4 class="font-extrabold text-blue-900 text-xs">خطة تقسيم وتجنيب أموال الدرج للمالك:</h4>
+          <div class="flex justify-between text-blue-800">
+            <span>1. تجنيب شراء بضاعة (سعر التكلفة):</span>
+            <b id="rep-cogs-reserve" class="font-bold">0.00 ج.م</b>
+          </div>
+          <div class="flex justify-between text-emerald-800 font-bold">
+            <span>2. صافي نقدية المالك للدرج:</span>
+            <span id="rep-owner-drawer-cash">0.00 ج.م</span>
+          </div>
+          <div class="flex justify-between text-rose-800 font-bold">
+            <span>3. أرباح فودافون كاش الصافية:</span>
+            <span id="rep-vf-pure-profit">0.00 ج.م</span>
+          </div>
+          <div class="flex justify-between text-amber-800 font-bold">
+            <span>4. أرباح شكك آجلة للمالك:</span>
+            <span id="rep-shakak-profit">0.00 ج.م</span>
+          </div>
+          <div class="flex justify-between pt-1 border-t border-blue-200 font-black text-sm text-blue-950">
+            <span>إجمالي صافي أرباح المالك:</span>
+            <span id="rep-total-owner-profit">0.00 ج.م</span>
+          </div>
         </div>
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">عمولة الشيفتاجي المستحقة:</span>
-          <span id="rep-commission-earned" class="font-bold text-amber-700">0.00 ج.م</span>
+
+        <!-- Items Sold -->
+        <div>
+          <h4 class="font-bold text-gray-800 mb-1">الأصناف المباعة في هذه الوردية:</h4>
+          <div id="rep-items-sold-list" class="max-h-28 overflow-y-auto border border-gray-100 rounded-lg p-2 bg-gray-50"></div>
         </div>
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">فارق عجز/زيادة النقدية:</span>
-          <span id="rep-cash-discrepancy" class="font-bold">بانتظار الجرد</span>
-        </div>
-        <div class="flex justify-between py-1 border-b border-gray-50">
-          <span class="text-gray-600">مجمل ربح الكافيتريا:</span>
-          <span id="rep-gross-profit" class="font-bold text-emerald-700">0.00 ج.م</span>
-        </div>
-        <div class="flex justify-between py-1 font-bold text-sm text-gray-900">
-          <span>صافي ربح المالك:</span>
-          <span id="rep-net-profit" class="text-emerald-700">0.00 ج.م</span>
+
+        <!-- Shortages -->
+        <div>
+          <h4 class="font-bold text-rose-800 mb-1">عجز جرد الأصناف المحمّل على الشيفتاجي:</h4>
+          <div id="rep-shortages-list" class="max-h-24 overflow-y-auto border border-rose-100 rounded-lg p-2 bg-rose-50/40"></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: Force Close Stuck Shift -->
-  <div id="force-close-modal" class="fixed inset-0 bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 text-center">
-      <h3 class="font-bold text-gray-900 text-base mb-1">إغلاق اضطراري لوردية معلقة</h3>
-      <p class="text-xs text-gray-500 mb-4">إجراء خاص بالمالك لمعالجة انقطاع الجلسات أو الوردية العالقة</p>
-      
-      <div class="space-y-3 text-right">
-        <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">سبب الإغلاق الاضطراري *:</label>
-          <input type="text" id="force-close-reason" placeholder="مثال: إغلاق المتصفح أثناء التسليم"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs">
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-gray-700 mb-1">النقدية الفعلية المستلمة (اختياري):</label>
-          <input type="number" id="force-close-cash" placeholder="0.00"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs">
-        </div>
+  <!-- MODAL: Shifts History (Admin) -->
+  <div id="shifts-history-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-bold text-gray-800 text-sm">سجل تقارير الورديات السابقة</h3>
+        <button id="btn-close-shifts-history" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
       </div>
 
-      <div class="flex gap-2 mt-5">
-        <button id="btn-cancel-force-close" class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-xs font-bold">
-          إلغاء
-        </button>
-        <button id="btn-confirm-force-close" class="flex-1 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold">
-          تأكيد الإغلاق
-        </button>
+      <div class="p-3 flex-1 overflow-y-auto">
+        <table class="w-full text-right">
+          <thead>
+            <tr class="bg-gray-100 text-[11px] text-gray-600">
+              <th class="p-2">الوردية</th>
+              <th class="p-2">الشيفتاجي</th>
+              <th class="p-2">وقت البدء</th>
+              <th class="p-2">المبيعات</th>
+              <th class="p-2">فارق النقدية</th>
+              <th class="p-2">الحالة</th>
+              <th class="p-2 text-left">إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="shifts-history-table-body"></tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- Vanilla ES Module Entry Point -->
+  <!-- MODAL: Customer Accounts (شكك) & Ledger -->
+  <div id="customers-modal" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-bold text-gray-800 text-sm">حسابات العملاء والشكك</h3>
+        <button id="btn-close-customers" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="p-3 flex-1 overflow-y-auto">
+        <table class="w-full text-right">
+          <thead>
+            <tr class="bg-gray-100 text-[11px] text-gray-600">
+              <th class="p-2">اسم العميل</th>
+              <th class="p-2">الهاتف</th>
+              <th class="p-2">المديونية (شكك)</th>
+              <th class="p-2">رصيد دائن</th>
+              <th class="p-2 text-left">التحصيل وكشف الحساب</th>
+            </tr>
+          </thead>
+          <tbody id="customers-list-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Claim Debt (Full or Partial) -->
+  <div id="claim-debt-modal" class="fixed inset-0 bg-gray-900/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-xs p-4 text-right">
+      <h3 class="font-bold text-gray-800 text-sm mb-1">تحصيل شكك: <span id="claim-customer-name" class="text-amber-600"></span></h3>
+      <p class="text-xs text-gray-500 mb-3">المديونية الحالية: <b id="claim-current-debt" class="text-rose-600"></b></p>
+
+      <div class="space-y-2.5">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">المبلغ المحصل (كامل أو جزئي) *:</label>
+          <input type="number" id="claim-amount" step="1" min="1" class="w-full px-3 py-1.5 border-2 border-emerald-600 rounded-lg text-base font-bold text-center">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">طريقة استلام المبلغ:</label>
+          <select id="claim-payment-method" class="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-xs">
+            <option value="cash">نقداً بالدرج</option>
+            <option value="vodafone_cash">فودافون كاش للمالك</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1">ملاحظات التحصيل:</label>
+          <input type="text" id="claim-notes" placeholder="مثال: سداد جزء من الحساب" class="w-full px-2 py-1 border border-gray-300 rounded-lg text-xs">
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button id="btn-close-claim-debt" class="flex-1 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold">إلغاء</button>
+        <button id="btn-submit-claim-debt" class="flex-1 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">تأكيد التحصيل</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Customer Profile & Statement Ledger -->
+  <div id="customer-profile-modal" class="fixed inset-0 bg-gray-900/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <div>
+          <h3 class="font-bold text-gray-800 text-sm">كشف حساب: <span id="profile-customer-name" class="text-emerald-700"></span></h3>
+          <span class="text-[11px] text-gray-500">المديونية: <b id="profile-current-debt" class="text-rose-600">0.00 ج.م</b> | رصيد دائن: <b id="profile-credit-balance" class="text-emerald-600">0.00 ج.م</b></span>
+        </div>
+        <button id="btn-close-customer-profile" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="p-3 flex-1 overflow-y-auto space-y-3">
+        <div>
+          <h4 class="font-bold text-xs text-gray-800 mb-1">الطلبات المسحوبة على الحساب (ماذا أخذ وبكم):</h4>
+          <div id="profile-orders-list" class="max-h-48 overflow-y-auto"></div>
+        </div>
+        <div>
+          <h4 class="font-bold text-xs text-gray-800 mb-1">سجل المبالغ المسددة:</h4>
+          <div id="profile-payments-list" class="max-h-36 overflow-y-auto"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Admin Item CRUD Management -->
+  <div id="admin-items-modal" class="fixed inset-0 bg-gray-900/75 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-bold text-gray-800 text-sm">إدارة الأصناف والأسعار والمخزون (المالك فقط)</h3>
+        <button id="btn-close-admin-items" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <div class="p-3 flex-1 overflow-y-auto space-y-3">
+        <!-- Add/Edit Item Form -->
+        <form id="admin-item-form" class="bg-gray-50 p-3 rounded-xl border border-gray-200 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+          <input type="hidden" id="item-form-id">
+          <div>
+            <label class="block font-bold text-gray-700 mb-0.5">اسم الصنف *</label>
+            <input type="text" id="item-form-name" required class="w-full px-2 py-1 border border-gray-300 rounded">
+          </div>
+          <div>
+            <label class="block font-bold text-gray-700 mb-0.5">التصنيف</label>
+            <input type="text" id="item-form-category" placeholder="مشروبات ساخنة" class="w-full px-2 py-1 border border-gray-300 rounded">
+          </div>
+          <div>
+            <label class="block font-bold text-gray-700 mb-0.5">سعر البيع *</label>
+            <input type="number" step="0.5" id="item-form-price" required class="w-full px-2 py-1 border border-gray-300 rounded">
+          </div>
+          <div>
+            <label class="block font-bold text-gray-700 mb-0.5">سعر التكلفة</label>
+            <input type="number" step="0.5" id="item-form-cost" class="w-full px-2 py-1 border border-gray-300 rounded">
+          </div>
+          <div>
+            <label class="block font-bold text-gray-700 mb-0.5">الرصيد الفعلي (المخزون)</label>
+            <input type="number" step="1" id="item-form-stock" class="w-full px-2 py-1 border border-gray-300 rounded">
+          </div>
+          <div class="flex items-center space-x-1.5 space-x-reverse pt-4">
+            <input type="checkbox" id="item-form-handover" checked class="w-4 h-4 text-emerald-600 rounded">
+            <label for="item-form-handover" class="font-bold text-gray-700">تضمين بجرد التسليم</label>
+          </div>
+          <div class="col-span-2 flex items-end">
+            <button type="button" id="btn-save-item" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded">
+              حفظ بيانات الصنف
+            </button>
+          </div>
+        </form>
+
+        <!-- Existing Items Table -->
+        <table class="w-full text-right">
+          <thead>
+            <tr class="bg-gray-100 text-[11px] text-gray-600">
+              <th class="p-2">الصنف</th>
+              <th class="p-2">التصنيف</th>
+              <th class="p-2">سعر البيع</th>
+              <th class="p-2">التكلفة</th>
+              <th class="p-2">المخزون</th>
+              <th class="p-2 text-left">إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="admin-items-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

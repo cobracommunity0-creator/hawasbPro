@@ -3,9 +3,9 @@
  */
 
 module.exports = {
-  // Commission settings defaults
+  // Commission settings defaults: strictly cash drawer by default
   DEFAULT_COMMISSION_RATE: 0.10,
-  DEFAULT_COMMISSION_PAYMENT_METHODS: ['cash', 'vodafone_cash', 'credit_shakak'],
+  DEFAULT_COMMISSION_PAYMENT_METHODS: ['cash'],
 
   // Supported payment channels
   PAYMENT_METHODS: {

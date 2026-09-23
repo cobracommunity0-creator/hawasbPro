@@ -1,6 +1,5 @@
 /**
- * Hawasb Cafe POS - Debts & Shakak Repayments Routes
- * Handles overpayments explicitly as customer credit balance (Bug L)
+ * Hawasb Cafe POS - Customer Accounts, Shakak Ledger & Profile History
  */
 
 const express = require('express');
@@ -10,7 +9,7 @@ const { authenticateToken } = require('../middleware/auth');
 
 /**
  * GET /api/debts
- * List customers with outstanding debt or credit balances
+ * List all customer tabs, debt, and credit balances
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -27,8 +26,67 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/debts/:id/history
+ * Comprehensive Customer Profile: past orders, items bought, and payment history
+ */
+router.get('/:id/history', authenticateToken, async (req, res) => {
+  const custId = parseInt(req.params.id, 10);
+
+  if (isNaN(custId)) {
+    return res.status(400).json({ error: 'معرف العميل غير صالح' });
+  }
+
+  try {
+    const custRes = await db.query(
+      `SELECT id, name, phone, current_debt, credit_balance, is_owner, created_at 
+       FROM customers WHERE id = $1`,
+      [custId]
+    );
+
+    if (custRes.rows.length === 0) {
+      return res.status(404).json({ error: 'العميل غير موجود' });
+    }
+
+    // Orders taken by customer
+    const ordersRes = await db.query(
+      `SELECT o.id, o.shift_id, o.payment_method, o.subtotal, o.created_at, o.device_tab_name,
+              json_agg(json_build_object('item_name', i.name, 'quantity', oi.quantity, 'unit_price', oi.unit_price, 'total_price', oi.total_price)) as items
+       FROM orders o
+       JOIN order_items oi ON o.id = oi.order_id
+       JOIN items i ON oi.item_id = i.id
+       WHERE o.customer_id = $1 AND o.status != 'cancelled'
+       GROUP BY o.id
+       ORDER BY o.created_at DESC
+       LIMIT 30`,
+      [custId]
+    );
+
+    // Payments made by customer
+    const paymentsRes = await db.query(
+      `SELECT dp.id, dp.amount_paid, dp.debt_cleared, dp.credit_added, dp.payment_method, dp.notes, dp.created_at,
+              u.name as cashier_name
+       FROM debt_payments dp
+       JOIN users u ON dp.cashier_id = u.id
+       WHERE dp.customer_id = $1
+       ORDER BY dp.created_at DESC
+       LIMIT 30`,
+      [custId]
+    );
+
+    return res.json({
+      customer: custRes.rows[0],
+      orders: ordersRes.rows,
+      payments: paymentsRes.rows,
+    });
+  } catch (err) {
+    console.error('[Get Customer History Error]:', err);
+    return res.status(500).json({ error: 'فشل في استخراج كشف حساب العميل' });
+  }
+});
+
+/**
  * POST /api/debts/pay
- * Debt repayment with explicit overpayment tracking (Bug L)
+ * Full or partial debt claim/payment
  */
 router.post('/pay', authenticateToken, async (req, res) => {
   const { customer_id, amount, payment_method, notes } = req.body;
@@ -57,7 +115,6 @@ router.post('/pay', authenticateToken, async (req, res) => {
     const currentDebt = Number(customer.current_debt || 0);
     const currentCredit = Number(customer.credit_balance || 0);
 
-    // Active shift verification
     const shiftRes = await client.query(`SELECT id FROM shifts WHERE status = 'open' LIMIT 1`);
     const activeShiftId = shiftRes.rows.length > 0 ? shiftRes.rows[0].id : null;
 
@@ -69,7 +126,6 @@ router.post('/pay', authenticateToken, async (req, res) => {
     let newDebt = 0.00;
     let newCredit = currentCredit;
 
-    // Bug L: Track overpayments explicitly into customer credit balance
     if (paymentAmount <= currentDebt) {
       debtCleared = paymentAmount;
       newDebt = Number((currentDebt - paymentAmount).toFixed(2));
@@ -100,7 +156,7 @@ router.post('/pay', authenticateToken, async (req, res) => {
         debtCleared,
         creditAdded,
         payment_method || 'cash',
-        notes || (creditAdded > 0 ? `سداد مع إضافة رصيد دائن قدره ${creditAdded} ج.م` : 'سداد مديونية'),
+        notes || (creditAdded > 0 ? `سداد مع إضافة رصيد دائن قدره ${creditAdded} ج.م` : 'سداد مديونية شكك'),
       ]
     );
 
@@ -109,8 +165,8 @@ router.post('/pay', authenticateToken, async (req, res) => {
 
     return res.json({
       message: creditAdded > 0
-        ? `تم سداد كامل المديونية وإيداع مبلغ إضافي (${creditAdded} ج.م) كرصيد دائن للعميل`
-        : 'تم تسجيل سداد المديونية بنجاح',
+        ? `تم سداد كامل المديونية بنجاح وإضافة رصيد دائن بقيمة ${creditAdded} ج.م`
+        : `تم تحصيل مبلغ ${paymentAmount} ج.م بنجاح. المتبقي: ${newDebt} ج.م`,
       payment: paymentLogRes.rows[0],
       customer: {
         id: custId,

@@ -1,6 +1,5 @@
 /**
- * Hawasb Cafe POS - Checkout Flow
- * Fixes double-submission (Bug B) and deterministic payment method reset (Bug C)
+ * Hawasb Cafe POS - Checkout Flow & Automatic UI Reset
  */
 
 import { request, showToast } from './api.js';
@@ -12,7 +11,6 @@ export const checkoutState = {
 };
 
 export function initCheckout(onOrderCompleted) {
-  // Bind Payment Method Toggle Buttons (Bug C: Fixed DOM IDs)
   const btnCash = document.getElementById('btn-pay-cash');
   const btnVf = document.getElementById('btn-pay-vf');
   const btnShakak = document.getElementById('btn-pay-shakak');
@@ -22,7 +20,6 @@ export function initCheckout(onOrderCompleted) {
   function setPaymentMethod(method) {
     checkoutState.currentPaymentMethod = method;
 
-    // Visual button active class highlighting
     btnCash.className = method === 'cash'
       ? 'flex-1 py-2 text-xs font-bold rounded-lg border-2 border-emerald-600 bg-emerald-50 text-emerald-700 shadow-sm'
       : 'flex-1 py-2 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
@@ -47,11 +44,10 @@ export function initCheckout(onOrderCompleted) {
   btnVf.onclick = () => setPaymentMethod('vodafone_cash');
   btnShakak.onclick = () => setPaymentMethod('credit_shakak');
 
-  // Submit Order Execution (Bug B & C)
   submitBtn.onclick = async () => {
     const cart = getActiveCart();
     if (cart.length === 0) {
-      showToast('سلة المشتريات فارغة!', 'error');
+      showToast(`سلة (${cartState.activeTab}) فارغة!`, 'error');
       return;
     }
 
@@ -60,12 +56,10 @@ export function initCheckout(onOrderCompleted) {
       return;
     }
 
-    // Bug B: Disable submit button immediately & show spinner
     submitBtn.disabled = true;
     const originalBtnText = submitBtn.innerHTML;
-    submitBtn.innerHTML = `<span class="inline-block animate-spin ml-2">⏳</span> جاري الحفظ...`;
+    submitBtn.innerHTML = `<span class="inline-block animate-spin ml-2">⏳</span> جاري حفظ الحساب...`;
 
-    // Bug B: Generate Idempotency Key ONCE per checkout attempt
     if (!checkoutState.idempotencyKey) {
       checkoutState.idempotencyKey = `ord_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     }
@@ -84,30 +78,24 @@ export function initCheckout(onOrderCompleted) {
         body: JSON.stringify(payload),
       });
 
-      showToast('تم إتمام عملية البيع بنجاح ✓', 'success');
+      showToast(`تم إتمام الحساب لـ (${cartState.activeTab}) بنجاح ✓`, 'success');
 
-      // Clear cart
       clearActiveCart();
-
-      // Bug B: Reset idempotency key for next transaction
       checkoutState.idempotencyKey = null;
 
-      // Bug C: Deterministically reset state & UI to "cash" and clear customer
+      // Deterministic reset to Cash
       setPaymentMethod('cash');
       customerSelect.value = '';
       cartState.selectedCustomerId = null;
 
       if (onOrderCompleted) onOrderCompleted(res.order);
     } catch (err) {
-      // Keep idempotency key intact on failure so retrying uses the identical key
-      console.error('[Checkout Submission Error]:', err);
+      console.error('[Checkout Error]:', err);
     } finally {
-      // Re-enable button on response settlement
       submitBtn.disabled = false;
       submitBtn.innerHTML = originalBtnText;
     }
   };
 
-  // Set initial default to cash
   setPaymentMethod('cash');
 }
