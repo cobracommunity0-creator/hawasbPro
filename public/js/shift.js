@@ -1,9 +1,9 @@
 /**
  * Hawasb Cafe POS - Shift Management & Handover
- * Clean handover, automatic logout, and manual open shift workflow
  */
 
 import { request, showToast } from './api.js';
+import { authState } from './auth.js';
 
 export let currentShift = null;
 
@@ -24,15 +24,31 @@ export function renderShiftBadge(shift) {
   const infoText = document.getElementById('shift-info-text');
   const btnOpenShift = document.getElementById('btn-open-shift');
   const btnOpenHandover = document.getElementById('btn-open-handover');
+  const user = authState.user;
 
   if (shift && (shift.status === 'open' || shift.status === 'pending_handover')) {
-    badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700/50';
-    badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
-    infoText.innerText = `الشيفتاجي: ${shift.cashier_name || 'أنت'} | البداية: ${Number(shift.starting_cash).toFixed(2)} ج.م`;
+    const isShiftCashier = user && user.id === shift.cashier_id;
+    const isOwner = user && user.role === 'owner';
 
-    if (btnOpenShift) btnOpenShift.classList.add('hidden');
-    if (btnOpenHandover) btnOpenHandover.classList.remove('hidden');
+    if (isShiftCashier) {
+      // The cashier who owns the active shift
+      badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700/50';
+      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
+      infoText.innerText = `الشيفتاجي: ${shift.cashier_name} | نقدية البداية: ${Number(shift.starting_cash).toFixed(2)} ج.م`;
+
+      if (btnOpenShift) btnOpenShift.classList.add('hidden');
+      if (btnOpenHandover) btnOpenHandover.classList.remove('hidden');
+    } else if (isOwner) {
+      // Admin monitoring an active cashier's shift
+      badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-700/50';
+      badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-indigo-400 ml-1.5"></span>وضع المدير • وردية #${shift.id} (${shift.cashier_name})`;
+      infoText.innerText = `مراقبة وإدارة النظام • لا يتم تسجيل مبيعات من حساب المدير`;
+
+      if (btnOpenShift) btnOpenShift.classList.add('hidden');
+      if (btnOpenHandover) btnOpenHandover.classList.add('hidden'); // Only the cashier hands over
+    }
   } else {
+    // No active shift
     badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/80 text-rose-400 border border-rose-700/50';
     badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 ml-1.5"></span>لا توجد وردية مفتوحة`;
     infoText.innerText = `يجب فتح وردية لإتمام المبيعات`;
@@ -201,7 +217,6 @@ export function initShiftHandover(onHandoverComplete) {
       cashInput.value = '';
       currentShift = null;
 
-      // Log out and reload into a completely clean state
       setTimeout(() => {
         localStorage.removeItem('hawasb_token');
         localStorage.removeItem('hawasb_user');

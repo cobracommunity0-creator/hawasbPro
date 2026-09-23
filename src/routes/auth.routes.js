@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Authentication Routes
- * Bcrypt PIN verification with Cashier Concurrency Guard
+ * Multi-Role Authentication with Cashier Concurrency Guard & Admin Isolation
  */
 
 const express = require('express');
@@ -12,12 +12,13 @@ const { authenticateToken } = require('../middleware/auth');
 
 /**
  * POST /api/auth/login
- * Allows:
- * 1. Anyone if zero shifts are open.
- * 2. The active shift's cashier to resume.
- * 3. The Owner/Admin to log in as supervisor/manager (without interfering with the shift).
- * Blocks:
- * Other cashiers from entering while someone else has an active shift running.
+ * Rules:
+ * 1. If an active shift exists:
+ *    - The assigned cashier can log in (resumes POS session).
+ *    - Other cashiers are BLOCKED (prevents shift overlap).
+ *    - The Owner/Admin CAN log in (enters Admin Management Mode).
+ * 2. If no active shift exists:
+ *    - Any active user (Cashier or Owner) can log in.
  */
 router.post('/login', async (req, res) => {
   const { username, pin } = req.body;
@@ -74,10 +75,10 @@ router.post('/login', async (req, res) => {
     }
 
     if (!matchedUser.is_active) {
-      return res.status(403).json({ error: 'هذا الحساب معطل حالياً. يرجى مراجعة المالك.' });
+      return res.status(403).json({ error: 'هذا الحساب معطل حالياً. يرجى مراجعة المسؤول.' });
     }
 
-    // Cashier Concurrency Guard: Check if an active shift is running
+    // Check for Active Shift
     const activeShiftRes = await client.query(
       `SELECT s.id, s.cashier_id, u.name as cashier_name 
        FROM shifts s 
@@ -86,14 +87,20 @@ router.post('/login', async (req, res) => {
        LIMIT 1`
     );
 
+    let activeShiftInfo = null;
+
     if (activeShiftRes.rows.length > 0) {
       const activeShift = activeShiftRes.rows[0];
+      activeShiftInfo = {
+        shift_id: activeShift.id,
+        cashier_id: activeShift.cashier_id,
+        cashier_name: activeShift.cashier_name,
+      };
 
-      // If a shift is open, other cashiers cannot log in until it is handed over
-      // The shift's cashier and the Owner are allowed
+      // Strict Cashier Lockout: Block another cashier from entering
       if (matchedUser.role !== 'owner' && matchedUser.id !== activeShift.cashier_id) {
         return res.status(403).json({
-          error: `توجد وردية نشطة حالياً للشيفتاجي (${activeShift.cashier_name}). لا يمكن لشيفتاجي آخر تسجيل الدخول حتى يتم تسليم الوردية وإغلاقها.`,
+          error: `المنظومة مقفلة: توجد وردية نشطة حالياً للشيفتاجي (${activeShift.cashier_name}). لا يمكن لشيفتاجي آخر تسجيل الدخول حتى يتم تسليم الوردية وإغلاقها منعاً لتداخل الحسابات.`,
         });
       }
     }
@@ -111,6 +118,8 @@ router.post('/login', async (req, res) => {
       message: 'تم تسجيل الدخول بنجاح',
       token,
       user: payload,
+      active_shift: activeShiftInfo,
+      is_shift_owner: activeShiftInfo ? activeShiftInfo.cashier_id === matchedUser.id : false,
     });
   } catch (err) {
     console.error('[Auth Login Error]:', err);

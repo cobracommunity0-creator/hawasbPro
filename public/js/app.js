@@ -6,7 +6,7 @@ import { request, showToast } from './api.js';
 import { initAuth, authState } from './auth.js';
 import { addToCart, renderPCTabs, renderCart } from './cart.js';
 import { initCheckout } from './checkout.js';
-import { initOpenShift, initShiftHandover, fetchCurrentShift } from './shift.js';
+import { initOpenShift, initShiftHandover, fetchCurrentShift, currentShift } from './shift.js';
 import { initReports } from './reports.js';
 
 let allItems = [];
@@ -14,7 +14,6 @@ let activeCategory = 'الكل';
 
 const FALLBACK_ITEM_IMG = 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=300&q=80';
 
-// 1. Load and Render POS Items with Category Bar
 async function loadItems() {
   try {
     allItems = await request('/api/items');
@@ -107,7 +106,6 @@ function renderFilteredItems() {
   });
 }
 
-// 2. Live Cashier Drawer Stats
 async function updateLiveCashierStats() {
   try {
     const res = await request('/api/shifts/current/live-stats');
@@ -121,7 +119,6 @@ async function updateLiveCashierStats() {
   }
 }
 
-// 3. Customer Accounts, Shakak Ledger & Quick Customer Creation
 async function loadCustomers(selectedId = null) {
   try {
     const customers = await request('/api/debts');
@@ -334,7 +331,6 @@ async function openCustomerProfileModal(customerId) {
   }
 }
 
-// 4. Admin Items Management
 function initAdminItemManagement() {
   const modal = document.getElementById('admin-items-modal');
   const btnOpen = document.getElementById('btn-open-admin-items');
@@ -438,14 +434,13 @@ async function renderAdminItemsTable() {
 
 // App Initialization
 window.addEventListener('DOMContentLoaded', () => {
-  // Synchronously render PC tabs and cart immediately from localStorage on startup
   renderPCTabs();
   renderCart();
 
   initAuth(async (user) => {
-    document.getElementById('logged-user-name').innerText = user.name;
-
     const isOwner = user && user.role === 'owner';
+    document.getElementById('logged-user-name').innerText = `${user.name}${isOwner ? ' (مدير)' : ''}`;
+
     const btnHistory = document.getElementById('btn-open-shifts-history');
     const btnAdminItems = document.getElementById('btn-open-admin-items');
 
@@ -459,7 +454,6 @@ window.addEventListener('DOMContentLoaded', () => {
       else btnAdminItems.classList.add('hidden');
     }
 
-    // Refresh tabs display
     renderPCTabs();
     renderCart();
 

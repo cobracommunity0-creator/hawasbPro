@@ -1,9 +1,11 @@
 /**
- * Hawasb Cafe POS - Checkout Flow & Automatic UI Reset
+ * Hawasb Cafe POS - Checkout Flow & Role Guard
  */
 
 import { request, showToast } from './api.js';
 import { getActiveCart, clearActiveCart, cartState } from './cart.js';
+import { authState } from './auth.js';
+import { currentShift } from './shift.js';
 
 export const checkoutState = {
   currentPaymentMethod: 'cash',
@@ -21,16 +23,16 @@ export function initCheckout(onOrderCompleted) {
     checkoutState.currentPaymentMethod = method;
 
     btnCash.className = method === 'cash'
-      ? 'flex-1 py-2 text-xs font-bold rounded-lg border-2 border-emerald-600 bg-emerald-50 text-emerald-700 shadow-sm'
-      : 'flex-1 py-2 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+      ? 'flex-1 py-1.5 text-xs font-bold rounded-lg border-2 border-emerald-500 bg-emerald-950/60 text-emerald-300 shadow'
+      : 'flex-1 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750';
 
     btnVf.className = method === 'vodafone_cash'
-      ? 'flex-1 py-2 text-xs font-bold rounded-lg border-2 border-rose-600 bg-rose-50 text-rose-700 shadow-sm'
-      : 'flex-1 py-2 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+      ? 'flex-1 py-1.5 text-xs font-bold rounded-lg border-2 border-rose-600 bg-rose-950/60 text-rose-300 shadow'
+      : 'flex-1 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750';
 
     btnShakak.className = method === 'credit_shakak'
-      ? 'flex-1 py-2 text-xs font-bold rounded-lg border-2 border-amber-600 bg-amber-50 text-amber-700 shadow-sm'
-      : 'flex-1 py-2 text-xs font-bold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50';
+      ? 'flex-1 py-1.5 text-xs font-bold rounded-lg border-2 border-amber-600 bg-amber-950/60 text-amber-300 shadow'
+      : 'flex-1 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750';
 
     const customerWrapper = document.getElementById('customer-select-wrapper');
     if (method === 'credit_shakak') {
@@ -45,6 +47,13 @@ export function initCheckout(onOrderCompleted) {
   btnShakak.onclick = () => setPaymentMethod('credit_shakak');
 
   submitBtn.onclick = async () => {
+    // Check if user is an Admin monitoring another cashier's shift
+    const user = authState.user;
+    if (user && user.role === 'owner' && currentShift && currentShift.cashier_id !== user.id) {
+      showToast(`أنت في وضع المدير للمراقبة. إتمام البيع مخصص للشيفتاجي المسؤول (${currentShift.cashier_name}) لحماية عهدة الدرج والعمولة.`, 'error');
+      return;
+    }
+
     const cart = getActiveCart();
     if (cart.length === 0) {
       showToast(`سلة (${cartState.activeTab}) فارغة!`, 'error');
@@ -83,7 +92,6 @@ export function initCheckout(onOrderCompleted) {
       clearActiveCart();
       checkoutState.idempotencyKey = null;
 
-      // Deterministic reset to Cash
       setPaymentMethod('cash');
       customerSelect.value = '';
       cartState.selectedCustomerId = null;

@@ -11,7 +11,7 @@ const { PAYMENT_METHODS } = require('../config/constants');
 
 /**
  * POST /api/orders/checkout
- * Fully audited for client leak prevention (Bug A) and double-submission protection (Bug B)
+ * Validates active shift ownership, applies stock deductions and customer debts atomically
  */
 router.post('/checkout', authenticateToken, async (req, res) => {
   const {
@@ -27,7 +27,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
   let inTransaction = false;
 
   try {
-    // 1. Validation Checks (before starting transaction)
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
       return res.status(400).json({ error: 'سلة المشتريات فارغة' });
     }
@@ -37,7 +36,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'طريقة الدفع المحددة غير صالحة' });
     }
 
-    // 2. Idempotency Key Duplicate Check
+    // Idempotency Protection
     if (idempotency_key) {
       const existingOrderRes = await client.query(
         `SELECT id, shift_id, cashier_id, customer_id, payment_method, subtotal, total_cost, created_at 
@@ -47,7 +46,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       );
 
       if (existingOrderRes.rows.length > 0) {
-        // Return existing order without re-processing or leaking client
         return res.status(200).json({
           message: 'تم استرجاع الطلب المسجل مسبقاً بنجاح (حماية من التكرار)',
           order: existingOrderRes.rows[0],
@@ -56,9 +54,13 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       }
     }
 
-    // 3. Verify Active Open Shift
+    // Verify Active Open Shift
     const shiftRes = await client.query(
-      `SELECT id, status, cashier_id FROM shifts WHERE status = 'open' LIMIT 1`
+      `SELECT s.id, s.status, s.cashier_id, u.name as cashier_name 
+       FROM shifts s 
+       JOIN users u ON s.cashier_id = u.id 
+       WHERE s.status = 'open' 
+       LIMIT 1`
     );
 
     if (shiftRes.rows.length === 0) {
@@ -67,7 +69,13 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     const currentShift = shiftRes.rows[0];
 
-    // 4. Begin Multi-Statement Transaction
+    // Cashier Accountability Guard: Block Admin from selling on a cashier's shift
+    if (req.user.role === 'owner' && req.user.id !== currentShift.cashier_id) {
+      return res.status(403).json({
+        error: `غير مصرح بالبيع من حساب المدير على وردية الشيفتاجي (${currentShift.cashier_name}) منعاً لتداخل نقدية الدرج والعمولة. يجب إتمام البيع من حساب الشيفتاجي المسؤول عن الوردية.`,
+      });
+    }
+
     await client.query('BEGIN');
     inTransaction = true;
 
@@ -75,7 +83,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     let totalOrderCost = 0.00;
     const processedItems = [];
 
-    // 5. Process cart items and deduct inventory
     for (const item of cart) {
       const itemId = parseInt(item.id, 10);
       const qty = parseFloat(item.quantity);
@@ -84,7 +91,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
         throw new Error('بيانات أحد الأصناف في السلة غير صحيحة');
       }
 
-      // Deduct stock using cost engine
       const deduction = await deductSingleItemStock(client, itemId, qty);
 
       const itemTotalPrice = Number((deduction.unitPrice * qty).toFixed(2));
@@ -110,8 +116,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     if (netDue < 0) netDue = 0.00;
 
     let creditApplied = 0.00;
-
-    // 6. Handle Customer Account & Credit Shakak (Bug F & L)
     let validatedCustomerId = null;
 
     if (customer_id) {
@@ -124,13 +128,10 @@ router.post('/checkout', authenticateToken, async (req, res) => {
         const customer = custRes.rows[0];
         validatedCustomerId = customer.id;
 
-        // If Shakak (credit debt tab)
         if (payment_method === PAYMENT_METHODS.CREDIT_SHAKAK) {
-          // If customer is marked as owner (Business Rule 3: Owner is exempt)
           if (customer.is_owner) {
-            netDue = 0.00; // Owner never charged
+            netDue = 0.00;
           } else {
-            // Apply customer credit balance if available (Bug L)
             const availableCredit = Number(customer.credit_balance || 0);
             if (availableCredit > 0) {
               if (availableCredit >= netDue) {
@@ -151,7 +152,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
               }
             }
 
-            // Remaining netDue added to customer current_debt
             if (netDue > 0) {
               const newDebt = Number((Number(customer.current_debt || 0) + netDue).toFixed(2));
               await client.query(
@@ -166,7 +166,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       throw new Error('يجب تحديد العميل عند اختيار طريقة الدفع (شكك)');
     }
 
-    // 7. Insert Order
     const insertOrderRes = await client.query(
       `INSERT INTO orders 
         (shift_id, cashier_id, customer_id, payment_method, subtotal, total_cost, discount, credit_applied, idempotency_key, device_tab_name, status)
@@ -174,7 +173,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
        RETURNING *`,
       [
         currentShift.id,
-        req.user.id,
+        currentShift.cashier_id,
         validatedCustomerId,
         payment_method,
         subtotal,
@@ -188,7 +187,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     const createdOrder = insertOrderRes.rows[0];
 
-    // 8. Insert Order Items
     for (const oi of processedItems) {
       await client.query(
         `INSERT INTO order_items 
@@ -206,7 +204,6 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       );
     }
 
-    // 9. Commit Transaction
     await client.query('COMMIT');
     inTransaction = false;
 
@@ -219,14 +216,11 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     if (inTransaction) {
       try {
         await client.query('ROLLBACK');
-      } catch (rbErr) {
-        console.error('[Rollback Error]:', rbErr);
-      }
+      } catch (rbErr) {}
     }
     console.error('[Checkout Error]:', error);
     return res.status(400).json({ error: error.message || 'فشل في إتمام عملية البيع' });
   } finally {
-    // Guarantees release across all return/throw paths (Bug A)
     client.release();
   }
 });
