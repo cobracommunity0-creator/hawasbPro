@@ -1,6 +1,6 @@
 /**
  * Hawasb Cafe POS - Shift Management & Handover
- * Implements Strict Blind Count & Smart Surplus Verification
+ * Strict Blind Count & Absolute Anti-Surplus Handover Block
  */
 
 import { request, showToast } from './api.js';
@@ -131,7 +131,7 @@ export function initShiftHandover(onHandoverComplete) {
 
       const countableItems = items.filter((i) => i.track_in_handover);
 
-      // Blind Count: خانات بيضاء فارغة بدون رصيد المنظومة
+      // الجرد الأعمى: خانات فارغة تماماً بدون عرض رصيد المنظومة
       countableItems.forEach((item) => {
         const row = document.createElement('div');
         row.className = 'flex items-center justify-between p-2.5 border-b border-slate-700/60 text-xs bg-slate-800/40 rounded-xl my-1.5 transition-all';
@@ -196,7 +196,7 @@ export function initShiftHandover(onHandoverComplete) {
     const itemInputs = document.querySelectorAll('.handover-item-input');
     const itemCounts = [];
     let hasEmptyField = false;
-    const surpluses = [];
+    let surplusItem = null;
 
     for (const input of itemInputs) {
       const valStr = input.value.trim();
@@ -204,7 +204,7 @@ export function initShiftHandover(onHandoverComplete) {
       const itemName = input.dataset.itemName;
       const systemQty = parseFloat(input.dataset.systemQty) || 0;
 
-      // التأكد من عدم ترك أي حقل فارغ
+      // منع الحقول الفارغة
       if (valStr === '') {
         input.classList.add('border-rose-500', 'bg-rose-950/40');
         hasEmptyField = true;
@@ -219,9 +219,14 @@ export function initShiftHandover(onHandoverComplete) {
         hasEmptyField = true;
       }
 
-      // رصد أي زيادة للتأكيد عليها
-      if (!isNaN(actualCount) && actualCount > systemQty) {
-        surpluses.push(`• ${itemName}: المعدود (${actualCount}) وهو أكبر من رصيد الوردية (${systemQty})`);
+      // القفل الحديدي: ممنوع نهائياً إدخال أي رقم أكبر من رصيد السيستم
+      if (actualCount > systemQty && !surplusItem) {
+        surplusItem = {
+          name: itemName,
+          entered: actualCount,
+          system: systemQty,
+          element: input,
+        };
       }
 
       itemCounts.push({
@@ -235,14 +240,13 @@ export function initShiftHandover(onHandoverComplete) {
       return;
     }
 
-    // تأكيد ذكي في حالة وجود زيادة لمنع أخطاء العد العشوائية مع السماح بالزيادة الحقيقية
-    if (surpluses.length > 0) {
-      const confirmMsg = "⚠️ تنبيه: تم رصد زيادة عن رصيد الوردية في الأصناف التالية:\n\n" +
-                         surpluses.join("\n") +
-                         "\n\nهل قمت بإعادة العد وتأكدت مع الشيفتاجي المسلّم أن هذه زيادة حقيقية بالمحل؟\n\nاضغط (موافق OK) لتأكيد الزيادة وتسليم الوردية.\nاضغط (إلغاء Cancel) لإعادة العد وتصحيح الرقم.";
-      if (!confirm(confirmMsg)) {
-        return;
-      }
+    // إيقاف وحظر التسليم فورياً في حالة وجود أي زيادة
+    if (surplusItem) {
+      surplusItem.element.classList.add('border-rose-500', 'ring-2', 'ring-rose-500', 'animate-pulse');
+      surplusItem.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      surplusItem.element.focus();
+      showToast(`ممنوع التسليم بزيادة: صنف (${surplusItem.name}) أدخلت فيه (${surplusItem.entered}) والرصيد المتاح (${surplusItem.system})! أعد العد مع المسلّم بدقة أو تواصل مع المالك.`, 'error');
+      return;
     }
 
     const incomingCashierId = document.getElementById('handover-incoming-cashier')?.value;

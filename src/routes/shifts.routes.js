@@ -1,5 +1,6 @@
 /**
  * Hawasb Cafe POS - Shifts, Reports & Live Stats Routes
+ * Enforces Strict Anti-Surplus Validation on Handover
  */
 
 const express = require('express');
@@ -155,8 +156,7 @@ router.post('/open', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/:id/accept-handover
- * Closes the shift cleanly, synchronizes physical stock, records shortages for the outgoing shift,
- * and seamlessly handles true surplus without throwing false errors.
+ * Strictly blocks any surplus / over-counting during handover.
  */
 router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
   const shiftId = parseInt(req.params.id, 10);
@@ -218,17 +218,20 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
         const dbItem = itemRes.rows[0];
 
         const systemQty = Number(dbItem.current_stock);
+
+        // Strict Server Anti-Surplus Block: Disallow handover if count > stock
+        if (actualCount > systemQty) {
+          throw new Error(`ممنوع التسليم بزيادة: صنف (${dbItem.name}) أدخلت فيه عدد (${actualCount}) وهو أكبر من رصيد المنظومة المتاح (${systemQty})! أعد العد مع المسلّم وتأكد من الصنف، أو تواصل مع المالك.`);
+        }
+
         const discrepancyQty = systemQty - actualCount;
         const unitCost = Number(dbItem.cost_price);
-
-        // إذا كان هناك عجز (السيستم أكبر من الفعلي) تحسب التكلفة. إذا كانت زيادة (فائض) فالتكلفة = 0
         const discrepancyCost = discrepancyQty > 0 ? Number((discrepancyQty * unitCost).toFixed(2)) : 0.00;
 
         if (discrepancyQty > 0) {
           totalShortageCost += discrepancyCost;
         }
 
-        // تسجيل نتيجة الجرد الفعلي
         await client.query(
           `INSERT INTO handover_items 
             (shift_id, item_id, system_qty, actual_qty, discrepancy_qty, unit_cost, discrepancy_cost)
@@ -236,7 +239,6 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
           [shiftId, itemId, systemQty, actualCount, discrepancyQty, unitCost, discrepancyCost]
         );
 
-        // تحديث المخزون بالعدد الفعلي دائماً
         await client.query(
           `UPDATE items SET current_stock = $1, updated_at = NOW() WHERE id = $2`,
           [actualCount, itemId]
@@ -244,7 +246,6 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       }
     }
 
-    // إغلاق الوردية
     await client.query(
       `UPDATE shifts 
        SET status = 'closed',
