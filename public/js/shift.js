@@ -1,5 +1,6 @@
 /**
  * Hawasb Cafe POS - Shift Management & Handover
+ * Implements Strict Blind Count & Smart Surplus Verification
  */
 
 import { request, showToast } from './api.js';
@@ -31,7 +32,6 @@ export function renderShiftBadge(shift) {
     const isOwner = user && user.role === 'owner';
 
     if (isShiftCashier) {
-      // The cashier who owns the active shift
       badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-950/80 text-emerald-400 border border-emerald-700/50';
       badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1.5 animate-pulse"></span>وردية نشطة #${shift.id}`;
       infoText.innerText = `الشيفتاجي: ${shift.cashier_name} | نقدية البداية: ${Number(shift.starting_cash).toFixed(2)} ج.م`;
@@ -39,16 +39,14 @@ export function renderShiftBadge(shift) {
       if (btnOpenShift) btnOpenShift.classList.add('hidden');
       if (btnOpenHandover) btnOpenHandover.classList.remove('hidden');
     } else if (isOwner) {
-      // Admin monitoring an active cashier's shift
       badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-950/80 text-indigo-300 border border-indigo-700/50';
       badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-indigo-400 ml-1.5"></span>وضع المدير • وردية #${shift.id} (${shift.cashier_name})`;
       infoText.innerText = `مراقبة وإدارة النظام • لا يتم تسجيل مبيعات من حساب المدير`;
 
       if (btnOpenShift) btnOpenShift.classList.add('hidden');
-      if (btnOpenHandover) btnOpenHandover.classList.add('hidden'); // Only the cashier hands over
+      if (btnOpenHandover) btnOpenHandover.classList.add('hidden');
     }
   } else {
-    // No active shift
     badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-950/80 text-rose-400 border border-rose-700/50';
     badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 ml-1.5"></span>لا توجد وردية مفتوحة`;
     infoText.innerText = `يجب فتح وردية لإتمام المبيعات`;
@@ -133,25 +131,31 @@ export function initShiftHandover(onHandoverComplete) {
 
       const countableItems = items.filter((i) => i.track_in_handover);
 
+      // Blind Count: خانات بيضاء فارغة بدون رصيد المنظومة
       countableItems.forEach((item) => {
         const row = document.createElement('div');
-        row.className = 'flex items-center justify-between p-2 border-b border-slate-700/60 text-xs bg-slate-800/40 rounded my-1';
+        row.className = 'flex items-center justify-between p-2.5 border-b border-slate-700/60 text-xs bg-slate-800/40 rounded-xl my-1.5 transition-all';
+        row.id = `handover-row-${item.id}`;
         row.innerHTML = `
-          <div class="flex items-center space-x-2 space-x-reverse flex-1">
+          <div class="flex items-center space-x-2.5 space-x-reverse flex-1">
             ${
               item.image_url
-                ? `<img src="${item.image_url}" class="w-8 h-8 rounded object-cover border border-slate-700">`
+                ? `<img src="${item.image_url}" class="w-9 h-9 rounded-lg object-cover border border-slate-700 flex-shrink-0">`
                 : ''
             }
             <div>
-              <span class="font-bold text-slate-200">${item.name}</span>
-              <span class="text-[10px] text-slate-400 block">رصيد المنظومة: ${item.current_stock}</span>
+              <span class="font-bold text-slate-100 text-xs block leading-tight">${item.name}</span>
+              <span class="text-[10px] text-cyan-400 font-semibold">${item.category}</span>
             </div>
           </div>
-          <div class="w-24">
+          <div class="w-28 text-left">
             <input type="number" step="1" min="0" 
-              class="handover-item-input w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-center font-bold text-white focus:border-cyan-500"
-              data-item-id="${item.id}" placeholder="${item.current_stock}" value="${item.current_stock}">
+              class="handover-item-input w-full px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-center font-black text-sm text-cyan-300 placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+              data-item-id="${item.id}"
+              data-item-name="${item.name}"
+              data-system-qty="${item.current_stock}"
+              placeholder="اكتب العدد"
+              value="">
           </div>
         `;
         container.appendChild(row);
@@ -162,10 +166,12 @@ export function initShiftHandover(onHandoverComplete) {
         cashiersSelect.innerHTML = '';
         const cashiers = await request('/api/shifts/cashiers');
         cashiers.forEach((c) => {
-          const opt = document.createElement('option');
-          opt.value = c.id;
-          opt.innerText = `${c.name} (${c.role === 'owner' ? 'المالك' : 'شيفتاجي'})`;
-          cashiersSelect.appendChild(opt);
+          if (c.id !== currentShift.cashier_id) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.innerText = `${c.name} (${c.role === 'owner' ? 'المالك' : 'شيفتاجي'})`;
+            cashiersSelect.appendChild(opt);
+          }
         });
       }
 
@@ -183,21 +189,66 @@ export function initShiftHandover(onHandoverComplete) {
 
     if (isNaN(actualCash) || actualCash < 0) {
       showToast('يرجى إدخال مبلغ النقدية الفعلي الموجود في الدرج بدقة!', 'error');
+      cashInput.focus();
       return;
     }
 
+    const itemInputs = document.querySelectorAll('.handover-item-input');
     const itemCounts = [];
-    document.querySelectorAll('.handover-item-input').forEach((input) => {
+    let hasEmptyField = false;
+    const surpluses = [];
+
+    for (const input of itemInputs) {
+      const valStr = input.value.trim();
+      const itemId = parseInt(input.dataset.itemId, 10);
+      const itemName = input.dataset.itemName;
+      const systemQty = parseFloat(input.dataset.systemQty) || 0;
+
+      // التأكد من عدم ترك أي حقل فارغ
+      if (valStr === '') {
+        input.classList.add('border-rose-500', 'bg-rose-950/40');
+        hasEmptyField = true;
+      } else {
+        input.classList.remove('border-rose-500', 'bg-rose-950/40');
+      }
+
+      const actualCount = parseFloat(valStr);
+
+      if (isNaN(actualCount) || actualCount < 0) {
+        input.classList.add('border-rose-500');
+        hasEmptyField = true;
+      }
+
+      // رصد أي زيادة للتأكيد عليها
+      if (!isNaN(actualCount) && actualCount > systemQty) {
+        surpluses.push(`• ${itemName}: المعدود (${actualCount}) وهو أكبر من رصيد الوردية (${systemQty})`);
+      }
+
       itemCounts.push({
-        item_id: parseInt(input.dataset.itemId, 10),
-        actual_qty: parseFloat(input.value) || 0,
+        item_id: itemId,
+        actual_qty: actualCount || 0,
       });
-    });
+    }
+
+    if (hasEmptyField) {
+      showToast('يرجى إدخال العدد الفعلي لكل صنف (إذا كان الصنف نافداً اكتب 0)', 'error');
+      return;
+    }
+
+    // تأكيد ذكي في حالة وجود زيادة لمنع أخطاء العد العشوائية مع السماح بالزيادة الحقيقية
+    if (surpluses.length > 0) {
+      const confirmMsg = "⚠️ تنبيه: تم رصد زيادة عن رصيد الوردية في الأصناف التالية:\n\n" +
+                         surpluses.join("\n") +
+                         "\n\nهل قمت بإعادة العد وتأكدت مع الشيفتاجي المسلّم أن هذه زيادة حقيقية بالمحل؟\n\nاضغط (موافق OK) لتأكيد الزيادة وتسليم الوردية.\nاضغط (إلغاء Cancel) لإعادة العد وتصحيح الرقم.";
+      if (!confirm(confirmMsg)) {
+        return;
+      }
+    }
 
     const incomingCashierId = document.getElementById('handover-incoming-cashier')?.value;
 
     submitHandoverBtn.disabled = true;
-    submitHandoverBtn.innerText = 'جاري تسجيل التسليم...';
+    submitHandoverBtn.innerText = 'جاري تسجيل التسليم وتدقيق الجرد...';
 
     try {
       const payload = {

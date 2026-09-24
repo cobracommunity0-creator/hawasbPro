@@ -11,7 +11,6 @@ const { SHIFT_STATUS, SETTINGS_KEYS } = require('../config/constants');
 
 /**
  * GET /api/shifts
- * List all past and present shifts for admin reports review
  */
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -33,7 +32,6 @@ router.get('/', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/shifts/cashiers
- * List available cashiers for selection during handover
  */
 router.get('/cashiers', authenticateToken, async (req, res) => {
   try {
@@ -49,7 +47,6 @@ router.get('/cashiers', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/shifts/current
- * Returns the currently active shift (open or pending_handover)
  */
 router.get('/current', authenticateToken, async (req, res) => {
   try {
@@ -74,7 +71,6 @@ router.get('/current', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/shifts/current/live-stats
- * Real-time stats for the cashier: cash drawer sales, commission, and restocking fund
  */
 router.get('/current/live-stats', authenticateToken, async (req, res) => {
   try {
@@ -108,7 +104,6 @@ router.get('/current/live-stats', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/open
- * Explicitly opens a new shift (Requires cashier to click "+ فتح وردية جديدة")
  */
 router.post('/open', authenticateToken, async (req, res) => {
   const { starting_cash, notes } = req.body;
@@ -160,8 +155,8 @@ router.post('/open', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/:id/accept-handover
- * Direct Handover Acceptance endpoint:
- * Strictly CLOSES the shift. NEVER creates an open shift automatically.
+ * Closes the shift cleanly, synchronizes physical stock, records shortages for the outgoing shift,
+ * and seamlessly handles true surplus without throwing false errors.
  */
 router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
   const shiftId = parseInt(req.params.id, 10);
@@ -177,7 +172,10 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
 
   try {
     const shiftRes = await client.query(
-      `SELECT id, cashier_id, status, starting_cash FROM shifts WHERE id = $1 FOR UPDATE`,
+      `SELECT s.id, s.cashier_id, s.status, s.starting_cash, u.name as outgoing_cashier_name 
+       FROM shifts s 
+       JOIN users u ON s.cashier_id = u.id 
+       WHERE s.id = $1 FOR UPDATE`,
       [shiftId]
     );
 
@@ -201,8 +199,8 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
     const netProfit = report.drawer_split.total_owner_profit;
     const commissionEarned = report.commission.earned;
 
-    let totalShortageDebt = 0.00;
-    const targetIncomingId = incoming_cashier_id ? parseInt(incoming_cashier_id, 10) : req.user.id;
+    let totalShortageCost = 0.00;
+    const targetIncomingId = incoming_cashier_id ? parseInt(incoming_cashier_id, 10) : null;
 
     if (Array.isArray(item_counts) && item_counts.length > 0) {
       for (const countItem of item_counts) {
@@ -222,12 +220,15 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
         const systemQty = Number(dbItem.current_stock);
         const discrepancyQty = systemQty - actualCount;
         const unitCost = Number(dbItem.cost_price);
+
+        // إذا كان هناك عجز (السيستم أكبر من الفعلي) تحسب التكلفة. إذا كانت زيادة (فائض) فالتكلفة = 0
         const discrepancyCost = discrepancyQty > 0 ? Number((discrepancyQty * unitCost).toFixed(2)) : 0.00;
 
         if (discrepancyQty > 0) {
-          totalShortageDebt += discrepancyCost;
+          totalShortageCost += discrepancyCost;
         }
 
+        // تسجيل نتيجة الجرد الفعلي
         await client.query(
           `INSERT INTO handover_items 
             (shift_id, item_id, system_qty, actual_qty, discrepancy_qty, unit_cost, discrepancy_cost)
@@ -235,6 +236,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
           [shiftId, itemId, systemQty, actualCount, discrepancyQty, unitCost, discrepancyCost]
         );
 
+        // تحديث المخزون بالعدد الفعلي دائماً
         await client.query(
           `UPDATE items SET current_stock = $1, updated_at = NOW() WHERE id = $2`,
           [actualCount, itemId]
@@ -242,29 +244,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       }
     }
 
-    // Charge inventory shortage debt to the incoming cashier tab
-    if (totalShortageDebt > 0 && targetIncomingId) {
-      const userRes = await client.query('SELECT name FROM users WHERE id = $1', [targetIncomingId]);
-      const userName = userRes.rows.length > 0 ? userRes.rows[0].name : `شيفتاجي #${targetIncomingId}`;
-
-      const custRes = await client.query(
-        `SELECT id, current_debt FROM customers WHERE name ILIKE $1 OR name ILIKE $2 LIMIT 1 FOR UPDATE`,
-        [`%${userName}%`, `%شيفتاجي #${targetIncomingId}%`]
-      );
-
-      if (custRes.rows.length > 0) {
-        const targetCustId = custRes.rows[0].id;
-        const newDebt = Number((Number(custRes.rows[0].current_debt) + totalShortageDebt).toFixed(2));
-        await client.query(`UPDATE customers SET current_debt = $1, updated_at = NOW() WHERE id = $2`, [newDebt, targetCustId]);
-      } else {
-        await client.query(
-          `INSERT INTO customers (name, current_debt) VALUES ($1, $2)`,
-          [userName, totalShortageDebt]
-        );
-      }
-    }
-
-    // STRICTLY CLOSE THE SHIFT (No new shift is inserted)
+    // إغلاق الوردية
     await client.query(
       `UPDATE shifts 
        SET status = 'closed',
@@ -287,7 +267,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
         netProfit,
         commissionEarned,
         targetIncomingId,
-        notes || 'تم تسليم الوردية وإغلاقها بنجاح',
+        notes || 'تم تسليم الوردية وتدقيق الجرد الفعلي بنجاح',
         shiftId,
       ]
     );
@@ -296,13 +276,14 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
     inTransaction = false;
 
     return res.json({
-      message: 'تم إتمام تسليم الوردية وإغلاقها بنجاح. سيتم تسجيل الخروج الآن.',
+      message: 'تم إتمام تسليم الوردية وتدقيق الجرد بنجاح. سيتم تسجيل الخروج الآن.',
       closed_shift_id: shiftId,
       financial_reconciliation: {
         closing_cash_actual: actualCash,
         closing_cash_expected: expectedCash,
         cash_discrepancy: cashDiscrepancy,
-        total_shortage_debt_charged_to_incoming: totalShortageDebt,
+        total_shortage_cost_on_outgoing_shift: totalShortageCost,
+        outgoing_cashier: shift.outgoing_cashier_name,
       },
     });
   } catch (err) {
@@ -312,7 +293,7 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
       } catch (rbErr) {}
     }
     console.error('[Handover Error]:', err);
-    return res.status(500).json({ error: err.message || 'فشل في إتمام عملية تسليم الوردية' });
+    return res.status(400).json({ error: err.message || 'فشل في إتمام عملية تسليم الوردية' });
   } finally {
     client.release();
   }
@@ -320,7 +301,6 @@ router.post('/:id/accept-handover', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/shifts/:id/force-close
- * Admin recovery endpoint
  */
 router.post('/:id/force-close', authenticateToken, requireOwner, async (req, res) => {
   const shiftId = parseInt(req.params.id, 10);
