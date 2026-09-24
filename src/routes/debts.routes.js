@@ -56,7 +56,7 @@ router.post('/customers', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/debts/:id/history
- * Comprehensive Customer Profile: past orders, items bought, and payment history
+ * Comprehensive Customer Profile: Strictly loads CREDIT SHAKAK orders only
  */
 router.get('/:id/history', authenticateToken, async (req, res) => {
   const custId = parseInt(req.params.id, 10);
@@ -76,19 +76,23 @@ router.get('/:id/history', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'العميل غير موجود' });
     }
 
+    // STRICT FILTER: Only load orders taken as credit_shakak
     const ordersRes = await db.query(
       `SELECT o.id, o.shift_id, o.payment_method, o.subtotal, o.created_at, o.device_tab_name,
               json_agg(json_build_object('item_name', i.name, 'quantity', oi.quantity, 'unit_price', oi.unit_price, 'total_price', oi.total_price)) as items
        FROM orders o
        JOIN order_items oi ON o.id = oi.order_id
        JOIN items i ON oi.item_id = i.id
-       WHERE o.customer_id = $1 AND o.status != 'cancelled'
+       WHERE o.customer_id = $1 
+         AND o.status != 'cancelled'
+         AND o.payment_method = 'credit_shakak'
        GROUP BY o.id
        ORDER BY o.created_at DESC
        LIMIT 30`,
       [custId]
     );
 
+    // Payments made by customer
     const paymentsRes = await db.query(
       `SELECT dp.id, dp.amount_paid, dp.debt_cleared, dp.credit_added, dp.payment_method, dp.notes, dp.created_at,
               u.name as cashier_name

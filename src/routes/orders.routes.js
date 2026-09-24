@@ -11,7 +11,8 @@ const { PAYMENT_METHODS } = require('../config/constants');
 
 /**
  * POST /api/orders/checkout
- * Validates active shift ownership, applies stock deductions and customer debts atomically
+ * Validates active shift ownership, applies stock deductions and customer debts atomically.
+ * STRICT RULE: customer_id is ONLY allowed for 'credit_shakak'. Cash and Vodafone Cash MUST NOT have customer_id.
  */
 router.post('/checkout', authenticateToken, async (req, res) => {
   const {
@@ -34,6 +35,15 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     const validMethods = Object.values(PAYMENT_METHODS);
     if (!payment_method || !validMethods.includes(payment_method)) {
       return res.status(400).json({ error: 'طريقة الدفع المحددة غير صالحة' });
+    }
+
+    // Strict Rule: customer_id can ONLY exist if payment is credit_shakak
+    const sanitizedCustomerId = (payment_method === PAYMENT_METHODS.CREDIT_SHAKAK && customer_id)
+      ? parseInt(customer_id, 10)
+      : null;
+
+    if (payment_method === PAYMENT_METHODS.CREDIT_SHAKAK && !sanitizedCustomerId) {
+      return res.status(400).json({ error: 'يجب تحديد اسم العميل عند الدفع بنظام الشكك (الآجل)' });
     }
 
     // Idempotency Protection
@@ -69,10 +79,10 @@ router.post('/checkout', authenticateToken, async (req, res) => {
 
     const currentShift = shiftRes.rows[0];
 
-    // Cashier Accountability Guard: Block Admin from selling on a cashier's shift
+    // Cashier Accountability Guard: Block Admin from ringing up sales during cashier's shift
     if (req.user.role === 'owner' && req.user.id !== currentShift.cashier_id) {
       return res.status(403).json({
-        error: `غير مصرح بالبيع من حساب المدير على وردية الشيفتاجي (${currentShift.cashier_name}) منعاً لتداخل نقدية الدرج والعمولة. يجب إتمام البيع من حساب الشيفتاجي المسؤول عن الوردية.`,
+        error: `أنت في وضع المدير للمراقبة. لا يمكن إتمام البيع إلا من حساب الشيفتاجي (${currentShift.cashier_name}) لحماية عهدة الدرج والعمولة.`,
       });
     }
 
@@ -118,52 +128,50 @@ router.post('/checkout', authenticateToken, async (req, res) => {
     let creditApplied = 0.00;
     let validatedCustomerId = null;
 
-    if (customer_id) {
+    if (payment_method === PAYMENT_METHODS.CREDIT_SHAKAK && sanitizedCustomerId) {
       const custRes = await client.query(
         `SELECT id, name, current_debt, credit_balance, is_owner FROM customers WHERE id = $1 FOR UPDATE`,
-        [customer_id]
+        [sanitizedCustomerId]
       );
 
-      if (custRes.rows.length > 0) {
-        const customer = custRes.rows[0];
-        validatedCustomerId = customer.id;
+      if (custRes.rows.length === 0) {
+        throw new Error('العميل المحدد غير موجود في قاعدة البيانات');
+      }
 
-        if (payment_method === PAYMENT_METHODS.CREDIT_SHAKAK) {
-          if (customer.is_owner) {
+      const customer = custRes.rows[0];
+      validatedCustomerId = customer.id;
+
+      if (customer.is_owner) {
+        netDue = 0.00;
+      } else {
+        const availableCredit = Number(customer.credit_balance || 0);
+        if (availableCredit > 0) {
+          if (availableCredit >= netDue) {
+            creditApplied = netDue;
+            const remainingCredit = Number((availableCredit - netDue).toFixed(2));
             netDue = 0.00;
+            await client.query(
+              `UPDATE customers SET credit_balance = $1, updated_at = NOW() WHERE id = $2`,
+              [remainingCredit, customer.id]
+            );
           } else {
-            const availableCredit = Number(customer.credit_balance || 0);
-            if (availableCredit > 0) {
-              if (availableCredit >= netDue) {
-                creditApplied = netDue;
-                const remainingCredit = Number((availableCredit - netDue).toFixed(2));
-                netDue = 0.00;
-                await client.query(
-                  `UPDATE customers SET credit_balance = $1, updated_at = NOW() WHERE id = $2`,
-                  [remainingCredit, customer.id]
-                );
-              } else {
-                creditApplied = availableCredit;
-                netDue = Number((netDue - availableCredit).toFixed(2));
-                await client.query(
-                  `UPDATE customers SET credit_balance = 0.00, updated_at = NOW() WHERE id = $2`,
-                  [customer.id]
-                );
-              }
-            }
-
-            if (netDue > 0) {
-              const newDebt = Number((Number(customer.current_debt || 0) + netDue).toFixed(2));
-              await client.query(
-                `UPDATE customers SET current_debt = $1, updated_at = NOW() WHERE id = $2`,
-                [newDebt, customer.id]
-              );
-            }
+            creditApplied = availableCredit;
+            netDue = Number((netDue - availableCredit).toFixed(2));
+            await client.query(
+              `UPDATE customers SET credit_balance = 0.00, updated_at = NOW() WHERE id = $2`,
+              [customer.id]
+            );
           }
         }
+
+        if (netDue > 0) {
+          const newDebt = Number((Number(customer.current_debt || 0) + netDue).toFixed(2));
+          await client.query(
+            `UPDATE customers SET current_debt = $1, updated_at = NOW() WHERE id = $2`,
+            [newDebt, customer.id]
+          );
+        }
       }
-    } else if (payment_method === PAYMENT_METHODS.CREDIT_SHAKAK) {
-      throw new Error('يجب تحديد العميل عند اختيار طريقة الدفع (شكك)');
     }
 
     const insertOrderRes = await client.query(
@@ -174,7 +182,7 @@ router.post('/checkout', authenticateToken, async (req, res) => {
       [
         currentShift.id,
         currentShift.cashier_id,
-        validatedCustomerId,
+        validatedCustomerId, // Strictly NULL for Cash and Vodafone Cash
         payment_method,
         subtotal,
         totalOrderCost,

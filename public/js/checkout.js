@@ -18,6 +18,7 @@ export function initCheckout(onOrderCompleted) {
   const btnShakak = document.getElementById('btn-pay-shakak');
   const submitBtn = document.getElementById('btn-submit-order');
   const customerSelect = document.getElementById('customer-select');
+  const customerWrapper = document.getElementById('customer-select-wrapper');
 
   function setPaymentMethod(method) {
     checkoutState.currentPaymentMethod = method;
@@ -34,11 +35,13 @@ export function initCheckout(onOrderCompleted) {
       ? 'flex-1 py-1.5 text-xs font-bold rounded-lg border-2 border-amber-600 bg-amber-950/60 text-amber-300 shadow'
       : 'flex-1 py-1.5 text-xs font-bold rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-750';
 
-    const customerWrapper = document.getElementById('customer-select-wrapper');
     if (method === 'credit_shakak') {
       customerWrapper.classList.remove('hidden');
     } else {
       customerWrapper.classList.add('hidden');
+      // CLEAR customer selection immediately when switching to Cash or VF Cash
+      customerSelect.value = '';
+      cartState.selectedCustomerId = null;
     }
   }
 
@@ -77,7 +80,10 @@ export function initCheckout(onOrderCompleted) {
       const payload = {
         cart,
         payment_method: checkoutState.currentPaymentMethod,
-        customer_id: customerSelect.value ? parseInt(customerSelect.value, 10) : null,
+        // STRICT: ONLY send customer_id if payment is credit_shakak
+        customer_id: checkoutState.currentPaymentMethod === 'credit_shakak' && customerSelect.value 
+          ? parseInt(customerSelect.value, 10) 
+          : null,
         idempotency_key: checkoutState.idempotencyKey,
         device_tab_name: cartState.activeTab,
       };
@@ -92,6 +98,7 @@ export function initCheckout(onOrderCompleted) {
       clearActiveCart();
       checkoutState.idempotencyKey = null;
 
+      // Always reset back to Cash
       setPaymentMethod('cash');
       customerSelect.value = '';
       cartState.selectedCustomerId = null;
